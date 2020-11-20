@@ -57,7 +57,7 @@ dependencies {
     api platform('com.exactpro.th2:bom:2.7.+')
     implementation 'com.exactpro.th2:grpc-common'
     implementation 'com.exactpro.th2:common'
-    implementation 'com.exactpro.th2:grpc-estore'
+    // implementation 'com.exactpro.th2:grpc-estore'
     implementation 'com.exactpro.th2:sailfish-utils'
 
     implementation 'io.github.microutils:kotlin-logging:1.7.+'
