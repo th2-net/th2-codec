@@ -2,14 +2,14 @@
 
 The th2 Codec component is responsible for encoding and decoding the messages. It is operating two instances of encoder/decoder pairs, one for operational purposes and one for general conversion.
 
-Encoding and decoding is performed according to the scheme "one input queue and one or more output queues". Output queues can have filters, depending on which the output of the encoder and decoder can be partially or completely filtered out. The metadata of the message and its fields are used as filter parameters.
+Encoding and decoding is performed according to the scheme "one or more input pins and one or more output pins". Bouth type of pians can have filters, depending on which the iput / output of the encoder and decoder can be partially or completely filtered out. The metadata of the message and its fields are used as filter parameters.
 
 One instance of the codec implements the logic for encoding and decoding one protocol of one version. Version-specific protocol messages are described in a separate xml file called a "dictionary".
 Codec operates with arrays of messages (parsed batch to raw batch in case of encoding and raw batch to parsed batch upon decoding).
 
 # Running
 
-To start a codec it is required to place external codec api implementation jar with dependencies to 'codec_implementation' folder.
+To start a codec it is required to place external codec api implementation jar with dependencies to 'home/codec_implementation' folder.
 
 # Configuration
 
