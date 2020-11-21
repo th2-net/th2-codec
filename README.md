@@ -7,6 +7,10 @@ Encoding and decoding is performed according to the scheme "one or more input pi
 One instance of the codec implements the logic for encoding and decoding one protocol of one version. Version-specific protocol messages are described in a separate xml file called a "dictionary".
 Codec operates with arrays of messages (parsed batch to raw batch in case of encoding and raw batch to parsed batch upon decoding).
 
+## Appointment
+
+This project include only adapter logic between Sailfish and th2 packed into Docker Image. This image used in [th2-codec-generic](https://github.com/th2-net/th2-codec-generic) as base.
+
 # Running
 
 To start a codec it is required to place external codec api implementation jar with dependencies to 'home/codec_implementation' folder.
