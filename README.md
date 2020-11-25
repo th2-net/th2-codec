@@ -1,19 +1,19 @@
 # How it works
 
-The th2 Codec component is responsible for encoding and decoding the messages. It is operating two instances of encoder/decoder pairs, one for operational purposes and one for general conversion.
+The th2 Codec component is responsible for encoding and decoding the messages. It is operating two instances of encoder/decoder pairs, one used for operational purposes and the other one for general conversion.
 
-Encoding and decoding is performed according to the scheme "one input queue and one or more output queues". Output queues can have filters, depending on which the output of the encoder and decoder can be partially or completely filtered out. The metadata of the message and its fields are used as filter parameters.
+Encoding and decoding are performed according to the scheme "one or more input pins and one or more output pins". Both types of pins may have filters, depending on which of the input / output of the encoder and decoder can be partially or entirely filtered out. The metadata of the message and its fields are used as filter parameters.
 
-One instance of the codec implements the logic for encoding and decoding one protocol of one version. Version-specific protocol messages are described in a separate xml file called a "dictionary".
+One instance of the codec implements the logic for encoding and decoding one protocol of one version. The version-specific protocol messages are described in a separate xml file called "dictionary".
 Codec operates with arrays of messages (parsed batch to raw batch in case of encoding and raw batch to parsed batch upon decoding).
 
 # Running
 
-To start a codec it is required to place external codec api implementation jar with dependencies to 'codec_implementation' folder.
+To start a codec it is required to place an external codec api implementation jar with dependencies to 'codec_implementation' folder.
 
 # Configuration
 
-Codec has got four types of connection: stream and general for encode and decode functions.
+Codec have four types of connection: stream and general for encode and decode functions.
 
 * stream encode / decode connections are used for work 24 / 7
 * general encode / decode connections are used for requests on demand
@@ -21,15 +21,15 @@ Codec has got four types of connection: stream and general for encode and decode
 Messages in stream and general connections are never mixed. 
 
 Decoding can work in two different modes:
-+ CUMULATIVE (default) - all raw messages in batch will be joined together and decoded. After decoding, content and count of the decoded messages will be compared with the original messages in the batch.
-+ SEQUENTIAL - each message in the batch will be decoded as separate message.
++ CUMULATIVE (default) - all raw messages in batch will be joined together and decoded. After decoding, the content and the count of the decoded messages will be compared with the original messages in the batch.
++ SEQUENTIAL - each message in the batch will be decoded as a separate message.
 
-This setting can be overridden in a custom config for the application using `decodeProcessorType` parameter.
+This setting can be overridden in a custom config for the application using the parameter `decodeProcessorType`.
 
 ## Requried pins
 
-Every type of connections is presented two subscribe and publish pins. 
-Configuration should include at least one at a time pins for every types (minimal number of them is 8)
+Every type of connections is presented with two subscribe and publish pins. 
+Configuration should include at least one pin at a time, for every type (the minimal number is 8)
 
 ```yaml
 apiVersion: th2.exactpro.com/v1
@@ -70,12 +70,12 @@ spec:
 
 ## Message routing
 
-Schema API allows configuring routing streams of messages via links between connections and filters on pins.
+The schema API allows to configure routing streams of messages via links between connections and filters on pins.
 Let's consider some examples of routing in codec box.
 
 ### Split on 'publish' pins
 
-For example, you have got big source data stream, and you want to split them on some pins via session alias.
+For example, you got a big source data stream, and you want to split them into some pins via session alias.
 You can declare multiple pins with attributes ['decoder_out', 'parsed', 'publish'] and filters instead of common pin or in addition to it.
 Every decoded messages will be direct to all declared pins and will send to MQ only if pass filter.
 
