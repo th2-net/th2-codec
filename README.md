@@ -1,19 +1,19 @@
 # How it works
 
 The th2 Codec component is responsible for encoding and decoding the messages.
-It operates two instances of encoder/decoder pairs, one for operational purposes and one for general conversion.
+It operates two instances of encoder/decoder pairs, one is used for operational purposes and the other for general conversion.
 
-Encoding and decoding is performed according to the scheme "one or more input pins and one or more output pins".
-Both types of pins can have filters, depending on which the input / output of the encoder / decoder can be partially or completely filtered out.
+Encoding and decoding perform according to the scheme "one or more input pins and one or more output pins".
+Both types of pins may have filters. The input / output of the encoder and decoder can be partially or entirely filtered out depending on which filters the pin has.
 The metadata of the message and its fields can be used as filter parameters.
 
 One instance of the codec implements the logic for encoding and decoding one protocol of one version.
-Version-specific protocol messages are described in a separate XML file called a "dictionary".
+The version-specific protocol messages are described in a separate XML file called "dictionary".
 Codec operates with arrays of messages (parsed batch to raw batch in case of encoding and raw batch to parsed batch upon decoding).
 
 ## Appointment
 
-This project includes only adapter logic between Sailfish and th2 packed into Docker Image.
+This project is only an adapter between the Sailfish and the th2 packed into Docker Image.
 This [th2-codec-generic](https://github.com/th2-net/th2-codec-generic) project uses this image as a base.
 
 # Running
@@ -66,7 +66,7 @@ decodeProcessorType: CUMULATIVE
 ## Codec implementation parameters
 
 These parameters will be passed to the actual codec implementation to configure its behavior.
-A codec might not have any parameters to configure. In that case, you can omit adding those parameters.
+It's possible that a codec might not have any parameters to configure. In this case, you can omit adding those parameters.
 
 The codec implementation parameters should be located in the container's `/home` directory and stored in the file named `codec_config.yml`.
 It has simple key-value format in YAML.
@@ -75,12 +75,12 @@ It has simple key-value format in YAML.
 param1: value1
 param2: value2
 ```
-The set of parameters depends on the codec implementation is used.
+The set of parameters depends on the codec implementation that is used.
 
 ## Required pins
 
 Every type of connection has two `subscribe` and `publish` pins.
-The first one is used to receive messages to decode/encode. The second one - to send decoded/encoded messages further.
+The first one is used to receive messages to decode/encode while the second one is used to send decoded/encoded messages further.
 **Configuration should include at least one pin for each of the following sets of attributes:**
 + Pin for the stream encoding input: `encoder_in` `parsed` `subscribe`
 + Pin for the stream encoding output: `encoder_out` `raw` `publish`
@@ -139,7 +139,7 @@ Let's consider some examples of routing in codec box.
 
 ### Split on 'publish' pins
 
-For example, you have got big source data stream, and you want to split them on some pins via session alias.
+For example, you have a big source data stream, and you want to distribute it to different pins depending on the session alias.
 You can declare multiple pins with attributes `['decoder_out', 'parsed', 'publish']` and filters instead of common pin or in addition to it.
 Every decoded messages will be direct to all declared pins and will send to MQ only if it passes the filter.
 
@@ -169,4 +169,4 @@ spec:
               operation: EQUAL
 ```
 
-The filtering can also be performed for pins with  `subscribe` attribute.
+The filtering can also be applied for pins with  `subscribe` attribute.
