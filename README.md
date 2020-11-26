@@ -18,24 +18,26 @@ This [th2-codec-generic](https://github.com/th2-net/th2-codec-generic) project u
 
 # Running
 
-Codec requires a JAR file with external codec API implementation and its dependencies to be place to the `home/codec_implementation` folder.
-It loads all JAR files from that directory and looks for all implementations of
+The codec requires an implementation of the external codec API.
+The JAR file with that implementation and all its dependencies need to be placed to the folder `home/codec_implementation`, in order to start the codec.
+
+The codec loads all JAR files from that directory and looks for all implementations of
 [com.exactpro.sf.externalapi.codec.IExternalCodecFactory](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodecFactory.kt) interface.
-After that, it loads the factory defined in the configuration and creates the codec using that factory.
+After that, it loads the factory defined in the configuration and it creates the codec using that factory.
 
 # Creating your own codec
 
 You can create a codec for your protocol by implementing the following interface - [com.exactpro.sf.externalapi.codec.IExternalCodec](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodec.kt).
-Also, you will need to implement the [com.exactpro.sf.externalapi.codec.IExternalCodecFactory](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodecFactory.kt) interface.
+Also, you need to implement the interface [com.exactpro.sf.externalapi.codec.IExternalCodecFactory](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodecFactory.kt).
 
 The core part of the "Codec" component uses [ServiceLoader](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/ServiceLoader.html) to load all the factory interface implementations.
-To provide the ServiceLoader with the knowledge about your factory implementation the JAR file should contain a provider-configuration file named:
+In order to provide the ServiceLoader with the knowledge about your factory implementation, the JAR file should contain a provider-configuration file named:
 
 **META-INF/services/com.exactpro.sf.externalapi.codec.IExternalCodecFactory**
 
 with the content equals to the fully-qualified class name of your factory implementation.
 
-_If you have several implementations of that interface their fully-qualified names should be written in that file each one on the new line._
+_If you have several implementations of that interface, their fully-qualified names should be written in that file each one on the new line._
 
 
 # Configuration
@@ -48,15 +50,15 @@ Codec has four types of connection: stream and general for encode and decode fun
 Codec never mixes messages from the _stream_ and the _general_ connections. 
 
 Decoding can work in two different modes:
-+ **CUMULATIVE** (default) - all raw messages in batch will be joined together and decoded. After decoding, content and count of the decoded messages will be compared with the original messages in the batch.
-+ **SEQUENTIAL** - each message in the batch will be decoded as separate message.
++ **CUMULATIVE** (default) - all raw messages in batch will be joined together and decoded. After decoding, the content and the count of the decoded messages will be compared with the original messages in the batch.
++ **SEQUENTIAL** - each message in the batch will be decoded as a separate message.
 
-This setting can be overridden in a custom config for the application using `decodeProcessorType` parameter.
+This setting can be overridden in a custom config for the application using the parameter `decodeProcessorType`.
 
 ## Bootstrap parameters
 
 These parameters specify the codec to be used for the messages decoding/encoding and the mode which should be used.
-Their should be defined in the `custom-config` section of the component configuration.
+They should be defined in the `custom-config` section of the component configuration.
 
 ```yaml
 codecClassName: fully.qualified.class.name.for.Factory
