@@ -33,7 +33,7 @@ Configuration should include at least one at a time pins for every types (minima
 
 ```yaml
 apiVersion: th2.exactpro.com/v1
-kind: Th2GenericBox
+kind: Th2Box
 metadata:
   name: codec
 spec:
@@ -81,7 +81,7 @@ Every decoded messages will be direct to all declared pins and will send to MQ o
 
 ```yaml
 apiVersion: th2.exactpro.com/v1
-kind: Th2GenericBox
+kind: Th2Box
 metadata:
   name: codec
 spec:
