@@ -3,7 +3,7 @@
 The th2 Codec component is responsible for encoding and decoding the messages.
 It operates two instances of encoder/decoder pairs, one is used for operational purposes and the other for general conversion.
 
-Encoding and decoding perform according to the scheme "one or more input pins and one or more output pins".
+Encoding and decoding are performed according to the scheme "one or more input pins and one or more output pins".
 Both types of pins may have filters. The input / output of the encoder and decoder can be partially or entirely filtered out depending on which filters the pin has.
 The metadata of the message and its fields can be used as filter parameters.
 
@@ -13,7 +13,7 @@ Codec operates with arrays of messages (parsed batch to raw batch in case of enc
 
 ## Appointment
 
-This project is only an adapter between the Sailfish and the th2 packed into Docker Image.
+This project includes only one adapter logic between Sailfish and the th2 packed into Docker Image.
 This [th2-codec-generic](https://github.com/th2-net/th2-codec-generic) project uses this image as a base.
 
 # Running
@@ -21,7 +21,7 @@ This [th2-codec-generic](https://github.com/th2-net/th2-codec-generic) project u
 The codec requires an implementation of the external codec API.
 The JAR file with that implementation and all its dependencies need to be placed to the folder `home/codec_implementation`, in order to start the codec.
 
-The codec loads all JAR files from that directory and looks for all implementations of
+The codec loads all JAR files from that directory and looks for all the implementations of
 [com.exactpro.sf.externalapi.codec.IExternalCodecFactory](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodecFactory.kt) interface.
 After that, it loads the factory defined in the configuration and it creates the codec using that factory.
 
@@ -96,7 +96,7 @@ The first one is used to receive messages to decode/encode while the second one 
 ### Configuration example
 ```yaml
 apiVersion: th2.exactpro.com/v1
-kind: Th2GenericBox
+kind: Th2Box
 metadata:
   name: codec
 spec:
@@ -141,13 +141,13 @@ Let's consider some examples of routing in codec box.
 
 ### Split on 'publish' pins
 
-For example, you have a big source data stream, and you want to distribute it to different pins depending on the session alias.
+For example, you got a big source data stream, and you want to split them into some pins via session alias.
 You can declare multiple pins with attributes `['decoder_out', 'parsed', 'publish']` and filters instead of common pin or in addition to it.
 Every decoded messages will be direct to all declared pins and will send to MQ only if it passes the filter.
 
 ```yaml
 apiVersion: th2.exactpro.com/v1
-kind: Th2GenericBox
+kind: Th2Box
 metadata:
   name: codec
 spec:
