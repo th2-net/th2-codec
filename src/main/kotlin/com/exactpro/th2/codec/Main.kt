@@ -13,12 +13,13 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
+import com.exactpro.th2.codec.util.load
 import com.exactpro.th2.common.event.Event
-import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.message.storeEvent
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import kotlinx.coroutines.runBlocking
@@ -37,8 +38,7 @@ fun main(args: Array<String>) {
 
 class CodecCommand : CliktCommand() {
     private val configs: String? by option(help = "Directory containing schema files")
-    private val sailfishCodecConfig: String? by option(help = "Path to sailfish codec configuration file")
-
+    private val codecSettings: String? by option(help = "Path to codec settings file")
     private val resources: Deque<() -> Unit> = ConcurrentLinkedDeque()
 
     init {
@@ -56,46 +56,52 @@ class CodecCommand : CliktCommand() {
 
     override fun run() = runBlocking {
         try {
-            val commonFactory =  (if (configs == null)
-                                                    CommonFactory()
-                                                else
-                                                    CommonFactory.createFromArguments("--configs=" + configs))
-                .also {
-                    resources.add {
-                        logger.info("Closing common factory")
-                        it.close()
-                    }
+            val commonFactory = when (configs) {
+                null -> CommonFactory()
+                else -> CommonFactory.createFromArguments("--configs=$configs")
+            }.apply {
+                resources.add {
+                    logger.info("Closing common factory")
+                    close()
                 }
-
-            val configuration = Configuration.create(commonFactory, sailfishCodecConfig)
-            val applicationContext = ApplicationContext.create(configuration, commonFactory)
-            val parsedRouter= applicationContext.commonFactory.messageRouterParsedBatch
-            val rawRouter = applicationContext.commonFactory.messageRouterRawBatch
-
-            val rootEventId = createAndStoreRootEvent(applicationContext)
-
-            createAndStartCodec("decoder", applicationContext, rootEventId)
-            { _: ApplicationContext, _: EventID? ->
-                SyncDecoder(rawRouter, parsedRouter, applicationContext,
-                    applicationContext.createDecodeProcessor(configuration.decodeProcessorType),
-                    rootEventId).also { it.start(configuration.decoderInputAttribute, configuration.decoderOutputAttribute) }
             }
 
-            createAndStartCodec("encoder", applicationContext, rootEventId)
-            { _: ApplicationContext, _: EventID? ->
-                SyncEncoder(
-                    parsedRouter, rawRouter, applicationContext,
-                    EncodeProcessor(
-                        applicationContext.codecFactory,
-                        applicationContext.codecSettings,
-                        applicationContext.protoToIMessageConverter
-                    ),
-                    rootEventId
-                ).also { it.start(configuration.encoderInputAttribute, configuration.encoderOutputAttribute) }
+            val configuration = Configuration.create(commonFactory, codecSettings)
+            val applicationContext = ApplicationContext.create(configuration, commonFactory).apply { resources += ::close }
+            val messageRouter = commonFactory.messageRouterMessageGroupBatch
+            val eventRouter = commonFactory.eventBatchRouter
+
+            val rootEventId = eventRouter.storeEvent(
+                Event.start().apply {
+                    name("Codec_${load<IPipelineCodec>()::class.java.simpleName}_${LocalDateTime.now()}")
+                    type("CodecRoot")
+                }
+            ).id
+
+            val onEvent: (String, String, Throwable?) -> Unit = { name, type, cause ->
+                eventRouter.runCatching {
+                    storeEvent(rootEventId, name, type, cause)
+                }.onFailure {
+                    logger.warn(cause) { "$type event: $name" }
+                    logger.error(it) { "Failed to store event: $name" }
+                }
             }
 
-            createGeneralDecoder(applicationContext, configuration, rootEventId)
-            createGeneralEncoder(applicationContext, configuration, rootEventId)
+            createCodec("decoder") {
+                SyncDecoder(messageRouter, eventRouter, DecodeProcessor(applicationContext.codec, onEvent), rootEventId).apply {
+                    start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
+                }
+            }
+
+            createCodec("encoder") {
+                SyncEncoder(messageRouter, eventRouter, EncodeProcessor(applicationContext.codec, onEvent), rootEventId).apply {
+                    start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
+                }
+            }
+
+            createGeneralDecoder(applicationContext, rootEventId, onEvent)
+            createGeneralEncoder(applicationContext, rootEventId, onEvent)
+
             logger.info { "codec started" }
         } catch (exception: Exception) {
             logger.error(exception) { "fatal error. Exit the program" }
@@ -105,80 +111,51 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralEncoder(
         context: ApplicationContext,
-        configuration: Configuration,
-        rootEventId: EventID?
+        rootEventId: String,
+        onEvent: (name: String, type: String, cause: Throwable?) -> Unit
     ) {
-        createAndStartCodec("general-encoder", context, rootEventId)
-        { _: ApplicationContext, _: EventID? ->
-            val parsedRouter= context.commonFactory.messageRouterParsedBatch
-            val rawRouter = context.commonFactory.messageRouterRawBatch
+        val commonFactory = context.commonFactory
+
+        createCodec("general-encoder") {
             SyncEncoder(
-                parsedRouter, rawRouter, context,
-                EncodeProcessor(
-                    context.codecFactory,
-                    context.codecSettings,
-                    context.protoToIMessageConverter
-                ),
+                commonFactory.messageRouterMessageGroupBatch,
+                commonFactory.eventBatchRouter,
+                EncodeProcessor(context.codec, onEvent),
                 rootEventId
-            ).also { it.start(configuration.generalEncoderInputAttribute, configuration.generalEncoderOutputAttribute) }
+            ).apply {
+                start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
+            }
         }
     }
 
     private fun createGeneralDecoder(
         context: ApplicationContext,
-        configuration: Configuration,
-        rootEventId: EventID?
+        rootEventId: String,
+        onEvent: (name: String, type: String, cause: Throwable?) -> Unit
     ) {
-        createAndStartCodec("general-decoder", context, rootEventId)
-        { _: ApplicationContext, _: EventID? ->
-            val parsedRouter= context.commonFactory.messageRouterParsedBatch
-            val rawRouter = context.commonFactory.messageRouterRawBatch
+        val commonFactory = context.commonFactory
+
+        createCodec("general-decoder") {
             SyncDecoder(
-                rawRouter, parsedRouter, context,
-                context.createDecodeProcessor(configuration.decodeProcessorType),
+                commonFactory.messageRouterMessageGroupBatch,
+                commonFactory.eventBatchRouter,
+                DecodeProcessor(context.codec, onEvent),
                 rootEventId
-            ).also { it.start(configuration.generalDecoderInputAttribute, configuration.generalDecoderOutputAttribute) }
+            ).apply {
+                start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
+            }
         }
     }
 
-    private fun createAndStartCodec(
-        codecName: String,
-        applicationContext: ApplicationContext,
-        rootEventId: EventID?,
-        creationFunction: (ApplicationContext, EventID?) -> AutoCloseable
-    ) {
-        creationFunction.invoke(applicationContext, rootEventId).also {
-                resources.add {
-                    logger.info { "Closing '$codecName' codec" }
-                    it.close()
-                }
+    private inline fun createCodec(codecName: String, codecFactory: () -> AutoCloseable) {
+        codecFactory().apply {
+            resources.add {
+                logger.info { "Closing '$codecName' codec" }
+                close()
             }
+        }
+
         logger.info { "'$codecName' started" }
-    }
-
-
-    private fun createAndStoreRootEvent(applicationContext: ApplicationContext): EventID? {
-        val eventBatchRouter = applicationContext.eventBatchRouter
-        if (eventBatchRouter != null) {
-            try {
-                val event = Event.start()
-                    .name("Codec_${applicationContext.codec::class.java.simpleName}_${LocalDateTime.now()}")
-                    .type("CodecRoot")
-                    .toProtoEvent(null)
-
-                eventBatchRouter.send(
-                    EventBatch.newBuilder()
-                        .addEvents(event)
-                        .build(),
-                    "publish", "event"
-                )
-                logger.info("stored root event, {}", event.id)
-                return event.id
-            } catch (exception: Exception) {
-                logger.warn(exception) { "could not store root event" }
-            }
-        }
-        return null
     }
 }
 

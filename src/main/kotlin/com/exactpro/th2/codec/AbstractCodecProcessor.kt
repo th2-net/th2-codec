@@ -16,22 +16,24 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.sf.externalapi.codec.IExternalCodec
-import com.exactpro.sf.externalapi.codec.IExternalCodecFactory
-import com.exactpro.sf.externalapi.codec.IExternalCodecSettings
+import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.common.grpc.MessageGroupBatch
+import mu.KotlinLogging
 
-abstract class AbstractCodecProcessor<T, R>(
-    private val codecFactory: IExternalCodecFactory,
-    private val codecSettings: IExternalCodecSettings
-) : MessageProcessor<T, R> {
+abstract class AbstractCodecProcessor(
+    protected val codec: IPipelineCodec,
+    private val onEvent: (name: String, type: String, cause: Throwable?) -> Unit
+) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
+    private val logger = KotlinLogging.logger {}
 
-    private val codecThreadInstances = object : ThreadLocal<IExternalCodec>() {
-        override fun initialValue(): IExternalCodec {
-            return codecFactory.createCodec(codecSettings)
+    protected fun onEvent(message: String, cause: Throwable? = null) = when (cause) {
+        null -> {
+            onEvent(message, "Warn", null)
+            logger.warn { message }
         }
-    }
-
-    protected fun getCodec(): IExternalCodec {
-        return codecThreadInstances.get()
+        else -> {
+            onEvent(message, "Error", cause)
+            logger.error(cause) { message }
+        }
     }
 }

@@ -21,7 +21,7 @@ import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
-class EncodeProcessor(
+class DecodeProcessor(
     codec: IPipelineCodec,
     onEvent: (name: String, type: String, cause: Throwable?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
@@ -31,19 +31,14 @@ class EncodeProcessor(
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
         for (messageGroup in source.groupsList) {
-            if (messageGroup.messagesList.none { it.message?.metadata?.protocol == codec.protocol }) {
-                messageBatch.addGroups(messageGroup)
-                continue
-            }
-
-            messageGroup.runCatching(codec::encode).onSuccess {
-                if (it.messagesCount > messageGroup.messagesCount) {
-                    onEvent("Encoded message group contains more messages ($it.messagesCount) than decoded one (${messageGroup.messagesCount})")
+            messageGroup.runCatching(codec::decode).onSuccess {
+                if (it.messagesCount < messageGroup.messagesCount) {
+                    onEvent("Decoded message group contains less messages ($it.messagesCount) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(it)
             }.onFailure {
-                onEvent("Failed to encode message group: ${messageGroup.toDebugString()}", it)
+                onEvent("Failed to decode message group: ${messageGroup.toDebugString()}", it)
             }
         }
 

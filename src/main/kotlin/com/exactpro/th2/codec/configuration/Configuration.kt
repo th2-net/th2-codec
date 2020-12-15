@@ -13,81 +13,53 @@
 
 package com.exactpro.th2.codec.configuration
 
+import com.exactpro.th2.codec.api.IPipelineCodecSettings
+import com.exactpro.th2.codec.api.IPipelineCodecSettingsTypeProvider
+import com.exactpro.th2.codec.util.load
 import com.exactpro.th2.common.schema.factory.CommonFactory
-import com.fasterxml.jackson.core.JsonParseException
-import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
-import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.kotlin.KotlinModule
-import org.apache.commons.lang3.StringUtils
-import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.Files.newInputStream
-import java.nio.file.Paths
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import java.io.File
 
-internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(YAMLFactory()).apply { registerModule(KotlinModule()) }
-    .configure(FAIL_ON_UNKNOWN_PROPERTIES, false)
+internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(YAMLFactory()).apply {
+    registerKotlinModule()
+    registerModule(SimpleModule().addAbstractTypeMapping(IPipelineCodecSettings::class.java, load<IPipelineCodecSettingsTypeProvider>().type))
+    configure(FAIL_ON_UNKNOWN_PROPERTIES, false)
+}
 
-enum class ProcessorType { CUMULATIVE, SEQUENTIAL }
-
-class Configuration() {
-    var codecClassName: String? = null
-
-    var codecParameters: Map<String, String>? = null
-
-    var decoderInputAttribute: String = "decoder_in"
-    var decoderOutputAttribute: String = "decoder_out"
-
-    var encoderInputAttribute: String = "encoder_in"
-    var encoderOutputAttribute: String = "encoder_out"
-
-    var generalDecoderInputAttribute: String = "general_decoder_in"
-    var generalDecoderOutputAttribute: String = "general_decoder_out"
-
-    var generalEncoderInputAttribute: String = "general_encoder_in"
-    var generalEncoderOutputAttribute: String = "general_encoder_out"
-
-    var decodeProcessorType: ProcessorType = ProcessorType.CUMULATIVE
+class Configuration {
+    var codecSettings: IPipelineCodecSettings? = null
 
     companion object {
+        const val DECODER_INPUT_ATTRIBUTE: String = "decoder_in"
+        const val DECODER_OUTPUT_ATTRIBUTE: String = "decoder_out"
+        const val ENCODER_INPUT_ATTRIBUTE: String = "encoder_in"
+        const val ENCODER_OUTPUT_ATTRIBUTE: String = "encoder_out"
+        const val GENERAL_DECODER_INPUT_ATTRIBUTE: String = "general_decoder_in"
+        const val GENERAL_DECODER_OUTPUT_ATTRIBUTE: String = "general_decoder_out"
+        const val GENERAL_ENCODER_INPUT_ATTRIBUTE: String = "general_encoder_in"
+        const val GENERAL_ENCODER_OUTPUT_ATTRIBUTE: String = "general_encoder_out"
 
-        fun create(commonFactory : CommonFactory, sailfishCodecParamsPath: String?) : Configuration{
+        fun create(commonFactory: CommonFactory, settingsPath: String?): Configuration {
+            return commonFactory.getCustomConfiguration(Configuration::class.java, OBJECT_MAPPER).apply {
+                codecSettings = codecSettings ?: settingsPath?.run {
+                    check(isNotBlank()) { "Path to codec settings file is empty" }
 
-            val configuration = commonFactory.getCustomConfiguration(Configuration::class.java)
-            configuration.codecParameters = readSailfishParameters(sailfishCodecParamsPath)
-            return configuration
-        }
+                    val type = load<IPipelineCodecSettingsTypeProvider>().type
+                    val file = File(this)
 
+                    check(file.isFile) { "Path to codec settings does not exist or is not a file: ${file.canonicalPath}" }
 
-        private fun readSailfishParameters(sailfishCodecParamsPath: String?): Map<String, String> {
-            if (StringUtils.isBlank(sailfishCodecParamsPath)) {
-                return mapOf()
-            }
-            val codecParameterFile = Paths.get(sailfishCodecParamsPath)
-            if (!Files.exists(codecParameterFile)) {
-                return mapOf()
-            }
-            try {
-                return OBJECT_MAPPER.readValue(
-                        newInputStream(codecParameterFile),
-                        object : TypeReference<LinkedHashMap<String, String>>() {}
-                )
-            } catch (exception: Exception) {
-                when (exception) {
-                    is IOException,
-                    is JsonParseException,
-                    is JsonMappingException -> {
-                        throw ConfigurationException("could not parse '$sailfishCodecParamsPath' file", exception)
+                    file.inputStream().use {
+                        runCatching { OBJECT_MAPPER.readValue(it, type) }.getOrElse {
+                            throw ConfigurationException("Failed to parse codec settings from file: ${file.canonicalPath}", it)
+                        }
                     }
-                    else -> throw exception
                 }
             }
         }
-
     }
 }
-
-
-

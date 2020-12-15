@@ -13,35 +13,21 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.codec.configuration.ApplicationContext
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageBatch
-import com.exactpro.th2.common.grpc.RawMessageBatch
+import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
 class SyncDecoder(
-    sourceRouter: MessageRouter<RawMessageBatch>,
-    targetRouter: MessageRouter<MessageBatch>,
-    applicationContext: ApplicationContext,
-    processor: AbstractCodecProcessor<RawMessageBatch, MessageBatch>,
-    codecRootID: EventID?
-): AbstractSyncCodec< RawMessageBatch,  MessageBatch>(
-    sourceRouter,
-    targetRouter,
-    applicationContext,
+    messageRouter: MessageRouter<MessageGroupBatch>,
+    eventRouter: MessageRouter<EventBatch>,
+    processor: AbstractCodecProcessor,
+    codecRootID: String
+) : AbstractSyncCodec(
+    messageRouter,
+    eventRouter,
     processor,
     codecRootID
 ) {
-    override fun getParentEventId(
-        codecRootID: EventID?,
-        protoSource: RawMessageBatch?,
-        protoResult: MessageBatch?
-    ): EventID? {
-        return codecRootID
-    }
-
-    override fun parseProtoSourceFrom(data: ByteArray): RawMessageBatch = RawMessageBatch.parseFrom(data)
-
-    override fun checkResult(protoResult: MessageBatch): Boolean = protoResult.messagesCount != 0
-
+    override fun getParentEventId(codecRootID: String, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): String = codecRootID
+    override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
 }
