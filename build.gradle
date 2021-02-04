@@ -27,7 +27,7 @@ apply plugin: 'com.jfrog.artifactory'
 ext {
     genDir             = file('src/gen')
     sharedDir          = file("${project.rootDir}/shared")
-    sailfishVersion     = '3.2'
+    sailfishVersion     = '3.2-SNAPSHOT'
 }
 
 group 'com.exactpro.th2'
@@ -51,6 +51,11 @@ repositories {
         url 'https://dl.bintray.com/exactpro/sailfish'
     }
 
+    maven {
+        name 'Artifactory-snapshot-oss'
+        url 'https://oss.jfrog.org/artifactory/libs-snapshot'
+    }
+
     mavenLocal()
 
     configurations.all {
@@ -64,9 +69,8 @@ dependencies {
     api platform('com.exactpro.th2:bom:2.10.1')
 
     implementation 'com.exactpro.th2:grpc-common:3.0.0'
-    implementation 'com.exactpro.th2:common:3.0.0'
-    // implementation 'com.exactpro.th2:grpc-estore'
-    implementation 'com.exactpro.th2:sailfish-utils'
+    implementation 'com.exactpro.th2:common:3.0.1'
+    implementation 'com.exactpro.th2:sailfish-utils:2.2.2'
 
     implementation 'io.github.microutils:kotlin-logging:1.7.+'
 
@@ -84,9 +88,6 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java-util'
 
     implementation "com.exactpro.sf:sailfish-core:${sailfishVersion}"
-
-    implementation 'io.grpc:grpc-core'
-    implementation 'io.grpc:grpc-stub'
 
     testImplementation 'org.mockito:mockito-inline:3.5.6'
 }

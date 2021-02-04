@@ -73,7 +73,7 @@ class CodecCommand : CliktCommand() {
 
             val rootEventId = eventRouter.storeEvent(
                 Event.start().apply {
-                    name("Codec_${load<IPipelineCodec>()::class.java.simpleName}_${LocalDateTime.now()}")
+                    name("Codec_${load<IPipelineCodec>().protocol}_${LocalDateTime.now()}")
                     type("CodecRoot")
                 }
             ).id
