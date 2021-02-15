@@ -78,12 +78,11 @@ class CodecCommand : CliktCommand() {
                 }
             ).id
 
-            val onEvent: (String, String, Throwable?) -> Unit = { name, type, cause ->
+            val onEvent: (Event, String?) -> Unit = { event, parentId ->
                 eventRouter.runCatching {
-                    storeEvent(rootEventId, name, type, cause)
+                    storeEvent(event, parentId ?: rootEventId)
                 }.onFailure {
-                    logger.warn(cause) { "$type event: $name" }
-                    logger.error(it) { "Failed to store event: $name" }
+                    logger.error(it) { "Failed to store event: $event" }
                 }
             }
 
@@ -112,7 +111,7 @@ class CodecCommand : CliktCommand() {
     private fun createGeneralEncoder(
         context: ApplicationContext,
         rootEventId: String,
-        onEvent: (name: String, type: String, cause: Throwable?) -> Unit
+        onEvent: (event: Event, parentId: String?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 
@@ -131,7 +130,7 @@ class CodecCommand : CliktCommand() {
     private fun createGeneralDecoder(
         context: ApplicationContext,
         rootEventId: String,
-        onEvent: (name: String, type: String, cause: Throwable?) -> Unit
+        onEvent: (event: Event, parentId: String?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 

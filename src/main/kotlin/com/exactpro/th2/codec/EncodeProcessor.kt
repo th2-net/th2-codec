@@ -17,13 +17,15 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.codec.util.toDebugString
+import com.exactpro.th2.codec.util.messageIds
+import com.exactpro.th2.codec.util.parentEventId
+import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
 class EncodeProcessor(
     codec: IPipelineCodec,
-    onEvent: (name: String, type: String, cause: Throwable?) -> Unit
+    onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
     private val logger = KotlinLogging.logger { }
 
@@ -36,14 +38,16 @@ class EncodeProcessor(
                 continue
             }
 
-            messageGroup.runCatching(codec::encode).onSuccess {
-                if (it.messagesCount > messageGroup.messagesCount) {
-                    onEvent("Encoded message group contains more messages ($it.messagesCount) than decoded one (${messageGroup.messagesCount})")
+            val parentEventId = messageGroup.parentEventId
+
+            messageGroup.runCatching(codec::encode).onSuccess { encodedGroup ->
+                if (encodedGroup.messagesCount > messageGroup.messagesCount) {
+                    parentEventId.onEvent("Encoded message group contains more messages ($encodedGroup.messagesCount) than decoded one (${messageGroup.messagesCount})")
                 }
 
-                messageBatch.addGroups(it)
+                messageBatch.addGroups(encodedGroup)
             }.onFailure {
-                onEvent("Failed to encode message group: ${messageGroup.toDebugString()}", it)
+                parentEventId.onEvent("Failed to encode message group", messageGroup.messageIds, it)
             }
         }
 
