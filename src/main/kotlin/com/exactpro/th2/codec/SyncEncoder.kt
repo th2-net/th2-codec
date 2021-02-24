@@ -13,40 +13,35 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.codec.configuration.ApplicationContext
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageBatch
-import com.exactpro.th2.common.grpc.RawMessageBatch
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
+import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
 class SyncEncoder(
-    sourceRouter: MessageRouter<MessageBatch>,
-    targetRouter: MessageRouter<RawMessageBatch>,
-    applicationContext: ApplicationContext,
-    processor: AbstractCodecProcessor<MessageBatch, RawMessageBatch>,
-    codecRootID: EventID?
-): AbstractSyncCodec<MessageBatch, RawMessageBatch>(
-    sourceRouter,
-    targetRouter,
-    applicationContext,
+    messageRouter: MessageRouter<MessageGroupBatch>,
+    eventRouter: MessageRouter<EventBatch>,
+    processor: AbstractCodecProcessor,
+    codecRootID: String
+) : AbstractSyncCodec(
+    messageRouter,
+    eventRouter,
     processor,
     codecRootID
 ) {
     override fun getParentEventId(
-        codecRootID: EventID?,
-        protoSource: MessageBatch?,
-        protoResult: RawMessageBatch?
-    ): EventID? {
-        if (protoSource != null && protoSource.messagesCount != 0
-            && protoSource.getMessages(0).hasParentEventId()
-        ) {
-            return protoSource.getMessages(0).parentEventId
-        }
-        return codecRootID
-    }
+        codecRootID: String,
+        protoSource: MessageGroupBatch,
+        protoResult: MessageGroupBatch?
+    ): String = protoSource.run {
+        groupsList.getOrNull(0)
+            ?.messagesList
+            ?.find { it.kindCase == MESSAGE }
+            ?.message
+            ?.parentEventId
+            ?.id
+    } ?: codecRootID
 
-    override fun parseProtoSourceFrom(data: ByteArray): MessageBatch = MessageBatch.parseFrom(data)
-
-    override fun checkResult(protoResult: RawMessageBatch): Boolean = protoResult.messagesCount != 0
+    override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
 }
 
