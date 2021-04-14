@@ -23,6 +23,8 @@ import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.MessageRouter
 import mu.KotlinLogging
+import java.io.File
+import java.nio.file.Files
 
 class ApplicationContext(
     val commonFactory: CommonFactory,
@@ -45,6 +47,10 @@ class ApplicationContext(
 
             val dictionary = runCatching {
                 logger.debug { "Trying to load dictionary as XML" }
+                logger.debug { "Configs from default folder /var/th2/configs/:" }
+                File("/var/th2/configs/").walk().forEach {
+                    logger.debug("${it.name} is regular: ${Files.isRegularFile(it.toPath())}")
+                }
                 commonFactory.readDictionary(DictionaryType.MAIN).use(XmlDictionaryStructureLoader()::load)
             }.recoverCatching {
                 logger.warn(it) { "Failed to load dictionary as XML. Trying to load it as JSON/YAML" }
