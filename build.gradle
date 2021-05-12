@@ -40,11 +40,6 @@ repositories {
     mavenCentral()
 
     maven {
-            name 'Artifactory-snapshot-oss'
-            url 'https://oss.jfrog.org/artifactory/libs-snapshot'
-    }
-
-    maven {
             name 'Sonatype_snapshots'
             url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
@@ -53,8 +48,6 @@ repositories {
             name 'Sonatype_releases'
             url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
-
-    mavenLocal()
 
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
