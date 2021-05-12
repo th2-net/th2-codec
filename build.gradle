@@ -40,18 +40,8 @@ repositories {
     mavenCentral()
 
     maven {
-        name 'Bintray'
-        url 'https://dl.bintray.com/exactpro/th2'
-    }
-
-    maven {
-        name 'Bintray'
-        url 'https://dl.bintray.com/exactpro/sailfish'
-    }
-
-    maven {
-        name 'Artifactory-snapshot-oss'
-        url 'https://oss.jfrog.org/artifactory/libs-snapshot'
+            name 'Artifactory-snapshot-oss'
+            url 'https://oss.jfrog.org/artifactory/libs-snapshot'
     }
 
     maven {
@@ -78,7 +68,7 @@ dependencies {
 
     implementation 'com.exactpro.th2:grpc-common:3.1.1'
     implementation 'com.exactpro.th2:common:3.13.4'
-    implementation 'com.exactpro.th2:sailfish-utils:3.0.0'
+    implementation 'com.exactpro.th2:sailfish-utils:3.3.2'
 
     implementation 'io.github.microutils:kotlin-logging:[1.7,)'
 
