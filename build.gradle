@@ -40,21 +40,6 @@ repositories {
     mavenCentral()
 
     maven {
-        name 'Bintray'
-        url 'https://dl.bintray.com/exactpro/th2'
-    }
-
-    maven {
-        name 'Bintray'
-        url 'https://dl.bintray.com/exactpro/sailfish'
-    }
-
-    maven {
-        name 'Artifactory-snapshot-oss'
-        url 'https://oss.jfrog.org/artifactory/libs-snapshot'
-    }
-
-    maven {
             name 'Sonatype_snapshots'
             url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
@@ -64,8 +49,6 @@ repositories {
             url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
 
-    mavenLocal()
-
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
@@ -74,11 +57,11 @@ repositories {
 
 
 dependencies {
-    api platform('com.exactpro.th2:bom:2.10.1')
+    api platform('com.exactpro.th2:bom:3.0.0')
 
     implementation 'com.exactpro.th2:grpc-common:3.1.1'
-    implementation 'com.exactpro.th2:common:3.5.2'
-    implementation 'com.exactpro.th2:sailfish-utils:3.0.0'
+    implementation 'com.exactpro.th2:common:3.13.4'
+    implementation 'com.exactpro.th2:sailfish-utils:3.3.2'
 
     implementation 'io.github.microutils:kotlin-logging:[1.7,)'
 
