@@ -198,4 +198,6 @@ The filtering can also be applied for pins with  `subscribe` attribute.
 
 ### 2.4.0
 
-+ migration to Sonatype, update dependencies
++ migration to Sonatype
++ ability to get service from gRPC router via attributes
++ reading dictionary from new directory (`var/th2/config/directory`)
