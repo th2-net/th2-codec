@@ -1,4 +1,6 @@
-# How it works
+# th2 codec (2.4.0)
+
+## How it works
 
 The th2 Codec component is responsible for encoding and decoding the messages.
 It operates two instances of encoder/decoder pairs, one is used for operational purposes and the other for general conversion.
@@ -191,3 +193,11 @@ spec:
 ```
 
 The filtering can also be applied for pins with  `subscribe` attribute.
+
+## Release Notes
+
+### 2.4.0
+
++ migration to Sonatype
++ ability to get service from gRPC router via attributes
++ reading dictionary from new directory (`var/th2/config/directory`)
