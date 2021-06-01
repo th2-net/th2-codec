@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
  */
 
 plugins {
-    id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '1.3.71'
-    id 'application'
     id 'com.palantir.docker' version '0.25.0'
+    id 'org.jetbrains.kotlin.jvm' version '1.3.72'
+    id 'java'
+    id 'java-library'
+    id 'application'
 }
 
 ext {
@@ -27,28 +28,35 @@ ext {
     sailfishVersion     = '3.2-SNAPSHOT'
 }
 
-group 'com.exactpro.th2'
-version release_version
+group = 'com.exactpro.th2'
+version = release_version
+
+sourceCompatibility = 11
+targetCompatibility = 11
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "11"
+}
+
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "11"
+}
 
 repositories {
+    mavenLocal()
     maven {
         name 'MavenLocal'
         url sharedDir
     }
     mavenCentral()
     maven {
-        name 'Bintray'
-        url 'https://dl.bintray.com/exactpro/th2'
+        name 'Sonatype_snapshots'
+        url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
     maven {
-        name 'Bintray'
-        url 'https://dl.bintray.com/exactpro/sailfish'
+        name 'Sonatype_releases'
+        url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
-    maven {
-        name 'Artifactory-snapshot-oss'
-        url 'https://oss.jfrog.org/artifactory/libs-snapshot'
-    }
-    mavenLocal()
 
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
@@ -56,12 +64,11 @@ repositories {
     }
 }
 
-
 dependencies {
-    api platform('com.exactpro.th2:bom:2.10.1')
-    implementation 'com.exactpro.th2:grpc-common:2.3.2'
-    implementation "com.exactpro.th2:common:2.9.0"
-    implementation 'com.exactpro.th2:sailfish-utils:2.2.2'
+    api platform('com.exactpro.th2:bom:3.0.0')
+    implementation 'com.exactpro.th2:grpc-common:2.5.2'
+    implementation "com.exactpro.th2:common:2.19.0"
+    implementation 'com.exactpro.th2:sailfish-utils:2.4.2'
 
     implementation 'io.github.microutils:kotlin-logging:1.7.+'
 
@@ -109,10 +116,6 @@ dockerPrepare {
 
 docker {
     copySpec.from(tarTree("$buildDir/distributions/${applicationName}.tar"))
-}
-
-compileKotlin {
-    kotlinOptions.jvmTarget = "11"
 }
 
 application {
