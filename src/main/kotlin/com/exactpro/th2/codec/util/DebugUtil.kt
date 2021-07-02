@@ -22,5 +22,3 @@ import com.google.protobuf.util.JsonFormat
 fun GeneratedMessageV3.toDebugString(): String {
     return JsonFormat.printer().omittingInsignificantWhitespace().includingDefaultValueFields().print(this)
 }
-
-fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }

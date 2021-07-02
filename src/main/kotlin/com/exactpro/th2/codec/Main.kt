@@ -22,7 +22,6 @@ import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.storeEvent
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import java.time.LocalDateTime
 import java.util.Deque
@@ -54,7 +53,7 @@ class CodecCommand : CliktCommand() {
         })
     }
 
-    override fun run() = runBlocking {
+    override fun run() {
         try {
             val commonFactory = when (configs) {
                 null -> CommonFactory()
