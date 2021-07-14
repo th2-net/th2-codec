@@ -1,44 +1,78 @@
-# How it works
+# Description
 
-The th2 Codec component is responsible for encoding and decoding the messages.
-It operates two instances of encoder/decoder pairs, one is used for operational purposes and the other for general conversion.
+This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
-Encoding and decoding are performed according to the scheme "one or more input pins and one or more output pins".
-Both types of pins may have filters. The input / output of the encoder and decoder can be partially or entirely filtered out depending on which filters the pin has.
-The metadata of the message and its fields can be used as filter parameters.
+# Usage:
 
-One instance of the codec implements the logic for encoding and decoding one protocol of one version.
-The version-specific protocol messages are described in a separate XML file called "dictionary".
-Codec operates with arrays of messages (parsed batch to raw batch in case of encoding and raw batch to parsed batch upon decoding).
+To implement a codec using this library you need to:
 
-## Appointment
+1. add following repositories into `build.gradle`:
 
-This project includes only one adapter logic between Sailfish and the th2 packed into Docker Image.
-This [th2-codec-generic](https://github.com/th2-net/th2-codec-generic) project uses this image as a base.
+    ```groovy
+    maven {
+        url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+    }
+    
+    maven {
+        url 'https://s01.oss.sonatype.org/content/repositories/releases/'
+    }
+    ```
 
-# Running
+2. add dependency on `com.exactpro.th2:codec:4.0.0` into `build.gradle`
 
-The codec requires an implementation of the external codec API.
-The JAR file with that implementation and all its dependencies need to be placed to the folder `home/codec_implementation`, in order to start the codec.
+3. set main class to `com.exactpro.th2.codec.MainKt`
 
-The codec loads all JAR files from that directory and looks for all the implementations of
-[com.exactpro.sf.externalapi.codec.IExternalCodecFactory](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodecFactory.kt) interface.
-After that, it loads the factory defined in the configuration and it creates the codec using that factory.
+   > This is usually done by using Gradle's [application](https://docs.gradle.org/current/userguide/application_plugin.html) plugin where you can set main class like this:
+   >```groovy
+   >application {
+   >    mainClassName 'com.exactpro.th2.codec.MainKt'
+   >}
+   >```
 
-# Creating your own codec
+4. implement the codec itself by implementing `IPipelineCodec` interface:
+    ```kotlin
+    interface IPipelineCodec : AutoCloseable {
+        fun encode(messageGroup: MessageGroup): MessageGroup
+        fun decode(messageGroup: MessageGroup): MessageGroup
+        override fun close() {}
+    }
+    ```
 
-You can create a codec for your protocol by implementing the following interface - [com.exactpro.sf.externalapi.codec.IExternalCodec](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodec.kt).
-Also, you need to implement the interface [com.exactpro.sf.externalapi.codec.IExternalCodecFactory](https://github.com/exactpro/sailfish-core/blob/master/BackEnd/Core/sailfish-core/src/main/kotlin/com/exactpro/sf/externalapi/codec/IExternalCodecFactory.kt).
+5. implement a factory for it using `IPipelineCodecFactory` interface
 
-The core part of the "Codec" component uses [ServiceLoader](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/ServiceLoader.html) to load all the factory interface implementations.
-In order to provide the ServiceLoader with the knowledge about your factory implementation, the JAR file should contain a provider-configuration file named:
+    ```kotlin
+    interface IPipelineCodecFactory : AutoCloseable {
+        val protocol: String
+        val settingsClass: Class<out IPipelineCodecSettings>
+        fun init(dictionary: InputStream)
+        fun create(settings: IPipelineCodecSettings? = null): IPipelineCodec
+        override fun close() {}
+    }
+    ```
+   > **IMPORTANT**: implementation should be loadadle via Java's built-in [service loader](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html)
 
-**META-INF/services/com.exactpro.sf.externalapi.codec.IExternalCodecFactory**
+6. Et voilà! Your codec is now complete
 
-with the content equals to the fully-qualified class name of your factory implementation.
+# How it works:
 
-_If you have several implementations of that interface, their fully-qualified names should be written in that file each one on the new line._
+Codec operates with [message groups](https://github.com/th2-net/th2-grpc-common/blob/f2794b2c5c8ae945e7500677439809db9c576c43/src/main/proto/th2_grpc_common/common.proto#L97)
+whom may contain a mix of [raw](https://github.com/th2-net/th2-grpc-common/blob/f2794b2c5c8ae945e7500677439809db9c576c43/src/main/proto/th2_grpc_common/common.proto#L84)
+and [parsed](https://github.com/th2-net/th2-grpc-common/blob/f2794b2c5c8ae945e7500677439809db9c576c43/src/main/proto/th2_grpc_common/common.proto#L78) messages.
 
+## Encoding
+
+During encoding codec must replace each parsed message of supported [protocol](https://github.com/th2-net/th2-grpc-common/blob/f2794b2c5c8ae945e7500677439809db9c576c43/src/main/proto/th2_grpc_common/common.proto#L47)
+in a message group with a raw one by encoding parsed message's content
+
+> **NOTE**: codec can merge content of subsequent raw messages into a resulting raw message  
+> (e.g. when a codec encodes only a transport layer and its payload is already encoded)
+
+## Decoding
+
+During decoding codec must replace each raw message in a message group with a parsed one by decoding raw message's content
+
+> **NOTE**: codec can replace raw message with a parsed message followed by a several raw messages
+> (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
 
 # Configuration
 
@@ -47,43 +81,15 @@ Codec has four types of connection: stream and general for encode and decode fun
 * stream encode / decode connections works 24 / 7
 * general encode / decode connections works on demand
 
-Codec never mixes messages from the _stream_ and the _general_ connections. 
+Codec never mixes messages from the _stream_ and the _general_ connections
 
-Decoding can work in two different modes:
-+ **CUMULATIVE** (default) - all raw messages in batch will be joined together and decoded. After decoding, the content and the count of the decoded messages will be compared with the original messages in the batch.
-+ **SEQUENTIAL** - each message in the batch will be decoded as a separate message.
+## Codec settings
 
-This setting can be overridden in a custom config for the application using the parameter `decodeProcessorType`.
+Codec settings can be specified in `codecSettings` field of `custom-config`. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
+of `IPipelineCodecFactory.create` method
 
-## Bootstrap parameters
+For example:
 
-These parameters specify the codec to be used for the messages decoding/encoding and the mode which should be used.
-They should be defined in the `custom-config` section of the component configuration.
-
-```yaml
-codecClassName: fully.qualified.class.name.for.Factory
-decodeProcessorType: CUMULATIVE
-```
-
-## Codec implementation parameters
-
-These parameters will be passed to the actual codec implementation to configure its behavior.
-It's possible that a codec might not have any parameters to configure. In this case, you can omit adding those parameters.
-
-The codec implementation parameters should be located in the container's `/home` directory and stored in the file named `codec_config.yml`.
-It has simple key-value format in YAML.
-```yaml
----
-param1: value1
-param2: value2
-```
-The set of parameters depends on the codec implementation that is used.
-
-The parameters from that file are static and will be loaded during the codec start up. You can use them to provide the defaults for some implementations' parameters.
-
-You can set those parameters in `custom-config` as well. You can use the `codecParameters` section in that config.
-
-Example:
 ```yaml
 apiVersion: th2.exactpro.com/v1
 kind: Th2Box
@@ -91,11 +97,11 @@ metadata:
   name: codec
 spec:
   custom-config:
-    codecClassName: fully.qualified.class.name.for.Factory
-    decodeProcessorType: CUMULATIVE
-    codecParameters:
-      param1: value1
-      param2: value2
+    codecSettings:
+      messageTypeDetection: BY_INNER_FIELD
+      messageTypeField: "messageType"
+      rejectUnexpectedFields: true
+      treatSimpleValuesAsStrings: false
 ```
 
 ## Required pins
@@ -113,6 +119,7 @@ The first one is used to receive messages to decode/encode while the second one 
 + Pin for the stream decoding output: `general_decoder_out` `parsed` `publish`
 
 ### Configuration example
+
 ```yaml
 apiVersion: th2.exactpro.com/v1
 kind: Th2Box
@@ -120,16 +127,16 @@ metadata:
   name: codec
 spec:
   custom-config:
-    codecClassName: fully.qualified.class.name.for.Factory
-    decodeProcessorType: CUMULATIVE
+    codecSettings:
+    # 
   pins:
     # encoder
     - name: in_codec_encode
       connection-type: mq
-      attributes: ['encoder_in', 'parsed', 'subscribe']
+      attributes: [ 'encoder_in', 'parsed', 'subscribe' ]
     - name: out_codec_encode
       connection-type: mq
-      attributes: ['encoder_out', 'raw', 'publish']
+      attributes: [ 'encoder_out', 'raw', 'publish' ]
     # decoder
     - name: in_codec_decode
       connection-type: mq
@@ -190,4 +197,4 @@ spec:
               operation: EQUAL
 ```
 
-The filtering can also be applied for pins with  `subscribe` attribute.
+The filtering can also be applied for pins with `subscribe` attribute.

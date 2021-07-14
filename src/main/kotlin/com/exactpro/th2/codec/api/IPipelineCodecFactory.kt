@@ -19,8 +19,9 @@ package com.exactpro.th2.codec.api
 import java.io.InputStream
 
 interface IPipelineCodecFactory : AutoCloseable {
+    val protocol: String
     val settingsClass: Class<out IPipelineCodecSettings>
-    fun init(dictionary: InputStream, settings: IPipelineCodecSettings? = null) // make dictionary optional too?
-    fun createCodec(): IPipelineCodec
+    fun init(dictionary: InputStream)
+    fun create(settings: IPipelineCodecSettings? = null): IPipelineCodec
     override fun close() {}
 }

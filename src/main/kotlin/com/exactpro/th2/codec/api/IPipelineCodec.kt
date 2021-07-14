@@ -19,7 +19,6 @@ package com.exactpro.th2.codec.api
 import com.exactpro.th2.common.grpc.MessageGroup
 
 interface IPipelineCodec : AutoCloseable {
-    val protocol: String // move to factory?
     fun encode(messageGroup: MessageGroup): MessageGroup
     fun decode(messageGroup: MessageGroup): MessageGroup
     override fun close() {}

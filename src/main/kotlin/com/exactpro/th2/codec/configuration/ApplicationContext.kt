@@ -23,7 +23,8 @@ import mu.KotlinLogging
 
 class ApplicationContext(
     val commonFactory: CommonFactory,
-    val codec: IPipelineCodec
+    val codec: IPipelineCodec,
+    val protocol: String
 ) : AutoCloseable {
     override fun close() = codec.close()
 
@@ -33,15 +34,13 @@ class ApplicationContext(
         fun create(configuration: Configuration, commonFactory: CommonFactory): ApplicationContext {
             val factory = runCatching {
                 load<IPipelineCodecFactory>().apply {
-                    commonFactory.readDictionary(DictionaryType.MAIN).use { stream ->
-                        init(stream, configuration.codecSettings)
-                    }
+                    commonFactory.readDictionary(DictionaryType.MAIN).use(::init)
                 }
             }.getOrElse {
                 throw IllegalStateException("Failed to load codec factory", it)
             }
 
-            return ApplicationContext(commonFactory, ThreadSafeCodec(factory))
+            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocol)
         }
     }
 }

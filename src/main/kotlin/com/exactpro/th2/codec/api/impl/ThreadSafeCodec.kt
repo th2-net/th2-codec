@@ -18,14 +18,17 @@ package com.exactpro.th2.codec.api.impl
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IPipelineCodecFactory
+import com.exactpro.th2.codec.api.IPipelineCodecSettings
 import com.exactpro.th2.common.grpc.MessageGroup
 import java.util.concurrent.ConcurrentHashMap
 import javax.annotation.concurrent.ThreadSafe
 
 @ThreadSafe
-class ThreadSafeCodec(private val codecFactory: IPipelineCodecFactory) : IPipelineCodec {
+class ThreadSafeCodec(
+    private val codecFactory: IPipelineCodecFactory,
+    private val codecSettings: IPipelineCodecSettings?
+) : IPipelineCodec {
     private val instances = ConcurrentHashMap<Long, IPipelineCodec>()
-    override val protocol = getInstance().protocol
 
     override fun encode(messageGroup: MessageGroup) = getInstance().let { codec ->
         synchronized(codec) {
@@ -40,7 +43,7 @@ class ThreadSafeCodec(private val codecFactory: IPipelineCodecFactory) : IPipeli
     }
 
     private fun getInstance() = instances.computeIfAbsent(Thread.currentThread().id) {
-        synchronized(codecFactory, codecFactory::createCodec)
+        synchronized(codecFactory) { codecFactory.create(codecSettings) }
     }
 
     override fun close() {

@@ -25,6 +25,7 @@ import mu.KotlinLogging
 
 class EncodeProcessor(
     codec: IPipelineCodec,
+    private val protocol: String,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
     private val logger = KotlinLogging.logger { }
@@ -33,7 +34,7 @@ class EncodeProcessor(
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
         for (messageGroup in source.groupsList) {
-            if (messageGroup.messagesList.none { it.message?.metadata?.protocol == codec.protocol }) {
+            if (messageGroup.messagesList.none { it.message?.metadata?.protocol == protocol }) {
                 messageBatch.addGroups(messageGroup)
                 continue
             }
