@@ -20,6 +20,7 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.parentEventId
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
@@ -34,12 +35,28 @@ class EncodeProcessor(
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
         for (messageGroup in source.groupsList) {
-            if (messageGroup.messagesList.none { it.message?.metadata?.protocol == protocol }) {
-                messageBatch.addGroups(messageGroup)
+            if (messageGroup.messagesCount == 0) {
+                onErrorEvent("Cannot encode empty message group")
                 continue
             }
 
             val parentEventId = messageGroup.parentEventId
+
+            if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
+                parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                continue
+            }
+
+            val protocols = messageGroup.messagesList
+                .asSequence()
+                .filter(AnyMessage::hasMessage)
+                .map { it.message.metadata.protocol }
+                .toList()
+
+            if (!protocols.all(String::isBlank) && protocol !in protocols) {
+                parentEventId.onErrorEvent("No messages of $protocol protocol in message group", messageGroup.messageIds)
+                continue
+            }
 
             messageGroup.runCatching(codec::encode).onSuccess { encodedGroup ->
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
@@ -48,7 +65,7 @@ class EncodeProcessor(
 
                 messageBatch.addGroups(encodedGroup)
             }.onFailure {
-                parentEventId.onEvent("Failed to encode message group", messageGroup.messageIds, it)
+                parentEventId.onErrorEvent("Failed to encode message group", messageGroup.messageIds, it)
             }
         }
 

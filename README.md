@@ -29,7 +29,7 @@ To implement a codec using this library you need to:
    >}
    >```
 
-4. implement the codec itself by implementing `IPipelineCodec` interface:
+4. implement the codec itself by implementing [`IPipelineCodec`](https://github.com/th2-net/th2-codec/blob/2707a2755038d49110f6f7eb3e3aeb6188ae0c99/src/main/kotlin/com/exactpro/th2/codec/api/IPipelineCodec.kt#L21) interface:
     ```kotlin
     interface IPipelineCodec : AutoCloseable {
         fun encode(messageGroup: MessageGroup): MessageGroup
@@ -38,7 +38,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-5. implement a factory for it using `IPipelineCodecFactory` interface
+5. implement a factory for it using [`IPipelineCodecFactory`](https://github.com/th2-net/th2-codec/blob/2707a2755038d49110f6f7eb3e3aeb6188ae0c99/src/main/kotlin/com/exactpro/th2/codec/api/IPipelineCodecFactory.kt#L21) interface
 
     ```kotlin
     interface IPipelineCodecFactory : AutoCloseable {
