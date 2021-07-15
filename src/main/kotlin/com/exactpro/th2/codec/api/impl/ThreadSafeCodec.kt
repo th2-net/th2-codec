@@ -16,8 +16,8 @@
 
 package com.exactpro.th2.codec.api.impl
 
-import com.exactpro.sf.common.messages.structures.IDictionaryStructure
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.api.IPipelineCodecFactory
 import com.exactpro.th2.codec.api.IPipelineCodecSettings
 import com.exactpro.th2.common.grpc.MessageGroup
 import java.util.concurrent.ConcurrentHashMap
@@ -25,36 +25,34 @@ import javax.annotation.concurrent.ThreadSafe
 
 @ThreadSafe
 class ThreadSafeCodec(
-    private val dictionary: IDictionaryStructure,
-    private val settings: IPipelineCodecSettings?,
-    private val codecFactory: () -> IPipelineCodec
+    private val codecFactory: IPipelineCodecFactory,
+    private val codecSettings: IPipelineCodecSettings?
 ) : IPipelineCodec {
-    private val instances = ConcurrentHashMap<Thread, IPipelineCodec>()
-    override val protocol = getInstance().protocol
+    private val instances = ConcurrentHashMap<Long, IPipelineCodec>()
 
-    override fun init(dictionary: IDictionaryStructure, settings: IPipelineCodecSettings?) = error("Codec is already initialized")
-
-    override fun encode(messageGroup: MessageGroup) = getInstance().run {
-        synchronized(this) {
-            encode(messageGroup)
+    override fun encode(messageGroup: MessageGroup) = getInstance().let { codec ->
+        synchronized(codec) {
+            codec.encode(messageGroup)
         }
     }
 
-    override fun decode(messageGroup: MessageGroup) = getInstance().run {
-        synchronized(this) {
-            decode(messageGroup)
+    override fun decode(messageGroup: MessageGroup) = getInstance().let { codec ->
+        synchronized(codec) {
+            codec.decode(messageGroup)
         }
     }
 
-    private fun getInstance() = instances.computeIfAbsent(Thread.currentThread()) {
-        codecFactory().apply {
-            init(dictionary, settings)
-        }
+    private fun getInstance() = instances.computeIfAbsent(Thread.currentThread().id) {
+        synchronized(codecFactory) { codecFactory.create(codecSettings) }
     }
 
     override fun close() {
-        instances.values.forEach {
-            synchronized(it) { it.close() }
+        synchronized(codecFactory) {
+            instances.values.forEach { codec ->
+                synchronized(codec, codec::close)
+            }
+
+            codecFactory.close()
         }
     }
 }

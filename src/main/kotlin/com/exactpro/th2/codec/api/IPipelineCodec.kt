@@ -16,12 +16,9 @@
 
 package com.exactpro.th2.codec.api
 
-import com.exactpro.sf.common.messages.structures.IDictionaryStructure
 import com.exactpro.th2.common.grpc.MessageGroup
 
 interface IPipelineCodec : AutoCloseable {
-    val protocol: String
-    fun init(dictionary: IDictionaryStructure, settings: IPipelineCodecSettings? = null)
     fun encode(messageGroup: MessageGroup): MessageGroup
     fun decode(messageGroup: MessageGroup): MessageGroup
     override fun close() {}
