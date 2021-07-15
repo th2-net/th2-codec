@@ -42,7 +42,7 @@ class DecodeProcessor(
 
                 messageBatch.addGroups(decodedGroup)
             }.onFailure {
-                parentEventId.onEvent("Failed to decode message group", messageGroup.messageIds, it)
+                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, it)
             }
         }
 
