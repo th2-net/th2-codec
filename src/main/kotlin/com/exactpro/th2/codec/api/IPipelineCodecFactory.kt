@@ -16,12 +16,16 @@
 
 package com.exactpro.th2.codec.api
 
+import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import java.io.InputStream
 
 interface IPipelineCodecFactory : AutoCloseable {
     val protocol: String
     val settingsClass: Class<out IPipelineCodecSettings>
-    fun init(dictionary: InputStream)
+    fun init(dictionary: InputStream) { TODO("init(dictionary) method is not implemented)") }
+    fun init(pipelineCodecContext: IPipelineCodecContext) {
+        pipelineCodecContext[DictionaryType.MAIN].use(::init)
+    }
     fun create(settings: IPipelineCodecSettings? = null): IPipelineCodec
     override fun close() {}
 }

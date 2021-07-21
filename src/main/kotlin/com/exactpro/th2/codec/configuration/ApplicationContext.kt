@@ -34,7 +34,7 @@ class ApplicationContext(
         fun create(configuration: Configuration, commonFactory: CommonFactory): ApplicationContext {
             val factory = runCatching {
                 load<IPipelineCodecFactory>().apply {
-                    commonFactory.readDictionary(DictionaryType.MAIN).use(::init)
+                    init(commonFactory::readDictionary)
                 }
             }.getOrElse {
                 throw IllegalStateException("Failed to load codec factory", it)
