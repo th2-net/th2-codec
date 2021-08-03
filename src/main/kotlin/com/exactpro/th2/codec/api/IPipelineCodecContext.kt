@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,6 @@ package com.exactpro.th2.codec.api
 import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import java.io.InputStream
 
-interface IPipelineCodecFactory : AutoCloseable {
-    val protocol: String
-    val settingsClass: Class<out IPipelineCodecSettings>
-    fun init(dictionary: InputStream): Unit = TODO("init(dictionary) method is not implemented")
-    fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
-    fun create(settings: IPipelineCodecSettings? = null): IPipelineCodec
-    override fun close() {}
+fun interface IPipelineCodecContext {
+    operator fun get(type: DictionaryType): InputStream
 }

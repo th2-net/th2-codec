@@ -17,7 +17,6 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IPipelineCodecFactory
 import com.exactpro.th2.codec.api.impl.ThreadSafeCodec
 import com.exactpro.th2.codec.util.load
-import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import mu.KotlinLogging
 
@@ -34,7 +33,7 @@ class ApplicationContext(
         fun create(configuration: Configuration, commonFactory: CommonFactory): ApplicationContext {
             val factory = runCatching {
                 load<IPipelineCodecFactory>().apply {
-                    commonFactory.readDictionary(DictionaryType.MAIN).use(::init)
+                    init(commonFactory::readDictionary)
                 }
             }.getOrElse {
                 throw IllegalStateException("Failed to load codec factory", it)

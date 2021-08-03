@@ -44,12 +44,17 @@ To implement a codec using this library you need to:
     interface IPipelineCodecFactory : AutoCloseable {
         val protocol: String
         val settingsClass: Class<out IPipelineCodecSettings>
-        fun init(dictionary: InputStream)
+        fun init(dictionary: InputStream): Unit = TODO("not implemented")
+        fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
         fun create(settings: IPipelineCodecSettings? = null): IPipelineCodec
         override fun close() {}
     }
     ```
-   > **IMPORTANT**: implementation should be loadadle via Java's built-in [service loader](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html)
+   > **NOTE**: both `init` methods have default implementations. One of them **must** be overridden in your factory implementation.
+   > If your codec needs the **MAIN** dictionary only you can override the `init(dictionary: InputStream)` method.
+   > Otherwise, you should override `init(pipelineCodecContext: IPipelineCodecContext)` method.
+
+   > **IMPORTANT**: implementation should be loadable via Java's built-in [service loader](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html)
 
 6. Et voilà! Your codec is now complete
 
