@@ -18,7 +18,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.0.0` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.1.1` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -203,3 +203,11 @@ spec:
 ```
 
 The filtering can also be applied for pins with `subscribe` attribute.
+
+## Changelog
+
+### v4.1.1
+
+#### Fixed:
+
+* incorrect protocol checking during encoding

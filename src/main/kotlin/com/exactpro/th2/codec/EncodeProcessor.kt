@@ -53,8 +53,8 @@ class EncodeProcessor(
                 .map { it.message.metadata.protocol }
                 .toList()
 
-            if (!protocols.all(String::isBlank) && protocol !in protocols) {
-                parentEventId.onErrorEvent("No messages of $protocol protocol in message group", messageGroup.messageIds)
+            if (!protocols.all(String::isBlank) && !(protocols.none(String::isBlank) && protocol in protocols)) {
+                parentEventId.onErrorEvent("No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
                 continue
             }
 
