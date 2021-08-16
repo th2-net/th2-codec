@@ -37,7 +37,7 @@ class DecodeProcessor(
 
             messageGroup.runCatching(codec::decode).onSuccess { decodedGroup ->
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEvent("Decoded message group contains less messages ($decodedGroup.messagesCount) than encoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)

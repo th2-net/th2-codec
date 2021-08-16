@@ -21,6 +21,7 @@ import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.parentEventId
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
@@ -47,20 +48,14 @@ class EncodeProcessor(
                 continue
             }
 
-            val protocols = messageGroup.messagesList
-                .asSequence()
-                .filter(AnyMessage::hasMessage)
-                .map { it.message.metadata.protocol }
-                .toList()
-
-            if (!protocols.all(String::isBlank) && !(protocols.none(String::isBlank) && protocol in protocols)) {
+            if (!messageGroup.isEncodable()) {
                 parentEventId.onErrorEvent("No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
                 continue
             }
 
             messageGroup.runCatching(codec::encode).onSuccess { encodedGroup ->
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventId.onEvent("Encoded message group contains more messages ($encodedGroup.messagesCount) than decoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
@@ -74,5 +69,14 @@ class EncodeProcessor(
                 onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
             }
         }
+    }
+
+    private fun MessageGroup.isEncodable(): Boolean {
+        val protocols = messagesList.asSequence()
+            .filter(AnyMessage::hasMessage)
+            .map { it.message.metadata.protocol }
+            .toList()
+
+        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && protocol in protocols
     }
 }
