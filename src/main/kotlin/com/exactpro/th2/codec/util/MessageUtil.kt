@@ -63,20 +63,20 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
             if (it.hasRawMessage()) {
                 it.rawMessage.let { rawMessage ->
                     if (rawMessage.metadata.protocol.isNullOrEmpty() || rawMessage.metadata.protocol == protocol) {
-                        append(it.rawMessage.metadata.id.sequence)
+                        append("${it.rawMessage.metadata.id.sequence} ")
                     }
                 }
             }
         }
 
-        append(". ")
+        append("processed with error. ")
 
         while (throwable != null) {
-            append("The reason for the problem: ${throwable.message}. ")
+            append("The reason for the problem: `${throwable.message}`. ")
             throwable = throwable.cause
         }
 
-        append(" This message has been made by codec-core implementation because an error handling is missing in the $protocol codec.")
+        append("This message has been made by codec-core implementation because an error handling is missing in the $protocol codec.")
     }
 
     this.messagesList.forEach {
