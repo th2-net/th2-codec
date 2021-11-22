@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status
 import com.exactpro.th2.common.event.Event.Status.FAILED
@@ -42,7 +43,9 @@ abstract class AbstractCodecProcessor(
     }
 
     protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
-        logger.error(message, cause)
+        logger.error("$message. Message id's: ${messagesIds.joinToString(", ") { 
+            it.toDebugString()
+        }}", cause)
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
     }
 

@@ -56,20 +56,9 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
     val content = buildString {
         var throwable: Throwable? = exception
 
-        append("Parsing one of the raw messages with sub-id: ")
+        append("Parsing one of the raw messages with sub-id: ${ this@toErrorMessageGroup.messageIds.joinToString(", ") { it.toDebugString() } }")
 
-        messagesList.forEach {
-
-            if (it.hasRawMessage()) {
-                it.rawMessage.let { rawMessage ->
-                    if (rawMessage.metadata.protocol.isNullOrEmpty() || rawMessage.metadata.protocol == protocol) {
-                        append("${it.rawMessage.metadata.id.sequence} ")
-                    }
-                }
-            }
-        }
-
-        append("processed with error. ")
+        append(" processed with error. ")
 
         while (throwable != null) {
             append("The reason for the problem: `${throwable.message}`. ")
