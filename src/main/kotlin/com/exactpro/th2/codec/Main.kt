@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -84,7 +84,7 @@ class CodecCommand : CliktCommand() {
             }
 
             createCodec("decoder") {
-                SyncDecoder(messageRouter, eventRouter, DecodeProcessor(applicationContext.codec, onEvent), rootEventId).apply {
+                SyncDecoder(messageRouter, eventRouter, DecodeProcessor(applicationContext.codec, applicationContext.protocol, onEvent), rootEventId).apply {
                     start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
                 }
             }
@@ -135,7 +135,7 @@ class CodecCommand : CliktCommand() {
             SyncDecoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                DecodeProcessor(context.codec, onEvent),
+                DecodeProcessor(context.codec, context.protocol, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)

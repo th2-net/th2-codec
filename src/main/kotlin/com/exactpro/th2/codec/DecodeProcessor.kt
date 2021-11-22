@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,17 +17,19 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.parentEventId
+import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
 class DecodeProcessor(
     codec: IPipelineCodec,
+    private val protocol: String,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
-    private val logger = KotlinLogging.logger { }
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -43,6 +45,7 @@ class DecodeProcessor(
                 messageBatch.addGroups(decodedGroup)
             }.onFailure {
                 parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, it)
+                messageBatch.addGroups(messageGroup.toErrorMessageGroup(it, protocol))
             }
         }
 

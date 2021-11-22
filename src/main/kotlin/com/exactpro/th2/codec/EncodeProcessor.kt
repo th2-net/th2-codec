@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ class EncodeProcessor(
     private val protocol: String,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
-    private val logger = KotlinLogging.logger { }
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()

@@ -16,10 +16,19 @@
 
 package com.exactpro.th2.codec.util
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.MessageMetadata
+import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.message.message
+
+
+const val ERROR_TYPE_MESSAGE = "th2-codec-error"
+const val ERROR_CONTENT_FIELD = "content"
 
 val MessageGroup.parentEventId: String?
     get() = messagesList.asSequence()
@@ -40,3 +49,64 @@ val MessageGroup.messageIds: List<MessageID>
             else -> error("Unknown message kind: $kind")
         }
     }
+
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : MessageGroup {
+    val result = MessageGroup.newBuilder()
+
+    val content = buildString {
+        var throwable: Throwable? = exception
+
+        append("Parsing one of the raw messages with sub-id: ")
+
+        messagesList.forEach {
+
+            if (it.hasRawMessage()) {
+                it.rawMessage.let { rawMessage ->
+                    if (rawMessage.metadata.protocol.isNullOrEmpty() || rawMessage.metadata.protocol == protocol) {
+                        append(it.rawMessage.metadata.id.sequence)
+                    }
+                }
+            }
+        }
+
+        append(". ")
+
+        while (throwable != null) {
+            append("The reason for the problem: ${throwable.message}. ")
+            throwable = throwable.cause
+        }
+
+        append(" This message has been made by codec-core implementation because an error handling is missing in the $protocol codec.")
+    }
+
+    this.messagesList.forEach {
+        if (it.hasMessage()) {
+            result.addMessages(AnyMessage.newBuilder().setMessage(it.message).build())
+        }
+
+        if (it.hasRawMessage()) {
+            it.rawMessage.let { rawMessage ->
+                if (rawMessage.metadata.protocol.isNullOrEmpty() || rawMessage.metadata.protocol == protocol) {
+                    result.addMessages(AnyMessage.newBuilder().setMessage(message().apply {
+                        if (rawMessage.hasParentEventId()) {
+                            parentEventId = rawMessage.parentEventId
+                        }
+                        metadata = rawMessage.toMessageMetadataBuilder(protocol).setMessageType(ERROR_TYPE_MESSAGE).build()
+                        putFields(ERROR_CONTENT_FIELD, Value.newBuilder().setSimpleValue(content).build())
+                    }))
+                } else {
+                    result.addMessages(AnyMessage.newBuilder().setRawMessage(rawMessage))
+                }
+            }
+        }
+    }
+    return result.build()
+}
+
+fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder {
+    return MessageMetadata.newBuilder()
+        .setId(metadata.id)
+        .setTimestamp(metadata.timestamp)
+        .setProtocol(protocol)
+        .putAllProperties(metadata.propertiesMap)
+}

@@ -206,6 +206,12 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
+### v4.1.2
+
+#### Feature:
+
+* Parsed message with `th2-codec-error` type for error result group. Each raw message with current protocol will be converted to error in result, other stay same
+
 ### v4.1.1
 
 #### Fixed:
