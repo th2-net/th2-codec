@@ -71,7 +71,9 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
                 message.rawMessage.let { rawMessage ->
                     if (rawMessage.metadata.protocol.run { isBlank() || this == protocol }) {
                         result += message().apply {
-                            parentEventId = rawMessage.parentEventId
+                            if (rawMessage.hasParentEventId()) {
+                                parentEventId = rawMessage.parentEventId
+                            }
                             metadata = rawMessage.toMessageMetadataBuilder(protocol).setMessageType(ERROR_TYPE_MESSAGE).build()
                             putFields(ERROR_CONTENT_FIELD, content.toValue())
                         }
