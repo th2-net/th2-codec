@@ -18,7 +18,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.1.1` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.2.0` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -206,11 +206,11 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
-### v4.1.2
+### v4.2.0
 
 #### Feature:
 
-* Parsed message with `th2-codec-error` type for error result group. Each raw message with current protocol will be converted to error in result, other stay same
+* In case of decoding error instead of skipping group replace raw messages of empty or target protocol with `th2-codec-error` message in them```
 
 ### v4.1.1
 

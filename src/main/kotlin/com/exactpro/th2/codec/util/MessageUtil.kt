@@ -25,6 +25,8 @@ import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.message.message
+import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.value.toValue
 
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
@@ -54,37 +56,28 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
     val result = MessageGroup.newBuilder()
 
     val content = buildString {
-        var throwable: Throwable? = exception
+        appendLine("$protocol codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
+        appendLine("Due to the following errors: ")
 
-        append("Parsing one of the raw messages with sub-id: ${ this@toErrorMessageGroup.messageIds.joinToString(", ") { it.toDebugString() } }")
-
-        append(" processed with error. ")
-
-        while (throwable != null) {
-            append("The reason for the problem: `${throwable.message}`. ")
-            throwable = throwable.cause
+        generateSequence(exception, Throwable::cause).forEachIndexed { index, cause ->
+            appendLine("$index: ${cause.message}")
         }
-
-        append("This message has been made by codec-core implementation because an error handling is missing in the $protocol codec.")
     }
 
-    this.messagesList.forEach {
-        if (it.hasMessage()) {
-            result.addMessages(AnyMessage.newBuilder().setMessage(it.message).build())
-        }
-
-        if (it.hasRawMessage()) {
-            it.rawMessage.let { rawMessage ->
-                if (rawMessage.metadata.protocol.isNullOrEmpty() || rawMessage.metadata.protocol == protocol) {
-                    result.addMessages(AnyMessage.newBuilder().setMessage(message().apply {
-                        if (rawMessage.hasParentEventId()) {
+    this.messagesList.forEach { message ->
+        when {
+            message.hasMessage() -> result.addMessages(message)
+            message.hasRawMessage() -> {
+                message.rawMessage.let { rawMessage ->
+                    if (rawMessage.metadata.protocol.run { isBlank() || this == protocol }) {
+                        result += message().apply {
                             parentEventId = rawMessage.parentEventId
+                            metadata = rawMessage.toMessageMetadataBuilder(protocol).setMessageType(ERROR_TYPE_MESSAGE).build()
+                            putFields(ERROR_CONTENT_FIELD, content.toValue())
                         }
-                        metadata = rawMessage.toMessageMetadataBuilder(protocol).setMessageType(ERROR_TYPE_MESSAGE).build()
-                        putFields(ERROR_CONTENT_FIELD, Value.newBuilder().setSimpleValue(content).build())
-                    }))
-                } else {
-                    result.addMessages(AnyMessage.newBuilder().setRawMessage(rawMessage))
+                    } else {
+                        result.addMessages(message)
+                    }
                 }
             }
         }

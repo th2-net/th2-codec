@@ -43,9 +43,7 @@ abstract class AbstractCodecProcessor(
     }
 
     protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
-        logger.error("$message. Message id's: ${messagesIds.joinToString(", ") { 
-            it.toDebugString()
-        }}", cause)
+        logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ", transform = MessageID::toDebugString)}" }
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
     }
 
