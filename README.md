@@ -76,7 +76,7 @@ in a message group with a raw one by encoding parsed message's content
 
 During decoding codec must replace each raw message in a message group with a parsed one by decoding raw message's content
 
-> **NOTE**: codec can replace raw message with a parsed message followed by a several raw messages
+> **NOTE**: codec can replace raw message with a parsed message followed by several raw messages
 > (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
 
 # Configuration
@@ -210,7 +210,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 #### Feature:
 
-* In case of decoding error instead of skipping group replace raw messages of empty or target protocol with `th2-codec-error` message in them```
+* In case of decoding error, instead of skipping the group, replace raw messages of empty or target protocol with `th2-codec-error` message in them
 
 ### v4.1.1
 
