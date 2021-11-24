@@ -26,6 +26,7 @@ import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
 
@@ -82,6 +83,7 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
                     }
                 }
             }
+            else -> error("MessageGroup contains unknown kind of message '${message.kindCase}', content: \n${message.toJson(true)}")
         }
     }
     return result.build()
