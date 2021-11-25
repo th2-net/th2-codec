@@ -16,10 +16,22 @@
 
 package com.exactpro.th2.codec.util
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.MessageMetadata
+import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.message.message
+import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.value.toValue
+
+
+const val ERROR_TYPE_MESSAGE = "th2-codec-error"
+const val ERROR_CONTENT_FIELD = "content"
 
 val MessageGroup.parentEventId: String?
     get() = messagesList.asSequence()
@@ -40,3 +52,47 @@ val MessageGroup.messageIds: List<MessageID>
             else -> error("Unknown message kind: $kind")
         }
     }
+
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : MessageGroup {
+    val result = MessageGroup.newBuilder()
+
+    val content = buildString {
+        appendLine("$protocol codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
+        appendLine("Due to the following errors: ")
+
+        generateSequence(exception, Throwable::cause).forEachIndexed { index, cause ->
+            appendLine("$index: ${cause.message}")
+        }
+    }
+
+    this.messagesList.forEach { message ->
+        when {
+            message.hasMessage() -> result.addMessages(message)
+            message.hasRawMessage() -> {
+                message.rawMessage.let { rawMessage ->
+                    if (rawMessage.metadata.protocol.run { isBlank() || this == protocol }) {
+                        result += message().apply {
+                            if (rawMessage.hasParentEventId()) {
+                                parentEventId = rawMessage.parentEventId
+                            }
+                            metadata = rawMessage.toMessageMetadataBuilder(protocol).setMessageType(ERROR_TYPE_MESSAGE).build()
+                            putFields(ERROR_CONTENT_FIELD, content.toValue())
+                        }
+                    } else {
+                        result.addMessages(message)
+                    }
+                }
+            }
+            else -> error("${message.kindCase} messages are not supported: ${message.toJson(true)}")
+        }
+    }
+    return result.build()
+}
+
+fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder {
+    return MessageMetadata.newBuilder()
+        .setId(metadata.id)
+        .setTimestamp(metadata.timestamp)
+        .setProtocol(protocol)
+        .putAllProperties(metadata.propertiesMap)
+}

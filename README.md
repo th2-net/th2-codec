@@ -18,7 +18,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.1.1` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.2.0` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -76,7 +76,7 @@ in a message group with a raw one by encoding parsed message's content
 
 During decoding codec must replace each raw message in a message group with a parsed one by decoding raw message's content
 
-> **NOTE**: codec can replace raw message with a parsed message followed by a several raw messages
+> **NOTE**: codec can replace raw message with a parsed message followed by several raw messages
 > (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
 
 # Configuration
@@ -205,6 +205,12 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v4.2.0
+
+#### Feature:
+
+* In case of decoding error, instead of skipping the group, replace raw messages of empty or target protocol with `th2-codec-error` message in them
 
 ### v4.1.1
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status
 import com.exactpro.th2.common.event.Event.Status.FAILED
@@ -42,7 +43,9 @@ abstract class AbstractCodecProcessor(
     }
 
     protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
-        logger.error(message, cause)
+        logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ") {
+            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
+        }}" }
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
     }
 
