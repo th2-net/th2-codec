@@ -83,7 +83,7 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
                     }
                 }
             }
-            else -> error("MessageGroup contains unknown kind of message '${message.kindCase}', content: \n${message.toJson(true)}")
+            else -> error("${message.kindCase} messages are not supported: ${message.toJson(true)}")
         }
     }
     return result.build()

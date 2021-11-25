@@ -44,7 +44,7 @@ abstract class AbstractCodecProcessor(
 
     protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
         logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ") {
-            "${it.connectionId.sessionAlias}.${it.direction}.${it.sequence}.[${it.subsequenceList.joinToString(",")}]"
+            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }}" }
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
     }
