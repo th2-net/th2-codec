@@ -71,6 +71,7 @@ abstract class AbstractSyncCodec(
             eventRouter.send(
                 EventBatch.newBuilder().addEvents(
                     Event.start()
+                        .bookName(codecRootEvent.bookName)
                         .name("Codec error")
                         .type("CodecError")
                         .status(FAILED)

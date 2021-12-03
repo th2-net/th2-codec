@@ -33,28 +33,44 @@ abstract class AbstractCodecProcessor(
 ) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
 
-    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = null.onEvent(message, messagesIds)
+    protected fun onEvent(
+        bookName: String,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+    ) = null.onEvent(bookName, message, messagesIds)
 
-    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
+    protected fun onErrorEvent(
+        bookName: String,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null,
+    ) = null.onErrorEvent(bookName, message, messagesIds, cause)
 
-    protected fun EventID?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
+    protected fun EventID?.onEvent(bookName: String, message: String, messagesIds: List<MessageID> = emptyList()) {
         logger.warn(message)
-        onEvent(createEvent(message, messagesIds), this)
+        onEvent(createEvent(bookName, message, messagesIds), this)
     }
 
-    protected fun EventID?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
+    protected fun EventID?.onErrorEvent(
+        bookName: String,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null,
+    ) {
         logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ") {
             "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }}" }
-        onEvent(createEvent(message, messagesIds, FAILED, cause), this)
+        onEvent(createEvent(bookName, message, messagesIds, FAILED, cause), this)
     }
 
     private fun createEvent(
+        bookName: String,
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         status: Status = PASSED,
         cause: Throwable? = null
     ) = Event.start().apply {
+        bookName(bookName)
         name(message)
         type(if (status != PASSED || cause != null) "Error" else "Warn")
         status(if (cause != null) FAILED else status)

@@ -28,7 +28,8 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 class EncodeProcessor(
     codec: IPipelineCodec,
     private val protocol: String,
-    onEvent: (event: Event, parentId: EventID?) -> Unit
+    onEvent: (event: Event, parentId: EventID?) -> Unit,
+    private val boxBookName: String
 ) : AbstractCodecProcessor(codec, onEvent) {
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
@@ -36,36 +37,36 @@ class EncodeProcessor(
 
         for (messageGroup in source.groupsList) {
             if (messageGroup.messagesCount == 0) {
-                onErrorEvent("Cannot encode empty message group")
+                onErrorEvent(boxBookName, "Cannot encode empty message group")
                 continue
             }
 
             val parentEventId = messageGroup.parentEventId
-
+            val bookName = parentEventId?.bookName ?: boxBookName
             if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
-                parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                parentEventId.onErrorEvent(bookName, "Message group has no parsed messages in it", messageGroup.messageIds)
                 continue
             }
 
             if (!messageGroup.isEncodable()) {
-                parentEventId.onErrorEvent("No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
+                parentEventId.onErrorEvent(bookName,"No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
                 continue
             }
 
             messageGroup.runCatching(codec::encode).onSuccess { encodedGroup ->
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventId.onEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEvent(bookName, "Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
             }.onFailure {
-                parentEventId.onErrorEvent("Failed to encode message group", messageGroup.messageIds, it)
+                parentEventId.onErrorEvent(bookName, "Failed to encode message group", messageGroup.messageIds, it)
             }
         }
 
         return messageBatch.build().apply {
             if (source.groupsCount > groupsCount) {
-                onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
+                onEvent(boxBookName,"Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
             }
         }
     }

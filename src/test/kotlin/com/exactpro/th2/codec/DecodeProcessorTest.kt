@@ -18,13 +18,13 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -35,7 +35,7 @@ class DecodeProcessorTest {
         val originalProtocol = "xml"
         val wrongProtocol = "http"
 
-        val processor = DecodeProcessor(TestCodec(true), originalProtocol) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(true), originalProtocol, { _, _ -> }, BoxConfiguration.DEFAULT_BOOK_NAME)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {

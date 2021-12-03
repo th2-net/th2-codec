@@ -27,7 +27,8 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 class DecodeProcessor(
     codec: IPipelineCodec,
     private val protocol: String,
-    onEvent: (event: Event, parentId: EventID?) -> Unit
+    onEvent: (event: Event, parentId: EventID?) -> Unit,
+    private val boxBookName: String,
 ) : AbstractCodecProcessor(codec, onEvent) {
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
@@ -35,22 +36,22 @@ class DecodeProcessor(
 
         for (messageGroup in source.groupsList) {
             val parentEventId = messageGroup.parentEventId
-
+            val bookName = parentEventId?.bookName ?: boxBookName
             messageGroup.runCatching(codec::decode).onSuccess { decodedGroup ->
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEvent(bookName, "Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
             }.onFailure {
-                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, it)
+                parentEventId.onErrorEvent(bookName, "Failed to decode message group", messageGroup.messageIds, it)
                 messageBatch.addGroups(messageGroup.toErrorMessageGroup(it, protocol))
             }
         }
 
         return messageBatch.build().apply {
             if (source.groupsCount > groupsCount) {
-                onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
+                onEvent(boxBookName, "Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
             }
         }
     }
