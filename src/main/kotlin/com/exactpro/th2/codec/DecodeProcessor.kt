@@ -17,18 +17,17 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.parentEventId
 import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import mu.KotlinLogging
 
 class DecodeProcessor(
     codec: IPipelineCodec,
     private val protocol: String,
-    onEvent: (event: Event, parentId: String?) -> Unit
+    onEvent: (event: Event, parentId: EventID?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {

@@ -16,6 +16,7 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.storeEvent
 import com.github.ajalt.clikt.core.CliktCommand
@@ -73,9 +74,9 @@ class CodecCommand : CliktCommand() {
                     name("Codec_${applicationContext.protocol}_${LocalDateTime.now()}")
                     type("CodecRoot")
                 }
-            ).id
+            ).eventId
 
-            val onEvent: (Event, String?) -> Unit = { event, parentId ->
+            val onEvent: (Event, EventID?) -> Unit = { event, parentId ->
                 eventRouter.runCatching {
                     storeEvent(event, parentId ?: rootEventId)
                 }.onFailure {
@@ -107,8 +108,8 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralEncoder(
         context: ApplicationContext,
-        rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        rootEventId: EventID,
+        onEvent: (event: Event, parentId: EventID?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 
@@ -126,8 +127,8 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralDecoder(
         context: ApplicationContext,
-        rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        rootEventId: EventID,
+        onEvent: (event: Event, parentId: EventID?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 

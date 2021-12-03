@@ -17,19 +17,19 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import mu.KotlinLogging
 
 abstract class AbstractCodecProcessor(
     protected val codec: IPipelineCodec,
-    private val onEvent: (event: Event, parentId: String?) -> Unit
+    private val onEvent: (event: Event, parentId: EventID?) -> Unit
 ) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
 
@@ -37,12 +37,12 @@ abstract class AbstractCodecProcessor(
 
     protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
 
-    protected fun String?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
+    protected fun EventID?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
         logger.warn(message)
         onEvent(createEvent(message, messagesIds), this)
     }
 
-    protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
+    protected fun EventID?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
         logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ") {
             "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }}" }

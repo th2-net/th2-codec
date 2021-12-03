@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,6 +18,7 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
@@ -29,7 +30,7 @@ abstract class AbstractSyncCodec(
     private val messageRouter: MessageRouter<MessageGroupBatch>,
     private val eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor,
-    private val codecRootEvent: String
+    private val codecRootEvent: EventID
 ) : AutoCloseable, MessageListener<MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
@@ -65,7 +66,7 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    private fun createAndStoreErrorEvent(exception: CodecException, parentEventID: String) {
+    private fun createAndStoreErrorEvent(exception: CodecException, parentEventID: EventID) {
         try {
             eventRouter.send(
                 EventBatch.newBuilder().addEvents(
@@ -76,7 +77,7 @@ abstract class AbstractSyncCodec(
                         .bodyData(Message().apply {
                             data = exception.getAllMessages()
                         })
-                        .toProtoEvent(parentEventID)
+                        .toProto(parentEventID)
                 ).build()
             )
         } catch (exception: Exception) {
@@ -84,6 +85,11 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    abstract fun getParentEventId(codecRootID: String, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): String
+    abstract fun getParentEventId(
+        codecRootID: EventID,
+        protoSource: MessageGroupBatch,
+        protoResult: MessageGroupBatch?
+    ): EventID
+
     abstract fun checkResult(protoResult: MessageGroupBatch): Boolean
 }
