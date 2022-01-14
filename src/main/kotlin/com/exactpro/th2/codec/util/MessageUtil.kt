@@ -30,7 +30,18 @@ import com.exactpro.th2.common.value.toValue
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 
-val MessageGroup.parentEventId: Set<String>
+val MessageGroup.parentEventId: String?
+    get() = messagesList.asSequence()
+        .map {
+            when {
+                it.hasMessage() -> it.message.parentEventId.id.ifEmpty { null }
+                it.hasRawMessage() -> it.rawMessage.parentEventId.id.ifEmpty { null }
+                else -> null
+            }
+        }
+        .firstOrNull { it != null }
+
+val MessageGroup.allParentEventIds: Set<String>
     get() = messagesList.asSequence()
         .map {
             when {

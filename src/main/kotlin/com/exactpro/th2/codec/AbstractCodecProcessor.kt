@@ -17,7 +17,6 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status
 import com.exactpro.th2.common.event.Event.Status.FAILED
@@ -47,6 +46,14 @@ abstract class AbstractCodecProcessor(
             "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }}" }
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
+    }
+
+    protected fun Set<String>.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = forEach {
+        it.onEvent(message, messagesIds)
+    }
+
+    protected fun Set<String>.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = forEach {
+        it.onErrorEvent(message, messagesIds, cause)
     }
 
     private fun createEvent(
