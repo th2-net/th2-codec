@@ -17,13 +17,12 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.codec.util.parentEventId
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import mu.KotlinLogging
 
 class EncodeProcessor(
     codec: IPipelineCodec,
@@ -40,7 +39,7 @@ class EncodeProcessor(
                 continue
             }
 
-            val parentEventId = messageGroup.parentEventId
+            val parentEventId = messageGroup.allParentEventIds
 
             if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
                 parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
