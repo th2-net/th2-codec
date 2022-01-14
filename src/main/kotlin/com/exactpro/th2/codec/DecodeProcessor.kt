@@ -17,13 +17,12 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.parentEventId
 import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import mu.KotlinLogging
+import com.exactpro.th2.common.grpc.MessageID
 
 class DecodeProcessor(
     codec: IPipelineCodec,
@@ -54,5 +53,13 @@ class DecodeProcessor(
                 onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
             }
         }
+    }
+
+    private fun Set<String>.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = forEach {
+        it.onEvent(message, messagesIds)
+    }
+
+    private fun Set<String>.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = forEach {
+        it.onErrorEvent(message, messagesIds, cause)
     }
 }
