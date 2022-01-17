@@ -31,25 +31,22 @@ const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 
 val MessageGroup.parentEventId: String?
-    get() = messagesList.asSequence()
-        .map {
-            when {
-                it.hasMessage() -> it.message.parentEventId.id.ifEmpty { null }
-                it.hasRawMessage() -> it.rawMessage.parentEventId.id.ifEmpty { null }
-                else -> null
-            }
+    get() = messagesList.firstNotNullOfOrNull { anyMessage ->
+        when {
+            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
+            else -> null
         }
-        .firstOrNull { it != null }
+    }
 
 val MessageGroup.allParentEventIds: Set<String>
-    get() = messagesList.asSequence()
-        .map {
-            when {
-                it.hasMessage() -> it.message.parentEventId.id.ifEmpty { null }
-                it.hasRawMessage() -> it.rawMessage.parentEventId.id.ifEmpty { null }
-                else -> null
-            }
-        }.filterNotNull().toSet()
+    get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->
+        when {
+            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
+            else -> null
+        }
+    }
 
 val MessageGroup.messageIds: List<MessageID>
     get() = messagesList.map { message ->
@@ -60,7 +57,7 @@ val MessageGroup.messageIds: List<MessageID>
         }
     }
 
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : MessageGroup {
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup {
     val result = MessageGroup.newBuilder()
 
     val content = buildString {
@@ -97,9 +94,5 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
 }
 
 fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder {
-    return MessageMetadata.newBuilder()
-        .setId(metadata.id)
-        .setTimestamp(metadata.timestamp)
-        .setProtocol(protocol)
-        .putAllProperties(metadata.propertiesMap)
+    return MessageMetadata.newBuilder().setId(metadata.id).setTimestamp(metadata.timestamp).setProtocol(protocol).putAllProperties(metadata.propertiesMap)
 }
