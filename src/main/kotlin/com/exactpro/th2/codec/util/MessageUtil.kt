@@ -79,7 +79,9 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): Me
                             if (rawMessage.hasParentEventId()) {
                                 parentEventId = rawMessage.parentEventId
                             }
-                            metadata = rawMessage.toMessageMetadataBuilder(protocol).setMessageType(ERROR_TYPE_MESSAGE).build()
+                            metadata = rawMessage.toMessageMetadataBuilder(protocol)
+                                .setMessageType(ERROR_TYPE_MESSAGE)
+                                .build()
                             putFields(ERROR_CONTENT_FIELD, content.toValue())
                         }
                     } else {
@@ -94,5 +96,9 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): Me
 }
 
 fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder {
-    return MessageMetadata.newBuilder().setId(metadata.id).setTimestamp(metadata.timestamp).setProtocol(protocol).putAllProperties(metadata.propertiesMap)
+    return MessageMetadata.newBuilder()
+        .setId(metadata.id)
+        .setTimestamp(metadata.timestamp)
+        .setProtocol(protocol)
+        .putAllProperties(metadata.propertiesMap)
 }
