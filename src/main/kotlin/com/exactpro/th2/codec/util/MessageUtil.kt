@@ -16,33 +16,37 @@
 
 package com.exactpro.th2.codec.util
 
-import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
-
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 
 val MessageGroup.parentEventId: String?
-    get() = messagesList.asSequence()
-        .map {
-            when {
-                it.hasMessage() -> it.message.parentEventId.id.ifEmpty { null }
-                it.hasRawMessage() -> it.rawMessage.parentEventId.id.ifEmpty { null }
-                else -> null
-            }
+    get() = messagesList.firstNotNullOfOrNull { anyMessage ->
+        when {
+            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
+            else -> null
         }
-        .firstOrNull { it != null }
+    }
+
+val MessageGroup.allParentEventIds: Set<String>
+    get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->
+        when {
+            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
+            else -> null
+        }
+    }
 
 val MessageGroup.messageIds: List<MessageID>
     get() = messagesList.map { message ->
@@ -53,7 +57,7 @@ val MessageGroup.messageIds: List<MessageID>
         }
     }
 
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : MessageGroup {
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup {
     val result = MessageGroup.newBuilder()
 
     val content = buildString {
@@ -75,7 +79,9 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
                             if (rawMessage.hasParentEventId()) {
                                 parentEventId = rawMessage.parentEventId
                             }
-                            metadata = rawMessage.toMessageMetadataBuilder(protocol).setMessageType(ERROR_TYPE_MESSAGE).build()
+                            metadata = rawMessage.toMessageMetadataBuilder(protocol)
+                                .setMessageType(ERROR_TYPE_MESSAGE)
+                                .build()
                             putFields(ERROR_CONTENT_FIELD, content.toValue())
                         }
                     } else {
