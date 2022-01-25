@@ -21,7 +21,10 @@ import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import java.lang.IllegalStateException
 
 class DecodeProcessor(
     codec: IPipelineCodec,
@@ -33,7 +36,23 @@ class DecodeProcessor(
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
         for (messageGroup in source.groupsList) {
+            if (messageGroup.messagesCount == 0) {
+                onErrorEvent("Cannot decode empty message group")
+                continue
+            }
+
             val parentEventId = messageGroup.allParentEventIds
+
+            if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
+                parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                continue
+            }
+
+            if (!messageGroup.isDecodable()) {
+                parentEventId.onErrorEvent("No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
+                messageBatch.addGroups(messageGroup.toErrorMessageGroup(IllegalStateException("No messages of $protocol protocol or mixed empty and non-empty protocols are present"), protocol))
+                continue
+            }
 
             messageGroup.runCatching(codec::decode).onSuccess { decodedGroup ->
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
@@ -52,5 +71,14 @@ class DecodeProcessor(
                 onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
             }
         }
+    }
+
+    private fun MessageGroup.isDecodable(): Boolean {
+        val protocols = messagesList.asSequence()
+            .filter(AnyMessage::hasRawMessage)
+            .map { it.rawMessage.metadata.protocol }
+            .toList()
+
+        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && protocol in protocols
     }
 }

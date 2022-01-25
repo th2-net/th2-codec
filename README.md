@@ -74,7 +74,8 @@ in a message group with a raw one by encoding parsed message's content
 
 ## Decoding
 
-During decoding codec must replace each raw message in a message group with a parsed one by decoding raw message's content
+During decoding codec must replace each raw message in a message group with a parsed one by decoding raw message's content. \
+If exception was thrown, all raw messages will be replaced with th2-codec-error parsed messages
 
 > **NOTE**: codec can replace raw message with a parsed message followed by several raw messages
 > (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
@@ -206,6 +207,13 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
+### v4.4.0
+
+#### Feature:
+
+* In group required to have all messages (raw messages for decode and parsed for encode) with empty protocol or all filled 
+* Failed protocol assertion produce error message in decode processor
+
 ### v4.3.0
 
 #### Feature:
@@ -213,6 +221,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 * Error event will be sent for each original event id of the message group
 * Common version update to 3.32.0
 * bom version update to 3.1.0
+
 ### v4.2.0
 
 #### Feature:
