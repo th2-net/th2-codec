@@ -49,8 +49,9 @@ class DecodeProcessor(
             }
 
             if (!messageGroup.isDecodable()) {
-                parentEventId.onErrorEvent("No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(IllegalStateException("No messages of $protocol protocol or mixed empty and non-empty protocols are present"), protocol))
+                val info = "No messages of $protocol protocol or mixed empty and non-empty protocols are present"
+                parentEventId.onErrorEvent(info, messageGroup.messageIds)
+                messageBatch.addGroups(messageGroup.toErrorMessageGroup(IllegalStateException(info), protocol))
                 continue
             }
 
