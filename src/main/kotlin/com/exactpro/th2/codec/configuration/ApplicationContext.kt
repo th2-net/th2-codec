@@ -15,6 +15,7 @@ package com.exactpro.th2.codec.configuration
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IPipelineCodecFactory
+import com.exactpro.th2.codec.api.impl.PipelineCodecContext
 import com.exactpro.th2.codec.api.impl.ThreadSafeCodec
 import com.exactpro.th2.codec.util.load
 import com.exactpro.th2.common.schema.factory.CommonFactory
@@ -33,7 +34,7 @@ class ApplicationContext(
         fun create(configuration: Configuration, commonFactory: CommonFactory): ApplicationContext {
             val factory = runCatching {
                 load<IPipelineCodecFactory>().apply {
-                    init(commonFactory::readDictionary)
+                    init(PipelineCodecContext(commonFactory))
                 }
             }.getOrElse {
                 throw IllegalStateException("Failed to load codec factory", it)

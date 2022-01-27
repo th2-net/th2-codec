@@ -23,7 +23,7 @@ interface IPipelineCodecFactory : AutoCloseable {
     val protocol: String
     val settingsClass: Class<out IPipelineCodecSettings>
     fun init(dictionary: InputStream): Unit = TODO("init(dictionary) method is not implemented")
-    fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
+    fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext.getByType(DictionaryType.MAIN).use(::init)
     fun create(settings: IPipelineCodecSettings? = null): IPipelineCodec
     override fun close() {}
 }

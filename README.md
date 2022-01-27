@@ -207,6 +207,12 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
+### v4.5.0
+
+#### Feature:
+
+* Ability to read more than one dictionary from box configuration in PipelineCodecFactory
+
 ### v4.4.0
 
 #### Feature:
