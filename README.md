@@ -212,6 +212,8 @@ The filtering can also be applied for pins with `subscribe` attribute.
 #### Feature:
 
 * Pipeline codec implementations can declare several protocols to process, not just one  
+* Transfers already processed groups through codec without changes,
+  for example, encoder transfers groups with raw messages only and vice versa 
 
 ### v4.4.0
 

@@ -27,6 +27,7 @@ import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.util.Base64
 
 class ProcessorTest {
 
@@ -53,6 +54,32 @@ class ProcessorTest {
         val result = processor.process(batch)
 
         Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+    }
+
+    @Test
+    fun `one parsed message in group test - decode`() {
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val batch = MessageGroupBatch.newBuilder().apply {
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+            }.build())
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+            }.build())
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.getDefaultInstance()
+                this += Message.getDefaultInstance()
+            }.build())
+
+        }.build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(3, result.groupsCount) {"Wrong batch size"}
     }
 
     @Test
@@ -121,6 +148,31 @@ class ProcessorTest {
         val result = processor.process(batch)
 
         Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+    }
+
+    @Test
+    fun `one raw message in group test - encode`() {
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val batch = MessageGroupBatch.newBuilder().apply {
+            addGroups(MessageGroup.newBuilder().apply {
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+            }.build())
+            addGroups(MessageGroup.newBuilder().apply {
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+            }.build())
+            addGroups(MessageGroup.newBuilder().apply {
+                this += RawMessage.getDefaultInstance()
+                this += RawMessage.getDefaultInstance()
+            }.build())
+        }.build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(3, result.groupsCount) {"Wrong batch size"}
     }
 
     @Test

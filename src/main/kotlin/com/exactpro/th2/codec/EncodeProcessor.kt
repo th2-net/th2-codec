@@ -42,7 +42,8 @@ class EncodeProcessor(
             val parentEventId = messageGroup.allParentEventIds
 
             if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
-                parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                parentEventId.onEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                messageBatch.addGroups(messageGroup)
                 continue
             }
 

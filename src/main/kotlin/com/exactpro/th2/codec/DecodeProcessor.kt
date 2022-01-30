@@ -44,7 +44,8 @@ class DecodeProcessor(
             val parentEventId = messageGroup.allParentEventIds
 
             if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
-                parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                parentEventId.onEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                messageBatch.addGroups(messageGroup)
                 continue
             }
 
@@ -69,7 +70,7 @@ class DecodeProcessor(
 
         return messageBatch.build().apply {
             if (source.groupsCount > groupsCount) {
-                onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
+                onErrorEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
             }
         }
     }

@@ -48,12 +48,18 @@ abstract class AbstractCodecProcessor(
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
     }
 
-    protected fun Set<String>.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = forEach {
-        it.onEvent(message, messagesIds)
+    protected fun Set<String>.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = when (isEmpty()) {
+        true -> null.onEvent(message, messagesIds)
+        false -> forEach {
+            it.onEvent(message, messagesIds)
+        }
     }
 
-    protected fun Set<String>.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = forEach {
-        it.onErrorEvent(message, messagesIds, cause)
+    protected fun Set<String>.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = when (isEmpty()) {
+        true -> null.onErrorEvent(message, messagesIds, cause)
+        false -> forEach {
+            it.onErrorEvent(message, messagesIds, cause)
+        }
     }
 
     private fun createEvent(
