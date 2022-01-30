@@ -8,8 +8,7 @@ import java.io.InputStream
 class PipelineCodecContext(private val commonFactory: CommonFactory) : IPipelineCodecContext {
     override fun getByType(type: DictionaryType): InputStream = type.run(commonFactory::readDictionary)
 
-    override fun getByAlias(alias: String): InputStream = alias.run(commonFactory::readDictionary)
+    override fun getByAlias(alias: String): InputStream = alias.run(commonFactory::loadDictionary)
 
-    override fun getDictionaries(): List<InputStream> = commonFactory.readDictionaries()
-
+    override fun getDictionaryAliases(): Set<String> = commonFactory.loadDictionaryAliases()
 }

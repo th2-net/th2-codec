@@ -23,5 +23,5 @@ interface IPipelineCodecContext {
     @Deprecated("Dictionary types will be removed in future releases of infra", ReplaceWith("getByAlias(alias)"))
     fun getByType(type: DictionaryType): InputStream
     fun getByAlias(alias: String): InputStream
-    fun getDictionaries(): List<InputStream>
+    fun getDictionaryAliases(): Set<String>
 }
