@@ -23,7 +23,7 @@ import mu.KotlinLogging
 class ApplicationContext(
     val commonFactory: CommonFactory,
     val codec: IPipelineCodec,
-    val protocol: String
+    val protocols: List<String>
 ) : AutoCloseable {
     override fun close() = codec.close()
 
@@ -39,7 +39,7 @@ class ApplicationContext(
                 throw IllegalStateException("Failed to load codec factory", it)
             }
 
-            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocol)
+            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
         }
     }
 }

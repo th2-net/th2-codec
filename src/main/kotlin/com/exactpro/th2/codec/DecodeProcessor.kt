@@ -28,7 +28,7 @@ import java.lang.IllegalStateException
 
 class DecodeProcessor(
     codec: IPipelineCodec,
-    private val protocol: String,
+    private val protocols: List<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -49,9 +49,9 @@ class DecodeProcessor(
             }
 
             if (!messageGroup.isDecodable()) {
-                val info = "No messages of $protocol protocol or mixed empty and non-empty protocols are present"
+                val info = "No messages of $protocols protocol or mixed empty and non-empty protocols are present"
                 parentEventId.onErrorEvent(info, messageGroup.messageIds)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(IllegalStateException(info), protocol))
+                messageBatch.addGroups(messageGroup.toErrorMessageGroup(IllegalStateException(info), protocols))
                 continue
             }
 
@@ -63,7 +63,7 @@ class DecodeProcessor(
                 messageBatch.addGroups(decodedGroup)
             }.onFailure {
                 parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, it)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(it, protocol))
+                messageBatch.addGroups(messageGroup.toErrorMessageGroup(it, protocols))
             }
         }
 
@@ -80,6 +80,6 @@ class DecodeProcessor(
             .map { it.rawMessage.metadata.protocol }
             .toList()
 
-        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && protocol in protocols
+        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && this@DecodeProcessor.protocols.any { it in protocols }
     }
 }

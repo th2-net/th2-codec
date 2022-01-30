@@ -26,7 +26,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 
 class EncodeProcessor(
     codec: IPipelineCodec,
-    private val protocol: String,
+    private val protocols: List<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -47,7 +47,7 @@ class EncodeProcessor(
             }
 
             if (!messageGroup.isEncodable()) {
-                parentEventId.onErrorEvent("No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
+                parentEventId.onErrorEvent("No messages of $protocols protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
                 continue
             }
 
@@ -75,6 +75,6 @@ class EncodeProcessor(
             .map { it.message.metadata.protocol }
             .toList()
 
-        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && protocol in protocols
+        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && this@EncodeProcessor.protocols.any { it in protocols }
     }
 }

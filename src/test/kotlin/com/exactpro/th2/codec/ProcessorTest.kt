@@ -32,23 +32,20 @@ class ProcessorTest {
 
     @Test
     fun `simple test - decode`() {
-        val originalProtocol = "xml"
-        val differentProtocol = "http"
-
-        val processor = DecodeProcessor(TestCodec(false), originalProtocol) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = differentProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = differentProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
             }.build())
         }.build()
@@ -56,28 +53,67 @@ class ProcessorTest {
         val result = processor.process(batch)
 
         Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+    }
+
+    @Test
+    fun `multiple protocols test - decode`() {
+        val secondOriginalProtocol = "json"
+        val originalProtocols = listOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
+
+        val processor = DecodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
+        val batch = MessageGroupBatch.newBuilder().apply {
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+            }.build())
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
+            }.build())
+        }.build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(2, result.groupsCount) {"Wrong batch size"}
     }
 
     @Test
     fun `simple test - encode`() {
-        val originalProtocol = "xml"
-        val differentProtocol = "http"
-
-        val processor = EncodeProcessor(TestCodec(false), originalProtocol) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
                 this += Message.newBuilder().apply {
-                    metadataBuilder.protocol = differentProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
-                    metadataBuilder.protocol = differentProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
             }.build())
         }.build()
@@ -88,25 +124,66 @@ class ProcessorTest {
     }
 
     @Test
-    fun `error message on failed protocol check - encode`() {
-        val originalProtocol = "xml"
-        val wrongProtocol = "http"
+    fun `multiple protocols test - encode`() {
+        val secondOriginalProtocol = "json"
+        val originalProtocols = listOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = EncodeProcessor(TestCodec(false), originalProtocol) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
                 this += Message.newBuilder().apply {
-                    metadataBuilder.protocol = wrongProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += Message.newBuilder().apply {
+                    messageType = "test-type"
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+            }.build())
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += Message.newBuilder().apply {
+                    messageType = "test-type"
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
+            }.build())
+        }.build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(2, result.groupsCount) {"Wrong batch size"}
+    }
+
+    @Test
+    fun `error message on failed protocol check - encode`() {
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val batch = MessageGroupBatch.newBuilder().apply {
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     // no protocol
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
             }.build())
         }.build()
@@ -118,24 +195,21 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - encode`() {
-        val originalProtocol = "xml"
-        val wrongProtocol = "http"
-
-        val processor = EncodeProcessor(TestCodec(true), originalProtocol) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
                 this += Message.newBuilder().apply {
-                    metadataBuilder.protocol = wrongProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
             }.build())
         }.build()
@@ -147,24 +221,21 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - decode`() {
-        val originalProtocol = "xml"
-        val wrongProtocol = "http"
-
-        val processor = DecodeProcessor(TestCodec(true), originalProtocol) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = wrongProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
-                    metadataBuilder.protocol = wrongProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
             }.build())
         }.build()
@@ -178,40 +249,37 @@ class ProcessorTest {
         Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
-            Assertions.assertEquals(wrongProtocol, it.metadata.protocol)
+            Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
         result.getGroups(0).messagesList[2].message.let {
             Assertions.assertEquals( "test-type", it.messageType)
-            Assertions.assertEquals(wrongProtocol, it.metadata.protocol)
+            Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
         }
     }
 
     @Test
     fun `error message on failed protocol check - decode`() {
-        val originalProtocol = "xml"
-        val wrongProtocol = "http"
-
-        val processor = DecodeProcessor(TestCodec(false), originalProtocol) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = wrongProtocol
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
                 this += RawMessage.getDefaultInstance()
             }.build())
@@ -226,20 +294,26 @@ class ProcessorTest {
         Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
-            Assertions.assertEquals(wrongProtocol, it.metadata.protocol)
+            Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
         result.getGroups(0).messagesList[2].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
         }
 
+    }
+
+    companion object {
+        const val ORIGINAL_PROTOCOL = "xml"
+        const val WRONG_PROTOCOL = "http"
+        val ORIGINAL_PROTOCOLS = listOf(ORIGINAL_PROTOCOL)
     }
 }
 

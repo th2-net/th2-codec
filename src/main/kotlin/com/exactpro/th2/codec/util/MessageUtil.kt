@@ -57,11 +57,14 @@ val MessageGroup.messageIds: List<MessageID>
         }
     }
 
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup {
+@Deprecated("Please use the toErrorMessageGroup(exception: Throwable, protocols: List<String>) overload instead", ReplaceWith("this.toErrorMessageGroup(exception, listOf(protocol))"))
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup = this.toErrorMessageGroup(exception, listOf(protocol))
+
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocols: List<String>): MessageGroup {
     val result = MessageGroup.newBuilder()
 
     val content = buildString {
-        appendLine("$protocol codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
+        appendLine("$protocols codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
         appendLine("Due to the following errors: ")
 
         generateSequence(exception, Throwable::cause).forEachIndexed { index, cause ->
@@ -74,12 +77,12 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): Me
             message.hasMessage() -> result.addMessages(message)
             message.hasRawMessage() -> {
                 message.rawMessage.let { rawMessage ->
-                    if (rawMessage.metadata.protocol.run { isBlank() || this == protocol }) {
+                    if (rawMessage.metadata.protocol.run { isBlank() || this in protocols }) {
                         result += message().apply {
                             if (rawMessage.hasParentEventId()) {
                                 parentEventId = rawMessage.parentEventId
                             }
-                            metadata = rawMessage.toMessageMetadataBuilder(protocol)
+                            metadata = rawMessage.toMessageMetadataBuilder(protocols)
                                 .setMessageType(ERROR_TYPE_MESSAGE)
                                 .build()
                             putFields(ERROR_CONTENT_FIELD, content.toValue())
@@ -95,7 +98,14 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): Me
     return result.build()
 }
 
-fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder {
+fun RawMessage.toMessageMetadataBuilder(protocols: List<String>): MessageMetadata.Builder {
+    val protocol = metadata.protocol.ifBlank {
+        when(protocols.size) {
+            1 -> protocols.first()
+            else -> protocols.toString()
+        }
+    }
+
     return MessageMetadata.newBuilder()
         .setId(metadata.id)
         .setTimestamp(metadata.timestamp)
