@@ -59,7 +59,7 @@ dependencies {
     api platform('com.exactpro.th2:bom:3.1.0')
 
     implementation 'com.exactpro.th2:grpc-common:3.2.0'
-    implementation 'com.exactpro.th2:common:3.33.0-th2-2422-1768677066-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:3.33.0-th2-2422-1772179456-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:2.0.10'
 
