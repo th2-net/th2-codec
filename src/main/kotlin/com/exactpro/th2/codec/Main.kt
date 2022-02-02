@@ -70,7 +70,7 @@ class CodecCommand : CliktCommand() {
 
             val rootEventId = eventRouter.storeEvent(
                 Event.start().apply {
-                    name("Codec protocols: ${applicationContext.protocols.joinToString(",")} ${LocalDateTime.now()}")
+                    name("Codec [${LocalDateTime.now()}] protocols: ${applicationContext.protocols.joinToString(",")} ")
                     type("CodecRoot")
                 }
             ).id
