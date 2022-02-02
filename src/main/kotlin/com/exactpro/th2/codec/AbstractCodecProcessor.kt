@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ abstract class AbstractCodecProcessor(
     protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
 
     protected fun String?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
-        logger.warn(message)
+        logger.debug(message)
         onEvent(createEvent(message, messagesIds), this)
     }
 
