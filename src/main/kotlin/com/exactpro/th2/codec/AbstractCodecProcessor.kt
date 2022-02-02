@@ -37,7 +37,7 @@ abstract class AbstractCodecProcessor(
     protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
 
     protected fun String?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
-        logger.debug(message)
+        logger.warn(message)
         onEvent(createEvent(message, messagesIds), this)
     }
 

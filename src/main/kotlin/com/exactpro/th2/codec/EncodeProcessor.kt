@@ -23,12 +23,15 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import mu.KotlinLogging
 
 class EncodeProcessor(
     codec: IPipelineCodec,
     private val protocols: List<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
+
+    private val logger = KotlinLogging.logger {}
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -42,7 +45,7 @@ class EncodeProcessor(
             val parentEventId = messageGroup.allParentEventIds
 
             if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
-                parentEventId.onEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                logger.debug { "Message group has no parsed messages in it" }
                 messageBatch.addGroups(messageGroup)
                 continue
             }

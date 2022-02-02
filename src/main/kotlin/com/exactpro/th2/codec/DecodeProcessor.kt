@@ -24,6 +24,7 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import mu.KotlinLogging
 import java.lang.IllegalStateException
 
 class DecodeProcessor(
@@ -31,6 +32,8 @@ class DecodeProcessor(
     private val protocols: List<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
+
+    private val logger = KotlinLogging.logger {}
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -44,7 +47,7 @@ class DecodeProcessor(
             val parentEventId = messageGroup.allParentEventIds
 
             if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
-                parentEventId.onEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                logger.debug { "Message group has no parsed messages in it" }
                 messageBatch.addGroups(messageGroup)
                 continue
             }
