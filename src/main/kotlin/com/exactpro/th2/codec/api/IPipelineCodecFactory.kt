@@ -16,10 +16,17 @@
 
 package com.exactpro.th2.codec.api
 
-import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.schema.dictionary.DictionaryType
+import java.io.InputStream
 
-interface IPipelineCodec : AutoCloseable {
-    fun encode(messageGroup: MessageGroup): MessageGroup
-    fun decode(messageGroup: MessageGroup): MessageGroup
+interface IPipelineCodecFactory : AutoCloseable {
+    val protocols: List<String>
+        get() = listOf(protocol)
+    @Deprecated("Please migrate to the protocols property")
+    val protocol: String
+    val settingsClass: Class<out IPipelineCodecSettings>
+    fun init(dictionary: InputStream): Unit = TODO("init(dictionary) method is not implemented")
+    fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
+    fun create(settings: IPipelineCodecSettings? = null): IPipelineCodec
     override fun close() {}
 }

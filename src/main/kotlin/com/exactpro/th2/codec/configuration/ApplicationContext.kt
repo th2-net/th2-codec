@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,21 +13,17 @@
 
 package com.exactpro.th2.codec.configuration
 
-import com.exactpro.sf.common.messages.structures.loaders.JsonYamlDictionaryStructureLoader
-import com.exactpro.sf.common.messages.structures.loaders.XmlDictionaryStructureLoader
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.api.IPipelineCodecFactory
 import com.exactpro.th2.codec.api.impl.ThreadSafeCodec
 import com.exactpro.th2.codec.util.load
-import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import com.exactpro.th2.common.schema.factory.CommonFactory
-import com.exactpro.th2.common.schema.message.MessageRouter
 import mu.KotlinLogging
 
 class ApplicationContext(
     val commonFactory: CommonFactory,
     val codec: IPipelineCodec,
-    val eventBatchRouter: MessageRouter<EventBatch>
+    val protocols: List<String>
 ) : AutoCloseable {
     override fun close() = codec.close()
 
@@ -35,29 +31,15 @@ class ApplicationContext(
         private val logger = KotlinLogging.logger { }
 
         fun create(configuration: Configuration, commonFactory: CommonFactory): ApplicationContext {
-            runCatching {
-                load<IPipelineCodec>()
-            }.onFailure {
-                throw IllegalStateException("Failed to load codec", it)
+            val factory = runCatching {
+                load<IPipelineCodecFactory>().apply {
+                    init(commonFactory::readDictionary)
+                }
+            }.getOrElse {
+                throw IllegalStateException("Failed to load codec factory", it)
             }
 
-            val eventBatchRouter = commonFactory.eventBatchRouter
-
-            val dictionary = runCatching {
-                logger.debug { "Trying to load dictionary as XML" }
-                commonFactory.readDictionary(DictionaryType.MAIN).use(XmlDictionaryStructureLoader()::load)
-            }.recoverCatching {
-                logger.warn(it) { "Failed to load dictionary as XML. Trying to load it as JSON/YAML" }
-                commonFactory.readDictionary(DictionaryType.MAIN).use(JsonYamlDictionaryStructureLoader()::load)
-            }.getOrThrow()
-
-            val codec = ThreadSafeCodec(dictionary, configuration.codecSettings, ::load)
-
-            return ApplicationContext(
-                commonFactory,
-                codec,
-                eventBatchRouter
-            )
+            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
         }
     }
 }

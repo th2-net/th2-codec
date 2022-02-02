@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,8 +13,8 @@
 
 package com.exactpro.th2.codec.configuration
 
+import com.exactpro.th2.codec.api.IPipelineCodecFactory
 import com.exactpro.th2.codec.api.IPipelineCodecSettings
-import com.exactpro.th2.codec.api.IPipelineCodecSettingsTypeProvider
 import com.exactpro.th2.codec.util.load
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
@@ -26,7 +26,7 @@ import java.io.File
 
 internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(YAMLFactory()).apply {
     registerKotlinModule()
-    registerModule(SimpleModule().addAbstractTypeMapping(IPipelineCodecSettings::class.java, load<IPipelineCodecSettingsTypeProvider>().type))
+    registerModule(SimpleModule().addAbstractTypeMapping(IPipelineCodecSettings::class.java, load<IPipelineCodecFactory>().settingsClass))
     configure(FAIL_ON_UNKNOWN_PROPERTIES, false)
 }
 
@@ -48,7 +48,7 @@ class Configuration {
                 codecSettings = codecSettings ?: settingsPath?.run {
                     check(isNotBlank()) { "Path to codec settings file is empty" }
 
-                    val type = load<IPipelineCodecSettingsTypeProvider>().type
+                    val type = load<IPipelineCodecFactory>().settingsClass
                     val file = File(this)
 
                     check(file.isFile) { "Path to codec settings does not exist or is not a file: ${file.canonicalPath}" }
