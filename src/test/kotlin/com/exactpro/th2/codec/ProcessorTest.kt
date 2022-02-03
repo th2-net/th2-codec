@@ -55,6 +55,22 @@ class ProcessorTest {
 
         Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
     }
+    @Test
+    fun `other protocol in raw message test - decode`() {
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val batch = MessageGroupBatch.newBuilder().apply {
+            addGroups(MessageGroup.newBuilder().apply {
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+            }.build())
+        }.build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+    }
+
 
     @Test
     fun `one parsed message in group test - decode`() {
@@ -141,6 +157,22 @@ class ProcessorTest {
                 }
                 this += RawMessage.newBuilder().apply {
                     metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+            }.build())
+        }.build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+    }
+
+    @Test
+    fun `other protocol in parsed message test - encode`() {
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val batch = MessageGroupBatch.newBuilder().apply {
+            addGroups(MessageGroup.newBuilder().apply {
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
                 }
             }.build())
         }.build()

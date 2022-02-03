@@ -19,6 +19,7 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.messageIds
+import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
@@ -50,8 +51,16 @@ class EncodeProcessor(
                 continue
             }
 
-            if (!messageGroup.isEncodable()) {
-                parentEventId.onErrorEvent("No messages of $protocols protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
+            val msgProtocols = messageGroup.protocols
+            if (msgProtocols.none(String::isBlank) && protocols.none { it in msgProtocols }) {
+                logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                messageBatch.addGroups(messageGroup)
+                continue
+            } else if (msgProtocols.all(String::isBlank) || msgProtocols.none(String::isBlank) && protocols.any { it in msgProtocols }) {
+                // do nothing
+            } else {
+                val info = "No messages of $protocols protocols or mixed empty and non-empty protocols are present"
+                parentEventId.onErrorEvent(info, messageGroup.messageIds)
                 continue
             }
 
@@ -73,12 +82,10 @@ class EncodeProcessor(
         }
     }
 
-    private fun MessageGroup.isEncodable(): Boolean {
-        val protocols = messagesList.asSequence()
+    private val MessageGroup.protocols
+        get() = messagesList.asSequence()
             .filter(AnyMessage::hasMessage)
             .map { it.message.metadata.protocol }
             .toList()
 
-        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && this@EncodeProcessor.protocols.any { it in protocols }
-    }
 }
