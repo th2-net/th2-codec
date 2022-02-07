@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,12 +23,15 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import mu.KotlinLogging
 
 class EncodeProcessor(
     codec: IPipelineCodec,
-    private val protocol: String,
+    private val protocols: List<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
+
+    private val logger = KotlinLogging.logger {}
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -42,12 +45,13 @@ class EncodeProcessor(
             val parentEventId = messageGroup.allParentEventIds
 
             if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
-                parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
+                logger.debug { "Message group has no parsed messages in it" }
+                messageBatch.addGroups(messageGroup)
                 continue
             }
 
             if (!messageGroup.isEncodable()) {
-                parentEventId.onErrorEvent("No messages of $protocol protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
+                parentEventId.onErrorEvent("No messages of $protocols protocol or mixed empty and non-empty protocols are present", messageGroup.messageIds)
                 continue
             }
 
@@ -75,6 +79,6 @@ class EncodeProcessor(
             .map { it.message.metadata.protocol }
             .toList()
 
-        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && protocol in protocols
+        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && this@EncodeProcessor.protocols.any { it in protocols }
     }
 }

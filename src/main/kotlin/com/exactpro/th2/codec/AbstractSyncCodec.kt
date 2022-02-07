@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.google.protobuf.TextFormat
 import mu.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.TimeoutException
@@ -53,6 +54,7 @@ abstract class AbstractSyncCodec(
         var protoResult: MessageGroupBatch? = null
 
         try {
+            logger.debug { "codec receive ${TextFormat.shortDebugString(message)}" }
             protoResult = processor.process(message)
 
             if (checkResult(protoResult)) {

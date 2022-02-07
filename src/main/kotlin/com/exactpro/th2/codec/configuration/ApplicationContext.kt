@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,7 +24,7 @@ import mu.KotlinLogging
 class ApplicationContext(
     val commonFactory: CommonFactory,
     val codec: IPipelineCodec,
-    val protocol: String
+    val protocols: List<String>
 ) : AutoCloseable {
     override fun close() = codec.close()
 
@@ -40,7 +40,7 @@ class ApplicationContext(
                 throw IllegalStateException("Failed to load codec factory", it)
             }
 
-            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocol)
+            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
         }
     }
 }

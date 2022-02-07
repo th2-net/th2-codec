@@ -1,4 +1,4 @@
-# Description
+# Description (4.5.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -42,7 +42,7 @@ To implement a codec using this library you need to:
 
     ```kotlin
     interface IPipelineCodecFactory : AutoCloseable {
-        val protocol: String
+        val protocols: List<String>
         val settingsClass: Class<out IPipelineCodecSettings>
         fun init(dictionary: InputStream): Unit = TODO("not implemented")
         fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
@@ -66,7 +66,7 @@ and [parsed](https://github.com/th2-net/th2-grpc-common/blob/f2794b2c5c8ae945e75
 
 ## Encoding
 
-During encoding codec must replace each parsed message of supported [protocol](https://github.com/th2-net/th2-grpc-common/blob/f2794b2c5c8ae945e7500677439809db9c576c43/src/main/proto/th2_grpc_common/common.proto#L47)
+During encoding codec must replace each parsed message of supported [protocols](https://github.com/th2-net/th2-grpc-common/blob/f2794b2c5c8ae945e7500677439809db9c576c43/src/main/proto/th2_grpc_common/common.proto#L47)
 in a message group with a raw one by encoding parsed message's content
 
 > **NOTE**: codec can merge content of subsequent raw messages into a resulting raw message  
@@ -212,6 +212,9 @@ The filtering can also be applied for pins with `subscribe` attribute.
 #### Feature:
 
 * Ability to read more than one dictionary from box configuration in PipelineCodecFactory
+* Pipeline codec implementations can declare several protocols to process, not just one  
+* Transfers already processed groups through codec without changes,
+  for example, encoder transfers groups with raw messages only and vice versa 
 
 ### v4.4.0
 
