@@ -10,5 +10,5 @@ class PipelineCodecContext(private val commonFactory: CommonFactory) : IPipeline
 
     override fun getByAlias(alias: String): InputStream = alias.run(commonFactory::loadDictionary)
 
-    override fun getDictionaryAliases(): Set<String> = commonFactory.loadDictionaryAliases()
+    override fun getDictionaryAliases(): Set<String> = commonFactory.dictionaryAliases
 }
