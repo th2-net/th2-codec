@@ -27,7 +27,6 @@ import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import java.util.Base64
 
 class ProcessorTest {
 
@@ -101,7 +100,7 @@ class ProcessorTest {
     @Test
     fun `multiple protocols test - decode`() {
         val secondOriginalProtocol = "json"
-        val originalProtocols = listOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
+        val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
         val processor = DecodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
@@ -210,7 +209,7 @@ class ProcessorTest {
     @Test
     fun `multiple protocols test - encode`() {
         val secondOriginalProtocol = "json"
-        val originalProtocols = listOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
+        val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
         val processor = EncodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
@@ -262,10 +261,7 @@ class ProcessorTest {
                 this += Message.newBuilder().apply {
                     metadataBuilder.protocol = WRONG_PROTOCOL
                 }
-                this += Message.newBuilder().apply {
-                    messageType = "test-type"
-                    // no protocol
-                }
+                this += Message.newBuilder()
                 this += RawMessage.newBuilder().apply {
                     metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
@@ -394,10 +390,57 @@ class ProcessorTest {
 
     }
 
+    @Test
+    fun `multiple protocol test - decode`() {
+        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json")) { _, _ -> }
+        val batch = MessageGroupBatch.newBuilder().apply {
+            addGroups(MessageGroup.newBuilder().apply {
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = "xml"
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = "json"
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = "http"
+                }
+                this += RawMessage.getDefaultInstance()
+            }.build())
+        }.build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(4, result.getGroups(0).messagesList.size) {"group of outgoing messages must be the same size"}
+
+        Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
+        result.getGroups(0).messagesList[0].message.let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
+            Assertions.assertEquals("xml", it.metadata.protocol)
+        }
+
+        Assertions.assertTrue(result.getGroups(0).messagesList[1].hasMessage())
+        result.getGroups(0).messagesList[1].message.let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
+            Assertions.assertEquals("json", it.metadata.protocol)
+        }
+
+        Assertions.assertTrue(result.getGroups(0).messagesList[2].hasRawMessage())
+        result.getGroups(0).messagesList[2].rawMessage.let {
+            Assertions.assertEquals("http", it.metadata.protocol)
+        }
+
+        Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
+        result.getGroups(0).messagesList[3].message.let {
+            Assertions.assertEquals("[xml, json]", it.metadata.protocol)
+        }
+
+    }
+
     companion object {
         const val ORIGINAL_PROTOCOL = "xml"
         const val WRONG_PROTOCOL = "http"
-        val ORIGINAL_PROTOCOLS = listOf(ORIGINAL_PROTOCOL)
+        val ORIGINAL_PROTOCOLS = setOf(ORIGINAL_PROTOCOL)
     }
 }
 

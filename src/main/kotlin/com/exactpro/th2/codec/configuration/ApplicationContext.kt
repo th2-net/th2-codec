@@ -23,7 +23,7 @@ import mu.KotlinLogging
 class ApplicationContext(
     val commonFactory: CommonFactory,
     val codec: IPipelineCodec,
-    val protocols: List<String>
+    val protocols: Set<String>
 ) : AutoCloseable {
     override fun close() = codec.close()
 

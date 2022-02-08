@@ -18,17 +18,17 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.allParentEventIds
+import com.exactpro.th2.codec.util.allParsedProtocols
+import com.exactpro.th2.codec.util.checkAgainstProtocols
 import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
 class EncodeProcessor(
     codec: IPipelineCodec,
-    private val protocols: List<String>,
+    private val protocols: Set<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -43,36 +43,33 @@ class EncodeProcessor(
                 continue
             }
 
-            val parentEventId = messageGroup.allParentEventIds
-
             if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
                 logger.debug { "Message group has no parsed messages in it" }
                 messageBatch.addGroups(messageGroup)
                 continue
             }
 
-            val msgProtocols = messageGroup.protocols
-            if (msgProtocols.none(String::isBlank) && protocols.none { it in msgProtocols }) {
-                logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
-                messageBatch.addGroups(messageGroup)
-                continue
-            } else if (msgProtocols.all(String::isBlank) || msgProtocols.none(String::isBlank) && protocols.any { it in msgProtocols }) {
-                // do nothing
-            } else {
-                val info = "No messages of $protocols protocols or mixed empty and non-empty protocols are present"
-                parentEventId.onErrorEvent(info, messageGroup.messageIds)
-                continue
-            }
+            val msgProtocols = messageGroup.allParsedProtocols
+            val parentEventId = messageGroup.allParentEventIds
 
-            messageGroup.runCatching(codec::encode).onSuccess { encodedGroup ->
+            try {
+                if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                    logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                    messageBatch.addGroups(messageGroup)
+                    continue
+                }
+
+                val encodedGroup = codec.encode(messageGroup)
+
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
                     parentEventId.onEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
-            }.onFailure {
-                parentEventId.onErrorEvent("Failed to encode message group", messageGroup.messageIds, it)
+            } catch (throwable: Throwable) {
+                parentEventId.onErrorEvent("Failed to encode message group", messageGroup.messageIds, throwable)
             }
+
         }
 
         return messageBatch.build().apply {
@@ -82,10 +79,5 @@ class EncodeProcessor(
         }
     }
 
-    private val MessageGroup.protocols
-        get() = messagesList.asSequence()
-            .filter(AnyMessage::hasMessage)
-            .map { it.message.metadata.protocol }
-            .toList()
 
 }

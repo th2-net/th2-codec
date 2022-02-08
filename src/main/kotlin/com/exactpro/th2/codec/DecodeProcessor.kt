@@ -18,17 +18,18 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.allParentEventIds
+import com.exactpro.th2.codec.util.allRawProtocols
+import com.exactpro.th2.codec.util.checkAgainstProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
 class DecodeProcessor(
     codec: IPipelineCodec,
-    private val protocols: List<String>,
+    private val protocols: Set<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -43,37 +44,32 @@ class DecodeProcessor(
                 continue
             }
 
+            if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
+                logger.debug { "Message group has no raw messages in it" }
+                messageBatch.addGroups(messageGroup)
+                continue
+            }
+
+            val msgProtocols = messageGroup.allRawProtocols
             val parentEventId = messageGroup.allParentEventIds
 
-            if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
-                logger.debug { "Message group has no parsed messages in it" }
-                messageBatch.addGroups(messageGroup)
-                continue
-            }
+            try {
+                if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                    logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                    messageBatch.addGroups(messageGroup)
+                    continue
+                }
 
-            val msgProtocols = messageGroup.protocols
-            if (msgProtocols.none(String::isBlank) && protocols.none { it in msgProtocols }) {
-                logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
-                messageBatch.addGroups(messageGroup)
-                continue
-            } else if (msgProtocols.all(String::isBlank) || msgProtocols.none(String::isBlank) && protocols.any { it in msgProtocols }) {
-                // do nothing
-            } else {
-                val info = "No messages of $protocols protocols or mixed empty and non-empty protocols are present"
-                parentEventId.onErrorEvent(info, messageGroup.messageIds)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(IllegalStateException(info), protocols))
-                continue
-            }
+                val decodedGroup = codec.decode(messageGroup)
 
-            messageGroup.runCatching(codec::decode).onSuccess { decodedGroup ->
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
                     parentEventId.onEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
-            }.onFailure {
-                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, it)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(it, protocols))
+            } catch (throwable: Throwable) {
+                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
+                messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
             }
         }
 
@@ -83,10 +79,4 @@ class DecodeProcessor(
             }
         }
     }
-
-    private val MessageGroup.protocols
-        get() = messagesList.asSequence()
-            .filter(AnyMessage::hasRawMessage)
-            .map { it.rawMessage.metadata.protocol }
-            .toSet()
 }
