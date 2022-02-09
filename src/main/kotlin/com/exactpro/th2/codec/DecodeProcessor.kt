@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,20 +17,23 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.allParentEventIds
+import com.exactpro.th2.codec.util.allRawProtocols
+import com.exactpro.th2.codec.util.checkAgainstProtocols
+import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import java.lang.IllegalStateException
+import mu.KotlinLogging
 
 class DecodeProcessor(
     codec: IPipelineCodec,
-    private val protocol: String,
+    private val protocols: Set<String>,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
+
+    private val logger = KotlinLogging.logger {}
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -41,45 +44,39 @@ class DecodeProcessor(
                 continue
             }
 
+            if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
+                logger.debug { "Message group has no raw messages in it" }
+                messageBatch.addGroups(messageGroup)
+                continue
+            }
+
+            val msgProtocols = messageGroup.allRawProtocols
             val parentEventId = messageGroup.allParentEventIds
 
-            if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
-                parentEventId.onErrorEvent("Message group has no parsed messages in it", messageGroup.messageIds)
-                continue
-            }
+            try {
+                if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                    logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                    messageBatch.addGroups(messageGroup)
+                    continue
+                }
 
-            if (!messageGroup.isDecodable()) {
-                val info = "No messages of $protocol protocol or mixed empty and non-empty protocols are present"
-                parentEventId.onErrorEvent(info, messageGroup.messageIds)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(IllegalStateException(info), protocol))
-                continue
-            }
+                val decodedGroup = codec.decode(messageGroup)
 
-            messageGroup.runCatching(codec::decode).onSuccess { decodedGroup ->
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
                     parentEventId.onEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
-            }.onFailure {
-                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, it)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(it, protocol))
+            } catch (throwable: Throwable) {
+                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
+                messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
             }
         }
 
         return messageBatch.build().apply {
             if (source.groupsCount > groupsCount) {
-                onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
+                onErrorEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
             }
         }
-    }
-
-    private fun MessageGroup.isDecodable(): Boolean {
-        val protocols = messagesList.asSequence()
-            .filter(AnyMessage::hasRawMessage)
-            .map { it.rawMessage.metadata.protocol }
-            .toList()
-
-        return protocols.all(String::isBlank) || protocols.none(String::isBlank) && protocol in protocols
     }
 }

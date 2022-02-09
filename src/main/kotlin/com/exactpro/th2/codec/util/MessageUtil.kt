@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.codec.util
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.MessageGroup
@@ -48,6 +49,19 @@ val MessageGroup.allParentEventIds: Set<String>
         }
     }
 
+val MessageGroup.allRawProtocols
+    get() = messagesList.asSequence()
+        .filter(AnyMessage::hasRawMessage)
+        .map { it.rawMessage.metadata.protocol }
+        .toSet()
+
+val MessageGroup.allParsedProtocols
+    get() = messagesList.asSequence()
+        .filter(AnyMessage::hasMessage)
+        .map { it.message.metadata.protocol }
+        .toSet()
+
+
 val MessageGroup.messageIds: List<MessageID>
     get() = messagesList.map { message ->
         when (val kind = message.kindCase) {
@@ -57,11 +71,20 @@ val MessageGroup.messageIds: List<MessageID>
         }
     }
 
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup {
+fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
+    incomingProtocols.none { it.isBlank() || it in this }  -> false
+    incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
+    else -> true
+}
+
+@Deprecated("Please use the toErrorMessageGroup(exception: Throwable, protocols: List<String>) overload instead", ReplaceWith("this.toErrorMessageGroup(exception, listOf(protocol))"))
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup = this.toErrorMessageGroup(exception, listOf(protocol))
+
+fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Collection<String>): MessageGroup {
     val result = MessageGroup.newBuilder()
 
     val content = buildString {
-        appendLine("$protocol codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
+        appendLine("$codecProtocols codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
         appendLine("Due to the following errors: ")
 
         generateSequence(exception, Throwable::cause).forEachIndexed { index, cause ->
@@ -74,12 +97,12 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): Me
             message.hasMessage() -> result.addMessages(message)
             message.hasRawMessage() -> {
                 message.rawMessage.let { rawMessage ->
-                    if (rawMessage.metadata.protocol.run { isBlank() || this == protocol }) {
+                    if (rawMessage.metadata.protocol.run { isBlank() || this in codecProtocols }) {
                         result += message().apply {
                             if (rawMessage.hasParentEventId()) {
                                 parentEventId = rawMessage.parentEventId
                             }
-                            metadata = rawMessage.toMessageMetadataBuilder(protocol)
+                            metadata = rawMessage.toMessageMetadataBuilder(codecProtocols)
                                 .setMessageType(ERROR_TYPE_MESSAGE)
                                 .build()
                             putFields(ERROR_CONTENT_FIELD, content.toValue())
@@ -95,7 +118,14 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): Me
     return result.build()
 }
 
-fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder {
+private fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageMetadata.Builder {
+    val protocol = metadata.protocol.ifBlank {
+        when(protocols.size) {
+            1 -> protocols.first()
+            else -> protocols.toString()
+        }
+    }
+
     return MessageMetadata.newBuilder()
         .setId(metadata.id)
         .setTimestamp(metadata.timestamp)

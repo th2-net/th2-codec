@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,11 @@ package com.exactpro.th2.codec.api
 import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import java.io.InputStream
 
-fun interface IPipelineCodecContext {
+typealias DictionaryAlias = String
+
+interface IPipelineCodecContext {
+    @Deprecated("Dictionary types will be removed in future releases of infra", ReplaceWith("getByAlias(alias)"))
     operator fun get(type: DictionaryType): InputStream
+    operator fun get(alias: DictionaryAlias): InputStream
+    fun getDictionaryAliases(): Set<String>
 }
