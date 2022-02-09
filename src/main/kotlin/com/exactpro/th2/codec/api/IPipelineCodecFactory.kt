@@ -20,8 +20,8 @@ import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import java.io.InputStream
 
 interface IPipelineCodecFactory : AutoCloseable {
-    val protocols: List<String>
-        get() = listOf(protocol)
+    val protocols: Set<String>
+        get() = setOf(protocol)
     @Deprecated("Please migrate to the protocols property")
     val protocol: String
     val settingsClass: Class<out IPipelineCodecSettings>
