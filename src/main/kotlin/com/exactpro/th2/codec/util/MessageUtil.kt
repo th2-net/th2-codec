@@ -73,7 +73,7 @@ val MessageGroup.messageIds: List<MessageID>
 
 fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
     incomingProtocols.none { it.isBlank() || it in this }  -> false
-    (!incomingProtocols.all(String::isBlank) && !incomingProtocols.all(String::isNotBlank)) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
+    incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
     else -> true
 }
 

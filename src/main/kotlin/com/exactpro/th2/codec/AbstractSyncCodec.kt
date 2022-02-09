@@ -21,7 +21,6 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.google.protobuf.TextFormat
 import mu.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.TimeoutException
@@ -54,7 +53,6 @@ abstract class AbstractSyncCodec(
         var protoResult: MessageGroupBatch? = null
 
         try {
-            logger.debug { "codec receive ${TextFormat.shortDebugString(message)}" }
             protoResult = processor.process(message)
 
             if (checkResult(protoResult)) {
