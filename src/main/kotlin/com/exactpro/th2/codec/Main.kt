@@ -15,6 +15,7 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
+import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.storeEvent
@@ -83,20 +84,24 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
+            val grpcRouter = commonFactory.grpcRouter
+            val grpcService = GrpcCodecService(grpcRouter)
+            grpcRouter.startServer(grpcService)
+
             createCodec("decoder") {
-                SyncDecoder(messageRouter, eventRouter, DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
+                SyncDecoder(messageRouter, eventRouter, grpcService, DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
                     start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
                 }
             }
 
             createCodec("encoder") {
-                SyncEncoder(messageRouter, eventRouter, EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
+                SyncEncoder(messageRouter, eventRouter, grpcService, EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
                 }
             }
 
-            createGeneralDecoder(applicationContext, rootEventId, onEvent)
-            createGeneralEncoder(applicationContext, rootEventId, onEvent)
+            createGeneralDecoder(applicationContext, rootEventId, onEvent, grpcService)
+            createGeneralEncoder(applicationContext, rootEventId, onEvent, grpcService)
 
             logger.info { "codec started" }
         } catch (exception: Exception) {
@@ -108,7 +113,8 @@ class CodecCommand : CliktCommand() {
     private fun createGeneralEncoder(
         context: ApplicationContext,
         rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        onEvent: (event: Event, parentId: String?) -> Unit,
+        grpcService: GrpcCodecService
     ) {
         val commonFactory = context.commonFactory
 
@@ -116,6 +122,7 @@ class CodecCommand : CliktCommand() {
             SyncEncoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
+                grpcService,
                 EncodeProcessor(context.codec, context.protocols, onEvent),
                 rootEventId
             ).apply {
@@ -127,7 +134,8 @@ class CodecCommand : CliktCommand() {
     private fun createGeneralDecoder(
         context: ApplicationContext,
         rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        onEvent: (event: Event, parentId: String?) -> Unit,
+        grpcService: GrpcCodecService
     ) {
         val commonFactory = context.commonFactory
 
@@ -135,6 +143,7 @@ class CodecCommand : CliktCommand() {
             SyncDecoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
+                grpcService,
                 DecodeProcessor(context.codec, context.protocols, onEvent),
                 rootEventId
             ).apply {
