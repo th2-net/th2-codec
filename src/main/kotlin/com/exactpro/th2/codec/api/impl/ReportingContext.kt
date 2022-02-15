@@ -26,4 +26,8 @@ class ReportingContext : IReportingContext {
     override fun warning(message: String) {
         _warnings += message
     }
+
+    override fun warnings(messages: Collection<String>) {
+        _warnings += messages
+    }
 }
