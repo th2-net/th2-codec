@@ -68,9 +68,10 @@ class CodecCommand : CliktCommand() {
             val messageRouter = commonFactory.messageRouterMessageGroupBatch
             val eventRouter = commonFactory.eventBatchRouter
 
+            val codecName = commonFactory.boxConfiguration?.boxName?.let { "$it " } ?: ""
             val rootEventId = eventRouter.storeEvent(
                 Event.start().apply {
-                    name("Codec [${LocalDateTime.now()}] protocols: ${applicationContext.protocols.joinToString(",")} ")
+                    name("Codec $codecName[${LocalDateTime.now()}] protocols: ${applicationContext.protocols.joinToString(",")} ")
                     type("CodecRoot")
                 }
             ).id
