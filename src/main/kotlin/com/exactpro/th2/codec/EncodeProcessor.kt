@@ -29,6 +29,7 @@ import mu.KotlinLogging
 class EncodeProcessor(
     codec: IPipelineCodec,
     private val protocols: Set<String>,
+    private val useParentEventId: Boolean = true,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -50,7 +51,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventId = messageGroup.allParentEventIds
+            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
