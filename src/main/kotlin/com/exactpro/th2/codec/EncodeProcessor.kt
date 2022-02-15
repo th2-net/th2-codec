@@ -68,7 +68,8 @@ class EncodeProcessor(
 
                 messageBatch.addGroups(encodedGroup)
             } catch (throwable: Throwable) {
-                parentEventId.onErrorEvent("Failed to encode message group", messageGroup.messageIds, throwable)
+                // we should not use message IDs because during encoding there is no correct message ID created yet
+                parentEventId.onErrorEvent("Failed to encode message group", cause = throwable)
             }
 
         }
