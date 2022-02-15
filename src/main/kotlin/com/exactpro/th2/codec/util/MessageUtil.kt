@@ -31,8 +31,8 @@ val MessageGroup.parentEventId: String?
         }
     }
 
-val MessageGroup.allParentEventIds: Set<String>
-    get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->
+val MessageGroup.allParentEventIds: Set<String?>
+    get() = messagesList.mapTo(HashSet()) { anyMessage ->
         when {
             anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
             anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }

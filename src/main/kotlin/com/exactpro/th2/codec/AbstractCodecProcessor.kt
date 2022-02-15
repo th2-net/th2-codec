@@ -55,7 +55,7 @@ abstract class AbstractCodecProcessor(
     /**
      * Use only if eventId not needed
      */
-    protected fun Set<String>.forEachEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
+    protected fun Set<String?>.forEachEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
         when (isEmpty()) {
             true -> null.onEvent(message, messagesIds)
             false -> forEach {
@@ -64,7 +64,7 @@ abstract class AbstractCodecProcessor(
         }
     }
 
-    protected fun Set<String>.forEachErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
+    protected fun Set<String?>.forEachErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
         when (isEmpty()) {
             true -> null.onErrorEvent(message, messagesIds, cause)
             false -> map {

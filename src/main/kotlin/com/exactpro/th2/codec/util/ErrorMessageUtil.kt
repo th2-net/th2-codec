@@ -34,7 +34,7 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, newParent: EventID?
     it.putFields(ERROR_CONTENT_FIELD, errorMessage.toValue())
 }
 
-fun MessageGroup.toErrorGroup(infoMessage: String, codecProtocols: Collection<String>, errorEvents: Map<String, EventID>, throwable: Throwable?, relationMethod: (AnyMessage) -> Boolean): MessageGroup {
+fun MessageGroup.toErrorGroup(infoMessage: String, codecProtocols: Collection<String>, errorEvents: Map<String?, EventID>, throwable: Throwable?, relationMethod: (AnyMessage) -> Boolean): MessageGroup {
     val content = buildString {
         append(infoMessage)
         appendLine("Error for messages: [${messageIds.joinToString(", ") { it.toDebugString() }}] with protocols: [${codecProtocols.joinToString(", ")}]}")
@@ -50,10 +50,8 @@ fun MessageGroup.toErrorGroup(infoMessage: String, codecProtocols: Collection<St
             if (relationMethod(it)) {
                 result += when(it.kindCase) {
                     AnyMessage.KindCase.RAW_MESSAGE -> it.rawMessage.let { rawMessage ->
-                        val eventID = if (rawMessage.hasParentEventId()) {
-                            checkNotNull(errorEvents[rawMessage.parentEventId.id]) {"No error event was found for message: ${rawMessage.metadata.id.sequence}"}
-                        } else {
-                            null
+                        val eventID = checkNotNull(errorEvents[rawMessage.parentEventId.id.ifEmpty { null }]) {
+                            "No error event was found for message: ${rawMessage.metadata.id.sequence}"
                         }
                         rawMessage.toErrorMessage(codecProtocols, eventID, content)
                     }

@@ -68,17 +68,14 @@ class DecodeProcessor(
 
                 messageBatch.addGroups(decodedGroup)
             } catch (throwable: Throwable) {
-                if (parentEventIds.isEmpty()) {
-                    null.onErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable).id
-                } else {
-                    val eventIds = parentEventIds.associateWith {
-                        EventUtils.toEventID(it.onErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable).id)!!
-                    }
-
-                    messageBatch.addGroups(messageGroup.toErrorGroup("Failed to decode message group", protocols, eventIds, throwable) {
-                        it.hasRawMessage() && it.rawMessage.metadata.protocol.run { isBlank() || this in protocols }
-                    })
+                val header = "Failed to decode message group"
+                val eventIds = parentEventIds.associateWith {
+                    EventUtils.toEventID(it.onErrorEvent(header, messageGroup.messageIds, throwable).id)!!
                 }
+
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, eventIds, throwable) {
+                    it.hasRawMessage() && it.rawMessage.metadata.protocol.run { isBlank() || this in protocols }
+                })
             }
         }
 
