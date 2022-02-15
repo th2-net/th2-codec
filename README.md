@@ -1,4 +1,4 @@
-# Description (4.6.0)
+# Description (4.6.1)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -206,6 +206,12 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v4.6.1
+
+#### Feature:
+
+* update th2-grpc-codec version to 0.0.3 (bug fixed)
 
 ### v4.6.0
 
