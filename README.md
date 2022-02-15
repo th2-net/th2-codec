@@ -1,4 +1,4 @@
-# Description (4.5.0)
+# Description (4.6.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -18,7 +18,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.3.0` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.6.0` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -206,6 +206,21 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v4.6.0
+
+#### Fixed:
+
+* Errors and warnings during encoding does not have message IDs attached because they are not correct yet
+
+#### Changed:
+
+* Root codec event's name now uses box name
+* The general encode/decode does not use `parentEventId` from messages when reporting errors and warnings
+
+#### Added:
+
+* Codec can report warnings during decoding and encoding message groups
 
 ### v4.5.0
 
