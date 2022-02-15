@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status
 import com.exactpro.th2.common.event.Event.Status.FAILED
@@ -36,9 +37,13 @@ abstract class AbstractCodecProcessor(
 
     protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
 
-    protected fun String?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
+    protected fun String?.onEvent(
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        body: List<String> = emptyList()
+    ) {
         logger.warn(message)
-        onEvent(createEvent(message, messagesIds), this)
+        onEvent(createEvent(message, messagesIds, body = body), this)
     }
 
     protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
@@ -48,10 +53,14 @@ abstract class AbstractCodecProcessor(
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
     }
 
-    protected fun Set<String>.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = when (isEmpty()) {
-        true -> null.onEvent(message, messagesIds)
+    protected fun Set<String>.onEvent(
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        body: List<String> = emptyList()
+    ) = when (isEmpty()) {
+        true -> null.onEvent(message, messagesIds, body)
         false -> forEach {
-            it.onEvent(message, messagesIds)
+            it.onEvent(message, messagesIds, body)
         }
     }
 
@@ -62,11 +71,22 @@ abstract class AbstractCodecProcessor(
         }
     }
 
+    protected fun Set<String>.reportWarnings(context: ReportingContext, action: String, messagesIds: () -> List<MessageID> = { emptyList() }) {
+        val warnings = context.warnings
+        if (warnings.isNotEmpty()) {
+            when (warnings.size) {
+                1 -> onEvent("[WARNING] ${warnings.single()} during $action", messagesIds())
+                else -> onEvent("[WARNING] Message $action produced ${warnings.size} warnings", messagesIds(), body = warnings)
+            }
+        }
+    }
+
     private fun createEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         status: Status = PASSED,
-        cause: Throwable? = null
+        cause: Throwable? = null,
+        body: List<String> = emptyList(),
     ) = Event.start().apply {
         name(message)
         type(if (status != PASSED || cause != null) "Error" else "Warn")
@@ -75,6 +95,11 @@ abstract class AbstractCodecProcessor(
 
         generateSequence(cause, Throwable::cause).forEach {
             bodyData(EventUtils.createMessageBean(it.message))
+        }
+
+        if (body.isNotEmpty()) {
+            bodyData(EventUtils.createMessageBean("Information:"))
+            body.forEach { bodyData(EventUtils.createMessageBean(it)) }
         }
     }
 }

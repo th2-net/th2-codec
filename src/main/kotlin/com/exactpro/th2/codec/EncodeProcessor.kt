@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.checkAgainstProtocols
@@ -60,7 +61,10 @@ class EncodeProcessor(
                     continue
                 }
 
-                val encodedGroup = codec.encode(messageGroup)
+                val context = ReportingContext()
+                val encodedGroup = codec.encode(messageGroup, context)
+
+                parentEventId.reportWarnings(context, "encoding")
 
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
                     parentEventId.onEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
