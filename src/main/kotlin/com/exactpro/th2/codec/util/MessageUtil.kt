@@ -19,14 +19,16 @@ package com.exactpro.th2.codec.util
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
+import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.RawMessage
 
 val MessageGroup.parentEventId: String?
     get() = messagesList.firstNotNullOfOrNull { anyMessage ->
         when {
-            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
-            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
+            anyMessage.hasMessage() -> anyMessage.message.parentEventIdOrNull
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventIdOrNull
             else -> null
         }
     }
@@ -34,8 +36,8 @@ val MessageGroup.parentEventId: String?
 val MessageGroup.allParentEventIds: Set<String?>
     get() = messagesList.mapTo(HashSet()) { anyMessage ->
         when {
-            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
-            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
+            anyMessage.hasMessage() -> anyMessage.message.parentEventIdOrNull
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventIdOrNull
             else -> null
         }
     }
@@ -61,3 +63,11 @@ val MessageGroup.messageIds: List<MessageID>
             else -> error("Unknown message kind: $kind")
         }
     }
+
+//TODO: Move to common utils
+val RawMessage.parentEventIdOrNull
+    get() = this.parentEventId.id.ifEmpty { null }
+
+//TODO: Move to common utils
+val Message.parentEventIdOrNull
+    get() = this.parentEventId.id.ifEmpty { null }
