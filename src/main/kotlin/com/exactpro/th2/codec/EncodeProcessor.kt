@@ -19,7 +19,6 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
-import com.exactpro.th2.codec.util.checkAgainstProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
@@ -50,7 +49,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventId = messageGroup.allParentEventIds
+            val parentEventIds = messageGroup.allParentEventIds
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
@@ -62,12 +61,12 @@ class EncodeProcessor(
                 val encodedGroup = codec.encode(messageGroup)
 
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventId.onEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
+                    parentEventIds.forEachEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
             } catch (throwable: Throwable) {
-                parentEventId.onErrorEvent("Failed to encode message group", messageGroup.messageIds, throwable)
+                parentEventIds.forEachErrorEvent("Failed to encode message group", messageGroup.messageIds, throwable)
             }
 
         }

@@ -32,34 +32,51 @@ abstract class AbstractCodecProcessor(
 ) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
 
-    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = null.onEvent(message, messagesIds)
+    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()): Event = null.onEvent(message, messagesIds)
 
-    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
+    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null): Event = null.onErrorEvent(message, messagesIds, cause)
 
-    protected fun String?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
+    protected fun String?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()): Event {
         logger.warn(message)
-        onEvent(createEvent(message, messagesIds), this)
+        val event = createEvent(message, messagesIds)
+        onEvent(event, this)
+        return event
     }
 
-    protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
+    protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null): Event {
         logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ") {
             "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }}" }
-        onEvent(createEvent(message, messagesIds, FAILED, cause), this)
+        val event = createEvent(message, messagesIds, FAILED, cause)
+        onEvent(event, this)
+        return event
     }
 
-    protected fun Set<String>.onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = when (isEmpty()) {
-        true -> null.onEvent(message, messagesIds)
-        false -> forEach {
-            it.onEvent(message, messagesIds)
+    /**
+     * Use only if eventId not needed
+     */
+    protected fun Set<String?>.forEachEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
+        when (isEmpty()) {
+            true -> null.onEvent(message, messagesIds)
+            false -> forEach {
+                it.onEvent(message, messagesIds)
+            }
         }
     }
 
-    protected fun Set<String>.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = when (isEmpty()) {
-        true -> null.onErrorEvent(message, messagesIds, cause)
-        false -> forEach {
-            it.onErrorEvent(message, messagesIds, cause)
+    protected fun Set<String?>.forEachErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
+        when (isEmpty()) {
+            true -> null.onErrorEvent(message, messagesIds, cause)
+            false -> map {
+                it.onErrorEvent(message, messagesIds, cause)
+            }
         }
+    }
+
+    protected fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
+        incomingProtocols.none { it.isBlank() || it in this }  -> false
+        incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
+        else -> true
     }
 
     private fun createEvent(
