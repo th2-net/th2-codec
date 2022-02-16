@@ -18,9 +18,11 @@ import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.common.schema.message.storeEvent
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
+import io.grpc.Server
 import mu.KotlinLogging
 import java.time.LocalDateTime
 import java.util.Deque
@@ -84,9 +86,11 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
-            val grpcRouter = commonFactory.grpcRouter
+            val grpcRouter: GrpcRouter = commonFactory.grpcRouter
             val grpcService = GrpcCodecService(grpcRouter)
-            grpcRouter.startServer(grpcService)
+            val server: Server = grpcRouter.startServer(grpcService)
+            server.start()
+            logger.info { "gRPC codec service started on port ${server.port}" }
 
             createCodec("decoder") {
                 SyncDecoder(messageRouter, eventRouter, grpcService, DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
