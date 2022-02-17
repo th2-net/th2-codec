@@ -13,8 +13,6 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.codec.configuration.Configuration
-import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
@@ -30,7 +28,6 @@ import java.util.concurrent.TimeoutException
 abstract class AbstractSyncCodec(
     private val messageRouter: MessageRouter<MessageGroupBatch>,
     private val eventRouter: MessageRouter<EventBatch>,
-    private val grpcService: GrpcCodecService,
     private val processor: AbstractCodecProcessor,
     private val codecRootEvent: String
 ) : AutoCloseable, MessageListener<MessageGroupBatch> {
@@ -48,11 +45,6 @@ abstract class AbstractSyncCodec(
                 else -> throw DecodeException("could not start decoder", exception)
             }
         }
-
-        when (sourceAttributes) {
-            Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE -> grpcService.generalDecoderListener = this::grpcHandler
-            Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE -> grpcService.generalEncoderListener = this::grpcHandler
-        }
     }
 
     override fun close() {}
@@ -63,7 +55,7 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    private fun grpcHandler(message: MessageGroupBatch) = handleMessage(message) ?: message
+    fun grpcHandler(message: MessageGroupBatch) = handleMessage(message) ?: message
 
     private fun handleMessage(message: MessageGroupBatch): MessageGroupBatch? {
         var protoResult: MessageGroupBatch? = null

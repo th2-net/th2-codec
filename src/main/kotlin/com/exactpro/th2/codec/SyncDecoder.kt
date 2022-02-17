@@ -13,7 +13,6 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
@@ -21,13 +20,11 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 class SyncDecoder(
     messageRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
-    grpcService: GrpcCodecService,
     processor: AbstractCodecProcessor,
     codecRootID: String
 ) : AbstractSyncCodec(
     messageRouter,
     eventRouter,
-    grpcService,
     processor,
     codecRootID
 ) {

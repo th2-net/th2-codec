@@ -13,14 +13,17 @@
 
 package com.exactpro.th2.codec.grpc
 
-import com.exactpro.th2.codec.DecodeException
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 
-class GrpcCodecService(grpcRouter: GrpcRouter) : CodecGrpc.CodecImplBase() {
+class GrpcCodecService(
+    grpcRouter: GrpcRouter,
+    private val generalDecodeFunc: ((MessageGroupBatch) -> MessageGroupBatch),
+    private val generalEncodeFunc: ((MessageGroupBatch) -> MessageGroupBatch)
+) : CodecGrpc.CodecImplBase() {
 
     private val nextCodec = try {
         grpcRouter.getService(AsyncCodecService::class.java)
@@ -28,45 +31,46 @@ class GrpcCodecService(grpcRouter: GrpcRouter) : CodecGrpc.CodecImplBase() {
         null
     }
 
-    var generalDecoderListener: ((MessageGroupBatch) -> MessageGroupBatch)? = null
-    var generalEncoderListener: ((MessageGroupBatch) -> MessageGroupBatch)? = null
-
     override fun decode(message: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
-        val decode = generalDecoderListener ?: return super.decode(message, responseObserver)
-        val nextRecode = if (nextCodec == null) null else nextCodec::decode
-        recode(message, decode, responseObserver, nextRecode, AnyMessage::hasRawMessage)
+        try {
+            val parsed = generalDecodeFunc(message)
+            if (nextCodec != null && parsed.anyMessage(AnyMessage::hasRawMessage) ) {
+                nextCodec.decode(parsed, responseObserver)
+            } else {
+                responseObserver.onNext(parsed)
+                responseObserver.onCompleted()
+            }
+        } catch (t: Throwable) {
+            LOGGER.error(t) { "'decode' rpc call exception" }
+            responseObserver.onError(t)
+        }
     }
 
     override fun encode(message: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
-        val encode = generalEncoderListener ?: return super.decode(message, responseObserver)
-        val nextRecode = if (nextCodec == null) null else nextCodec::decode // TODO: encode
-        recode(message, encode, responseObserver, nextRecode,  AnyMessage::hasMessage)
+        val nextCodecObserver = object : StreamObserver<MessageGroupBatch> {
+            override fun onNext(value: MessageGroupBatch) {
+                val raw = generalEncodeFunc(value)
+                responseObserver.onNext(raw)
+            }
+            override fun onError(t: Throwable) = responseObserver.onError(t)
+            override fun onCompleted() = responseObserver.onCompleted()
+        }
+
+        try {
+            if (nextCodec != null && message.anyMessage(AnyMessage::hasMessage) ) {
+                nextCodec.encode(message, nextCodecObserver)
+            } else {
+                nextCodecObserver.onNext(message)
+                nextCodecObserver.onCompleted()
+            }
+        } catch (t: Throwable) {
+            LOGGER.error(t) { "'encode' rpc call exception" }
+            responseObserver.onError(t)
+        }
     }
 
     private fun MessageGroupBatch.anyMessage(predicate: (AnyMessage) -> Boolean) =
         groupsList.asSequence().flatMap { it.messagesList }.any(predicate)
-
-    private fun recode(
-        message: MessageGroupBatch,
-        recodeFunction: (MessageGroupBatch) -> MessageGroupBatch,
-        responseObserver: StreamObserver<MessageGroupBatch>,
-        nextRecode: ((MessageGroupBatch, StreamObserver<MessageGroupBatch>) -> Unit)?,
-        needToBeRecoded: (AnyMessage) -> Boolean
-    ) {
-        runCatching {
-            recodeFunction(message)
-        }
-            .onSuccess {
-                if (nextRecode != null && it.anyMessage(needToBeRecoded) ) {
-                    nextRecode(it, responseObserver)
-                }
-
-                responseObserver.onNext(it)
-                responseObserver.onCompleted()
-            }.onFailure {
-                responseObserver.onError(DecodeException(it))
-            }
-    }
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}

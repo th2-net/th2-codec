@@ -86,26 +86,26 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
-            val grpcRouter: GrpcRouter = commonFactory.grpcRouter
-            val grpcService = GrpcCodecService(grpcRouter)
-            val server: Server = grpcRouter.startServer(grpcService)
-            server.start()
-            logger.info { "gRPC codec service started on port ${server.port}" }
-
             createCodec("decoder") {
-                SyncDecoder(messageRouter, eventRouter, grpcService, DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
+                SyncDecoder(messageRouter, eventRouter, DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
                     start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
                 }
             }
 
             createCodec("encoder") {
-                SyncEncoder(messageRouter, eventRouter, grpcService, EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
+                SyncEncoder(messageRouter, eventRouter, EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
                 }
             }
 
-            createGeneralDecoder(applicationContext, rootEventId, onEvent, grpcService)
-            createGeneralEncoder(applicationContext, rootEventId, onEvent, grpcService)
+            val decodeHandler = createGeneralDecoder(applicationContext, rootEventId, onEvent)::grpcHandler
+            val encodeHandler = createGeneralEncoder(applicationContext, rootEventId, onEvent)::grpcHandler
+
+            val grpcRouter: GrpcRouter = commonFactory.grpcRouter
+            val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler)
+            val server: Server = grpcRouter.startServer(grpcService)
+            server.start()
+            logger.info { "gRPC codec service started on port ${server.port}" }
 
             logger.info { "codec started" }
         } catch (exception: Exception) {
@@ -118,55 +118,39 @@ class CodecCommand : CliktCommand() {
         context: ApplicationContext,
         rootEventId: String,
         onEvent: (event: Event, parentId: String?) -> Unit,
-        grpcService: GrpcCodecService
-    ) {
-        val commonFactory = context.commonFactory
-
-        createCodec("general-encoder") {
+    ) = createCodec("general-encoder") {
             SyncEncoder(
-                commonFactory.messageRouterMessageGroupBatch,
-                commonFactory.eventBatchRouter,
-                grpcService,
+                context.commonFactory.messageRouterMessageGroupBatch,
+                context.commonFactory.eventBatchRouter,
                 EncodeProcessor(context.codec, context.protocols, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
             }
         }
-    }
 
     private fun createGeneralDecoder(
         context: ApplicationContext,
         rootEventId: String,
         onEvent: (event: Event, parentId: String?) -> Unit,
-        grpcService: GrpcCodecService
-    ) {
-        val commonFactory = context.commonFactory
-
-        createCodec("general-decoder") {
-            SyncDecoder(
-                commonFactory.messageRouterMessageGroupBatch,
-                commonFactory.eventBatchRouter,
-                grpcService,
-                DecodeProcessor(context.codec, context.protocols, onEvent),
-                rootEventId
-            ).apply {
-                start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
-            }
+    ) = createCodec("general-decoder") {
+        SyncDecoder(
+            context.commonFactory.messageRouterMessageGroupBatch,
+            context.commonFactory.eventBatchRouter,
+            DecodeProcessor(context.codec, context.protocols, onEvent),
+            rootEventId
+        ).apply {
+            start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
         }
     }
 
-    private inline fun createCodec(codecName: String, codecFactory: () -> AutoCloseable) {
+    private inline fun createCodec(codecName: String, codecFactory: () -> AbstractSyncCodec) =
         codecFactory().apply {
             resources.add {
                 logger.info { "Closing '$codecName' codec" }
                 close()
             }
+
+            logger.info { "'$codecName' started" }
         }
-
-        logger.info { "'$codecName' started" }
-    }
 }
-
-
-
