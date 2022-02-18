@@ -27,9 +27,9 @@ import com.exactpro.th2.common.value.toValue
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
+const val ERROR_EVENT_ID = "error_event_id"
 
-fun RawMessage.toErrorMessage(protocols: Collection<String>, newParent: EventID?, errorMessage: String) = message().also {
-    it.parentEventId = newParent ?: parentEventId
+fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) = message().also {
 
     val protocol = metadata.protocol.ifBlank {
         when (protocols.size) {
@@ -47,6 +47,7 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, newParent: EventID?
         .build()
 
     it.putFields(ERROR_CONTENT_FIELD, errorMessage.toValue())
+    it.putFields(ERROR_EVENT_ID, errorEventId.toValue())
 }
 
 fun MessageGroup.toErrorGroup(infoMessage: String, protocols: Collection<String>, errorEvents: Map<String?, EventID>, throwable: Throwable?): MessageGroup {
