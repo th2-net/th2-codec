@@ -73,11 +73,8 @@ abstract class AbstractCodecProcessor(
 
     protected fun Set<String>.reportWarnings(context: ReportingContext, action: String, messagesIds: () -> List<MessageID> = { emptyList() }) {
         val warnings = context.warnings
-        if (warnings.isNotEmpty()) {
-            when (warnings.size) {
-                1 -> onEvent("[WARNING] ${warnings.single()} during $action", messagesIds())
-                else -> onEvent("[WARNING] Message $action produced ${warnings.size} warnings", messagesIds(), body = warnings)
-            }
+        warnings.forEach {
+            onEvent("[WARNING] $it - during $action", messagesIds())
         }
     }
 
