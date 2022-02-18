@@ -330,27 +330,23 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
-            Assertions.assertFalse(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
         result.getGroups(0).messagesList[2].message.let {
             Assertions.assertEquals( "test-type", it.messageType)
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
-            Assertions.assertFalse(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasParentEventId())
         }
     }
 
@@ -379,20 +375,17 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
-            Assertions.assertFalse(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
         result.getGroups(0).messagesList[2].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasParentEventId())
         }
 
     }
@@ -424,26 +417,22 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("xml", it.metadata.protocol)
-            Assertions.assertTrue(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasMessage())
         result.getGroups(0).messagesList[1].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("json", it.metadata.protocol)
-            Assertions.assertTrue(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasRawMessage())
         result.getGroups(0).messagesList[2].rawMessage.let {
             Assertions.assertEquals("http", it.metadata.protocol)
-            Assertions.assertFalse(it.hasParentEventId())
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals("[xml, json]", it.metadata.protocol)
-            Assertions.assertTrue(it.hasParentEventId())
         }
 
     }
