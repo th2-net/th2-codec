@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.util.ERROR_CONTENT_FIELD
 import com.exactpro.th2.codec.util.ERROR_EVENT_ID
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage
@@ -333,12 +334,14 @@ class ProcessorTest {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
             Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
@@ -346,6 +349,7 @@ class ProcessorTest {
             Assertions.assertEquals( "test-type", it.messageType)
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
             Assertions.assertFalse(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertFalse(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
@@ -353,6 +357,7 @@ class ProcessorTest {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
     }
 
@@ -382,12 +387,14 @@ class ProcessorTest {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
             Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
@@ -395,6 +402,7 @@ class ProcessorTest {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
     }
@@ -427,6 +435,7 @@ class ProcessorTest {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("xml", it.metadata.protocol)
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasMessage())
@@ -434,18 +443,21 @@ class ProcessorTest {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("json", it.metadata.protocol)
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasRawMessage())
         result.getGroups(0).messagesList[2].rawMessage.let {
             Assertions.assertEquals("http", it.metadata.protocol)
             Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals("[xml, json]", it.metadata.protocol)
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
     }
