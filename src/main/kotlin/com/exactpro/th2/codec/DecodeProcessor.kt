@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.exception.process.DecodeException
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.messageIds
@@ -67,6 +68,8 @@ class DecodeProcessor(
                 }
 
                 messageBatch.addGroups(decodedGroup)
+            }  catch (processException: DecodeException) {
+                //TODO: Exception to events
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
                 val eventIds = parentEventIds.associateWith { messageEventId ->

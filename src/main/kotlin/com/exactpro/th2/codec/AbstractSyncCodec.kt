@@ -13,6 +13,7 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.th2.codec.exception.CodecException
 import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
@@ -41,8 +42,8 @@ abstract class AbstractSyncCodec(
         } catch (exception: Exception) {
             when (exception) {
                 is IOException,
-                is TimeoutException -> throw DecodeException("could not start rabbit mq subscriber", exception)
-                else -> throw DecodeException("could not start decoder", exception)
+                is TimeoutException -> throw CodecException("could not start rabbit mq subscriber", exception)
+                else -> throw CodecException("could not start decoder", exception)
             }
         }
     }
