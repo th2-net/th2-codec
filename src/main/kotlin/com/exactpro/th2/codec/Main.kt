@@ -97,6 +97,7 @@ class CodecCommand : CliktCommand() {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
                 }
             }
+            logger.info { "MQ codec service started" }
 
             val decodeHandler = createGeneralDecoder(applicationContext, rootEventId, onEvent)::grpcHandler
             val encodeHandler = createGeneralEncoder(applicationContext, rootEventId, onEvent)::grpcHandler
@@ -107,7 +108,6 @@ class CodecCommand : CliktCommand() {
             server.start()
             logger.info { "gRPC codec service started on port ${server.port}" }
 
-            logger.info { "codec started" }
         } catch (exception: Exception) {
             logger.error(exception) { "fatal error. Exit the program" }
             exitProcess(1)

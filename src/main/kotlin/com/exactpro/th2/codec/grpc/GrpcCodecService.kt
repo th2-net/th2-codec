@@ -29,6 +29,8 @@ class GrpcCodecService(
         grpcRouter.getService(AsyncCodecService::class.java)
     } catch (t: Throwable) {
         null
+    }.apply {
+        LOGGER.info { "Next codec in pipeline stub: $this" }
     }
 
     override fun decode(message: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
