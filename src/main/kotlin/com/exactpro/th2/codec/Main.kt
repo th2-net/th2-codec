@@ -97,10 +97,11 @@ class CodecCommand : CliktCommand() {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
                 }
             }
-            logger.info { "MQ codec service started" }
 
             val decodeHandler = createGeneralDecoder(applicationContext, rootEventId, onEvent)::grpcHandler
             val encodeHandler = createGeneralEncoder(applicationContext, rootEventId, onEvent)::grpcHandler
+
+            logger.info { "MQ codec service started" }
 
             val grpcRouter: GrpcRouter = commonFactory.grpcRouter
             val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler)
