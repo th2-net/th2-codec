@@ -126,7 +126,7 @@ class CodecCommand : CliktCommand() {
             SyncEncoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                EncodeProcessor(context.codec, context.protocols, false, onEvent),
+                EncodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
@@ -145,7 +145,7 @@ class CodecCommand : CliktCommand() {
             SyncDecoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                DecodeProcessor(context.codec, context.protocols, false, onEvent),
+                DecodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)

@@ -80,9 +80,8 @@ abstract class AbstractCodecProcessor(
         }
     }
 
-    protected fun Set<String>.onEachWarning(context: ReportingContext, action: String, messagesIds: () -> List<MessageID> = { emptyList() }) {
-        val warnings = context.warnings
-        context.warnings.forEach { warning ->
+    protected fun Set<String>.onEachWarning(context: ReportingContext, action: String, messagesIds: () -> List<MessageID> = { emptyList() }) = context.warnings.let { warnings ->
+        warnings.forEach { warning ->
             this.onEachEvent("[WARNING] Message $action produced ${warnings.size} warnings", messagesIds(), body = listOf(warning))
         }
     }
