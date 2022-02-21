@@ -31,7 +31,7 @@ import mu.KotlinLogging
 class DecodeProcessor(
     codec: IPipelineCodec,
     private val protocols: Set<String>,
-    private val useParentEventId: Boolean = true,
+    private val isGeneral: Boolean = false,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -53,7 +53,7 @@ class DecodeProcessor(
             }
 
             val msgProtocols = messageGroup.allRawProtocols
-            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventId = if (isGeneral) emptySet() else messageGroup.allParentEventIds
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
@@ -65,15 +65,15 @@ class DecodeProcessor(
                 val context = ReportingContext()
                 val decodedGroup = codec.decode(messageGroup, context)
 
-                parentEventId.reportWarnings(context, "decoding") { messageGroup.messageIds }
+                parentEventId.onEachWarning(context, "decoding") { messageGroup.messageIds }
 
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
             } catch (throwable: Throwable) {
-                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
+                parentEventId.onEachErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
                 messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
             }
         }

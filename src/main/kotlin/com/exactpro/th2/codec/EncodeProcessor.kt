@@ -30,7 +30,7 @@ import mu.KotlinLogging
 class EncodeProcessor(
     codec: IPipelineCodec,
     private val protocols: Set<String>,
-    private val useParentEventId: Boolean = true,
+    private val isGeneral: Boolean = false,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -52,7 +52,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventId = if (isGeneral) emptySet() else messageGroup.allParentEventIds
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
@@ -64,16 +64,16 @@ class EncodeProcessor(
                 val context = ReportingContext()
                 val encodedGroup = codec.encode(messageGroup, context)
 
-                parentEventId.reportWarnings(context, "encoding")
+                parentEventId.onEachWarning(context, "encoding") { messageGroup.messageIds }
 
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventId.onEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEachEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
             } catch (throwable: Throwable) {
                 // we should not use message IDs because during encoding there is no correct message ID created yet
-                parentEventId.onErrorEvent("Failed to encode message group", cause = throwable)
+                parentEventId.onEachErrorEvent("Failed to encode message group", cause = throwable)
             }
 
         }

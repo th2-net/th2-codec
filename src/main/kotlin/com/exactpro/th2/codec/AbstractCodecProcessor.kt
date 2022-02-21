@@ -53,7 +53,7 @@ abstract class AbstractCodecProcessor(
         onEvent(createEvent(message, messagesIds, FAILED, cause), this)
     }
 
-    protected fun Set<String>.onEvent(
+    protected fun Set<String>.onEachEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
@@ -64,17 +64,28 @@ abstract class AbstractCodecProcessor(
         }
     }
 
-    protected fun Set<String>.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = when (isEmpty()) {
+    protected fun Set<String>.onEachErrorEvent(
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null
+    ) = when (isEmpty()) {
         true -> null.onErrorEvent(message, messagesIds, cause)
         false -> forEach {
             it.onErrorEvent(message, messagesIds, cause)
         }
     }
 
-    protected fun Set<String>.reportWarnings(context: ReportingContext, action: String, messagesIds: () -> List<MessageID> = { emptyList() }) {
-        val warnings = context.warnings
-        warnings.forEach {
-            onEvent("[WARNING] $it - during $action", messagesIds())
+    protected fun Set<String>.onEachWarning(context: ReportingContext, action: String, messagesIds: () -> List<MessageID> = { emptyList() }) {
+        val header = { warning: String -> "[WARNING] $warning - during $action"}
+        return when (isEmpty()) {
+            true -> context.warnings.forEach { warning ->
+                null.onEvent(header(warning), messagesIds())
+            }
+            false -> context.warnings.forEach { warning ->
+                this.forEach { eventId ->
+                    eventId.onEvent(header(warning), messagesIds())
+                }
+            }
         }
     }
 
