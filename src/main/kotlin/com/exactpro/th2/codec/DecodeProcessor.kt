@@ -54,6 +54,7 @@ class DecodeProcessor(
 
             val msgProtocols = messageGroup.allRawProtocols
             val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val context = ReportingContext()
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
@@ -62,20 +63,19 @@ class DecodeProcessor(
                     continue
                 }
 
-                val context = ReportingContext()
                 val decodedGroup = codec.decode(messageGroup, context)
 
-                parentEventId.reportWarnings(context, "decoding") { messageGroup.messageIds }
-
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
             } catch (throwable: Throwable) {
-                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
+                parentEventId.onEachErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
                 messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
             }
+
+            parentEventId.onEachWarning(context, "decoding") { messageGroup.messageIds }
         }
 
         return messageBatch.build().apply {

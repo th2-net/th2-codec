@@ -53,6 +53,7 @@ class EncodeProcessor(
 
             val msgProtocols = messageGroup.allParsedProtocols
             val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val context = ReportingContext()
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
@@ -61,21 +62,19 @@ class EncodeProcessor(
                     continue
                 }
 
-                val context = ReportingContext()
                 val encodedGroup = codec.encode(messageGroup, context)
 
-                parentEventId.reportWarnings(context, "encoding")
-
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventId.onEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEachEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
             } catch (throwable: Throwable) {
                 // we should not use message IDs because during encoding there is no correct message ID created yet
-                parentEventId.onErrorEvent("Failed to encode message group", cause = throwable)
+                parentEventId.onEachErrorEvent("Failed to encode message group", cause = throwable)
             }
 
+            parentEventId.onEachWarning(context, "encoding") { messageGroup.messageIds }
         }
 
         return messageBatch.build().apply {
