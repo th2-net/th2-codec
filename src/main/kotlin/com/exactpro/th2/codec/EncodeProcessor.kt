@@ -30,7 +30,7 @@ import mu.KotlinLogging
 class EncodeProcessor(
     codec: IPipelineCodec,
     private val protocols: Set<String>,
-    private val isGeneral: Boolean = false,
+    private val useParentEventId: Boolean = true,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -52,7 +52,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventId = if (isGeneral) emptySet() else messageGroup.allParentEventIds
+            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
 
             try {
