@@ -19,10 +19,10 @@ package com.exactpro.th2.codec.api
 import com.exactpro.th2.common.grpc.MessageGroup
 
 interface IPipelineCodec : AutoCloseable {
-    fun encode(messageGroup: MessageGroup): MessageGroup
+    fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup) method is not implemented")
     fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
 
-    fun decode(messageGroup: MessageGroup): MessageGroup
+    fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup) method is not implemented")
     fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
     override fun close() {}
 }
