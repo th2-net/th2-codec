@@ -105,8 +105,8 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
-            createGeneralDecoder(applicationContext, rootEventId, onEvent)
-            createGeneralEncoder(applicationContext, rootEventId, onEvent)
+            createGeneralDecoder(applicationContext, rootEventId)
+            createGeneralEncoder(applicationContext, rootEventId)
 
             logger.info { "codec started" }
         } catch (exception: Exception) {
@@ -117,8 +117,7 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralEncoder(
         context: ApplicationContext,
-        rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        rootEventId: String
     ) {
         val commonFactory = context.commonFactory
 
@@ -126,7 +125,7 @@ class CodecCommand : CliktCommand() {
             SyncEncoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                EncodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent),
+                EncodeProcessor(context.codec, context.protocols, useParentEventId = false) { _: Event, _: String? -> },
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
@@ -136,8 +135,7 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralDecoder(
         context: ApplicationContext,
-        rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        rootEventId: String
     ) {
         val commonFactory = context.commonFactory
 
@@ -145,7 +143,7 @@ class CodecCommand : CliktCommand() {
             SyncDecoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                DecodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent),
+                DecodeProcessor(context.codec, context.protocols, useParentEventId = false) { _: Event, _: String? -> },
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
