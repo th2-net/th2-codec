@@ -132,12 +132,3 @@ private fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): 
         .setProtocol(protocol)
         .putAllProperties(metadata.propertiesMap)
 }
-
-fun MessageGroup.toReadableBody(): List<String> = mutableListOf<String>().apply {
-    messagesList.forEach {
-        when {
-            it.hasRawMessage() -> add(it.rawMessage.toJson(false))
-            it.hasMessage() -> add(it.message.toJson(false))
-        }
-    }
-}
