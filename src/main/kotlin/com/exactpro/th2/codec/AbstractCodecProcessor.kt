@@ -43,16 +43,14 @@ abstract class AbstractCodecProcessor(
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
     ) : String {
-        logger.warn(message)
+        logger.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
         val event = createEvent(message, messagesIds, body = body)
         onEvent(event, this)
         return event.id
     }
 
     protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null): String {
-        logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ") {
-            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
-        }}" }
+        logger.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
         val event = createEvent(message, messagesIds, FAILED, cause)
         onEvent(event, this)
         return event.id
@@ -86,12 +84,18 @@ abstract class AbstractCodecProcessor(
         }
     }
 
+    private fun List<MessageID>.joinToReadableString(): String =
+        joinToString(", ") {
+            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
+        }
+
     private fun String.addReferenceTo(eventId: String, name: String, status: Status) {
         onEvent(
             Event
                 .start()
                 .endTimestamp()
                 .name(name)
+                .status(status)
                 .type(if (status != PASSED) "Error" else "Warn")
                 .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
                 .bodyData(ReferenceToEvent(eventId)),
