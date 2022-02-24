@@ -24,10 +24,13 @@ import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.value.toValue
+import mu.KotlinLogging
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 const val ERROR_EVENT_ID = "error_event_id"
+
+private val LOGGER = KotlinLogging.logger {}
 
 fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) = message().also {
 
@@ -46,8 +49,12 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
         .setMessageType(ERROR_TYPE_MESSAGE)
         .build()
 
+    LOGGER.debug { "Setting ${errorEventId.toString().removeSuffix("\n")} to field $ERROR_EVENT_ID" }
+
     it.putFields(ERROR_CONTENT_FIELD, errorMessage.toValue())
     it.putFields(ERROR_EVENT_ID, errorEventId.toValue())
+
+    LOGGER.debug { "Error message after setting $ERROR_CONTENT_FIELD and $ERROR_EVENT_ID fields: $it" }
 }
 
 fun MessageGroup.toErrorGroup(infoMessage: String, protocols: Collection<String>, errorEvents: Map<String?, EventID>, throwable: Throwable?): MessageGroup {
