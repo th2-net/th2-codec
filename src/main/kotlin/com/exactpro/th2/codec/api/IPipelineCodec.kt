@@ -19,11 +19,11 @@ package com.exactpro.th2.codec.api
 import com.exactpro.th2.common.grpc.MessageGroup
 
 interface IPipelineCodec : AutoCloseable {
-    @Deprecated("Deprecated due new functionality", ReplaceWith("encode(MessageGroup, IReportingContext)"))
+    @Deprecated("Deprecated due new functionality", ReplaceWith("encode(messageGroup, context)"))
     fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup) method is not implemented")
     fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
 
-    @Deprecated("Deprecated due new functionality", ReplaceWith("decode(MessageGroup, IReportingContext)"))
+    @Deprecated("Deprecated due new functionality", ReplaceWith("decode(messageGroup, context)"))
     fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup) method is not implemented")
     fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
     override fun close() {}
