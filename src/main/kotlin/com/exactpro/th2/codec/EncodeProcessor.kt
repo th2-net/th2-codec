@@ -72,10 +72,14 @@ class EncodeProcessor(
                 messageBatch.addGroups(encodedGroup)
             } catch (throwable: Throwable) {
                 // we should not use message IDs because during encoding there is no correct message ID created yet
-                parentEventId.onEachErrorEvent("Failed to encode message group", cause = throwable)
+                parentEventId.onEachErrorEvent(
+                    "Failed to encode message group", cause = throwable,
+                    additionalBody = messageGroup.toReadableBody(false)
+                )
             }
 
-            parentEventId.onEachWarning(context, "encoding", additionalBody = {messageGroup.toReadableBody()})
+            parentEventId.onEachWarning(context, "encoding",
+                additionalBody = { messageGroup.toReadableBody(false) })
         }
 
         return messageBatch.build().apply {
@@ -86,11 +90,11 @@ class EncodeProcessor(
     }
 
 
-    private fun MessageGroup.toReadableBody(): List<String> = mutableListOf<String>().apply {
+    private fun MessageGroup.toReadableBody(shortFormat: Boolean): List<String> = mutableListOf<String>().apply {
         messagesList.forEach {
             when {
-                it.hasRawMessage() -> add(it.rawMessage.toJson(false))
-                it.hasMessage() -> add(it.message.toJson(false))
+                it.hasRawMessage() -> add(it.rawMessage.toJson(shortFormat))
+                it.hasMessage() -> add(it.message.toJson(shortFormat))
             }
         }
     }

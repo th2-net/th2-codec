@@ -49,9 +49,14 @@ abstract class AbstractCodecProcessor(
         return event.id
     }
 
-    protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null): String {
+    protected fun String?.onErrorEvent(
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null,
+        additionalBody: List<String> = emptyList()
+    ): String {
         logger.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        val event = createEvent(message, messagesIds, FAILED, cause)
+        val event = createEvent(message, messagesIds, FAILED, cause, additionalBody)
         onEvent(event, this)
         return event.id
     }
@@ -70,9 +75,10 @@ abstract class AbstractCodecProcessor(
     protected fun Set<String>.onEachErrorEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null
+        cause: Throwable? = null,
+        additionalBody: List<String> = emptyList(),
     ) {
-        val errorEventId = null.onErrorEvent(message, messagesIds, cause)
+        val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
         forEach {
             it.addReferenceTo(errorEventId, message, FAILED)
         }
