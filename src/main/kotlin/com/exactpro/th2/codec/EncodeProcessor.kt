@@ -83,8 +83,8 @@ class EncodeProcessor(
         }
 
         return messageBatch.build().apply {
-            if (source.groupsCount > groupsCount) {
-                onEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
+            if (source.groupsCount != groupsCount) {
+                onEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
     }

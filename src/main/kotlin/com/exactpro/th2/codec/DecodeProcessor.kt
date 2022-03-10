@@ -79,8 +79,8 @@ class DecodeProcessor(
         }
 
         return messageBatch.build().apply {
-            if (source.groupsCount > groupsCount) {
-                onErrorEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
+            if (source.groupsCount != groupsCount) {
+                onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
     }
