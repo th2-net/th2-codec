@@ -2,6 +2,15 @@
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
+# What is the codec?
+
+The codec in th2 is a component that is responsible for transforming messages from human-readable format
+into a format of the corresponding protocol and vise verse.
+It contains the main logic for encoding messages for sending to the system and decoding messages received from the system.
+
+Several codecs can be joined into a chain of codecs to reuse already implemented codecs. For example, you have **HTTP**, **JSON** and **XML** codec.
+You can join them together for decoding **XML** over **HTTP** or **JSON** over **HTTP**
+
 # Usage:
 
 To implement a codec using this library you need to:
@@ -112,6 +121,9 @@ spec:
 
 ## Required pins
 
+Pins are the part of the main th2 concept. They describe what are the inputs and output of the box.
+You can read more about them [here](https://github.com/th2-net/th2-documentation/wiki/infra:-Theory-of-Pins-and-Links#pins).
+
 Every type of connection has two `subscribe` and `publish` pins.
 The first one is used to receive messages to decode/encode while the second one is used to send decoded/encoded messages further.
 **Configuration should include at least one pin for each of the following sets of attributes:**
@@ -126,6 +138,11 @@ The first one is used to receive messages to decode/encode while the second one 
 
 ### Configuration example
 
+This configuration is a general way for deploying components in th2.
+It contains the box configuration, pins' descriptions and other common parameters for a box.
+
+Here is an example of configuration for component based on th2-codec:
+
 ```yaml
 apiVersion: th2.exactpro.com/v1
 kind: Th2Box
@@ -134,7 +151,10 @@ metadata:
 spec:
   custom-config:
     codecSettings:
-    # 
+      parameter1: value
+      parameter2:
+        - value1
+        - value2
   pins:
     # encoder
     - name: in_codec_encode
