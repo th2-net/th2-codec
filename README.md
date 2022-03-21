@@ -6,12 +6,20 @@ This is a common codec library which takes care of some boilerplate stuff like s
 
 The codec in th2 is a component that is responsible for transforming messages from human-readable format
 into a format of the corresponding protocol and vise verse.
-It contains the main logic for encoding messages for sending to the system and decoding messages received from the system.
+It contains the main logic for encoding messages for sending them to the system and decoding messages received from the system.
+
+The codec communicates with other components by sending batches with groups of parsed or/and raw messages.
+During encoding, it transforms messages to a format of the corresponding protocol.
+During decoding, it takes all raw messages that correspond to the codec protocol and transform according to its rules.
 
 Several codecs can be joined into a chain of codecs to reuse already implemented codecs. For example, you have **HTTP**, **JSON** and **XML** codec.
-You can join them together for decoding **XML** over **HTTP** or **JSON** over **HTTP**
+You can join them together for decoding **XML** over **HTTP** or **JSON** over **HTTP**.
 
-# Usage:
+Here is a schema that illustrates the common place of the th2-codec component in th2.
+
+![](doc/img/codec-place-in-th2.svg "Place of th2-codec in th2 schema")
+
+# How to create your own codec?
 
 To implement a codec using this library you need to:
 
@@ -207,7 +215,7 @@ spec:
     # decoder
     - name: out_codec_decode_first_session_alias
       connection-type: mq
-      attributes: ['decoder_out', 'parsed', 'publish', 'first_session_alias']
+      attributes: ['decoder_out', 'parsed', 'publish']
       filters:
         - metadata:
             - field-name: session_alias
@@ -215,7 +223,7 @@ spec:
               operation: EQUAL
     - name: out_codec_decode_secon_session_alias
       connection-type: mq
-      attributes: ['decoder_out', 'parsed', 'publish', 'second_session_alias']
+      attributes: ['decoder_out', 'parsed', 'publish']
       filters:
         - metadata:
             - field-name: session_alias
@@ -233,14 +241,16 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 * Errors and warnings during encoding does not have message IDs attached because they are not correct yet
 
+#### Added:
+
+* Codec can report warnings during decoding and encoding message groups
+
 #### Changed:
 
 * Root codec event's name now uses box name
 * The general encode/decode does not use `parentEventId` from messages when reporting errors and warnings
-
-#### Added:
-
-* Codec can report warnings during decoding and encoding message groups
+* The error/warning events are now attached to the root codec event.
+The error/warning event is attached to the event that is specified in `parentEventId` as reference to the event in codec root.
 
 ### v4.5.0
 
