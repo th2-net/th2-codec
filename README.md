@@ -49,8 +49,11 @@ To implement a codec using this library you need to:
 4. implement the codec itself by implementing [`IPipelineCodec`](https://github.com/th2-net/th2-codec/blob/2707a2755038d49110f6f7eb3e3aeb6188ae0c99/src/main/kotlin/com/exactpro/th2/codec/api/IPipelineCodec.kt#L21) interface:
     ```kotlin
     interface IPipelineCodec : AutoCloseable {
-        fun encode(messageGroup: MessageGroup): MessageGroup
-        fun decode(messageGroup: MessageGroup): MessageGroup
+        fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup) method is not implemented")
+        fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
+
+        fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup) method is not implemented")
+        fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
         override fun close() {}
     }
     ```
@@ -59,7 +62,7 @@ To implement a codec using this library you need to:
 
     ```kotlin
     interface IPipelineCodecFactory : AutoCloseable {
-        val protocols: List<String>
+        val protocols: Set<String>
         val settingsClass: Class<out IPipelineCodecSettings>
         fun init(dictionary: InputStream): Unit = TODO("not implemented")
         fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
