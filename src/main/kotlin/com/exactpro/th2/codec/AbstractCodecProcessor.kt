@@ -84,7 +84,12 @@ abstract class AbstractCodecProcessor(
         }
     }
 
-    protected fun Set<String>.onEachWarning(context: ReportingContext, action: String, additionalBody: () -> List<String> = { emptyList() }, messagesIds: () -> List<MessageID> = { emptyList() }) = context.warnings.let { warnings ->
+    protected fun Set<String>.onEachWarning(
+        context: ReportingContext,
+        action: String,
+        additionalBody: () -> List<String> = ::emptyList,
+        messagesIds: () -> List<MessageID> = ::emptyList
+    ) = context.warnings.let { warnings ->
         if (warnings.isNotEmpty()) {
             val messages = messagesIds()
             val body = additionalBody()
@@ -101,8 +106,7 @@ abstract class AbstractCodecProcessor(
 
     private fun String.addReferenceTo(eventId: String, name: String, status: Status) {
         onEvent(
-            Event
-                .start()
+            Event.start()
                 .endTimestamp()
                 .name(name)
                 .status(status)

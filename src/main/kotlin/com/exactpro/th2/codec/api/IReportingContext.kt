@@ -18,5 +18,5 @@ package com.exactpro.th2.codec.api
 
 interface IReportingContext {
     fun warning(message: String)
-    fun warnings(messages: Collection<String>)
+    fun warnings(messages: Iterable<String>)
 }

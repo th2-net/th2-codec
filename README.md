@@ -6,7 +6,7 @@ This is a common codec library which takes care of some boilerplate stuff like s
 
 The codec in th2 is a component that is responsible for transforming messages from human-readable format
 into a format of a corresponding protocol and vice versa.
-It contains the main logic for encoding messages for sending them to the system and decoding messages received from the system.
+It contains the main logic for encoding and decoding messages.
 
 The codec communicates with other components by sending batches with groups of parsed or/and raw messages.
 During encoding, it transforms messages to the corresponding protocol format.
@@ -242,7 +242,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 #### Fixed:
 
-* Errors and warnings during encoding does not have message IDs attached because they are not correct yet
+* Errors and warnings during encoding does not have message IDs attached because the IDs are not correct yet
 
 #### Added:
 
