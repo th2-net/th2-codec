@@ -2,15 +2,15 @@
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
-# What is the codec?
+# What is a codec?
 
 The codec in th2 is a component that is responsible for transforming messages from human-readable format
-into a format of the corresponding protocol and vise verse.
+into a format of a corresponding protocol and vice versa.
 It contains the main logic for encoding messages for sending them to the system and decoding messages received from the system.
 
 The codec communicates with other components by sending batches with groups of parsed or/and raw messages.
-During encoding, it transforms messages to a format of the corresponding protocol.
-During decoding, it takes all raw messages that correspond to the codec protocol and transform according to its rules.
+During encoding, it transforms messages to the corresponding protocol format.
+During decoding, it takes all raw messages that correspond to the codec protocol and transforms them according to its rules.
 
 Several codecs can be joined into a chain of codecs to reuse already implemented codecs. For example, you have **HTTP**, **JSON** and **XML** codec.
 You can join them together for decoding **XML** over **HTTP** or **JSON** over **HTTP**.
@@ -132,7 +132,7 @@ spec:
 
 ## Required pins
 
-Pins are the part of the main th2 concept. They describe what are the inputs and output of the box.
+Pins are a part of the main th2 concept. They describe what are the inputs and outputs of a box.
 You can read more about them [here](https://github.com/th2-net/th2-documentation/wiki/infra:-Theory-of-Pins-and-Links#pins).
 
 Every type of connection has two `subscribe` and `publish` pins.
@@ -150,7 +150,7 @@ The first one is used to receive messages to decode/encode while the second one 
 ### Configuration example
 
 This configuration is a general way for deploying components in th2.
-It contains the box configuration, pins' descriptions and other common parameters for a box.
+It contains box configuration, pins' descriptions and other common parameters for a box.
 
 Here is an example of configuration for component based on th2-codec:
 
@@ -253,7 +253,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 * Root codec event's name now uses box name
 * The general encode/decode does not use `parentEventId` from messages when reporting errors and warnings
 * The error/warning events are now attached to the root codec event.
-The error/warning event is attached to the event that is specified in `parentEventId` as reference to the event in codec root.
+* The error/warning event is attached to the event that is specified in `parentEventId` as a reference to an event in codec root.
 
 ### v4.5.0
 
