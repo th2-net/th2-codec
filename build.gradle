@@ -57,8 +57,8 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:3.1.0')
 
-    implementation 'com.exactpro.th2:common:3.33.0'
-    implementation 'com.exactpro.th2:grpc-codec:0.0.3-th2-1646-1849469821-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:3.34.0-TH2-3340-2031719515-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-codec:0.0.4-TH2-3340-1998223634-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.21'
 

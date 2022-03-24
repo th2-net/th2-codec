@@ -33,11 +33,15 @@ class GrpcCodecService(
         LOGGER.info { "Next codec in pipeline stub: $this" }
     }
 
+    private fun getSessionAlias(message: MessageGroupBatch) = message.groupsList
+        .first().messagesList
+        .first().rawMessage.metadata.id.connectionId.sessionAlias
+
     override fun decode(message: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
         try {
             val parsed = generalDecodeFunc(message)
             if (nextCodec != null && parsed.anyMessage(AnyMessage::hasRawMessage) ) {
-                nextCodec.decode(parsed, responseObserver)
+                nextCodec.decode(parsed, mapOf("session-alias" to getSessionAlias(parsed)), responseObserver)
             } else {
                 responseObserver.onNext(parsed)
                 responseObserver.onCompleted()
@@ -60,7 +64,7 @@ class GrpcCodecService(
 
         try {
             if (nextCodec != null && message.anyMessage(AnyMessage::hasMessage) ) {
-                nextCodec.encode(message, nextCodecObserver)
+                nextCodec.encode(message, mapOf("session-alias" to getSessionAlias(message)), nextCodecObserver)
             } else {
                 nextCodecObserver.onNext(message)
                 nextCodecObserver.onCompleted()
