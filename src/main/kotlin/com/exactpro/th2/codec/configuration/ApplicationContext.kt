@@ -40,6 +40,11 @@ class ApplicationContext(
                 throw IllegalStateException("Failed to load codec factory", it)
             }
 
+            runCatching { factory.create(configuration.codecSettings)
+            }.onFailure {
+                throw IllegalStateException("Failed to create codec instance", it)
+            }
+
             return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
         }
     }
