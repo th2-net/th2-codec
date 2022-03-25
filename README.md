@@ -242,7 +242,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 #### Fixed:
 
-* Codec continued to work without implementation
+* Codec continued to work when implementation instance cannot be created
 
 ### v4.6.0
 
