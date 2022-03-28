@@ -22,8 +22,8 @@ import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.common.event.Event
-import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
@@ -70,11 +70,7 @@ class DecodeProcessor(
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
                 val eventIds = parentEventIds.associateWith { messageEventId ->
-                    messageEventId.onErrorEvent(header, messageGroup.messageIds, throwable).id.let { errorEventId ->
-                        checkNotNull(EventUtils.toEventID(errorEventId)) {
-                            "Failed to create EventID from $errorEventId"
-                        }
-                    }
+                    messageEventId.onErrorEvent(header, messageGroup.messageIds, throwable).id.run((EventID.newBuilder()::setId)).build()
                 }
 
                 messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, eventIds, throwable))
