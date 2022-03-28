@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.checkAgainstProtocols
@@ -30,6 +31,7 @@ import mu.KotlinLogging
 class DecodeProcessor(
     codec: IPipelineCodec,
     private val protocols: Set<String>,
+    private val useParentEventId: Boolean = true,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -51,7 +53,8 @@ class DecodeProcessor(
             }
 
             val msgProtocols = messageGroup.allRawProtocols
-            val parentEventId = messageGroup.allParentEventIds
+            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val context = ReportingContext()
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
@@ -60,22 +63,24 @@ class DecodeProcessor(
                     continue
                 }
 
-                val decodedGroup = codec.decode(messageGroup)
+                val decodedGroup = codec.decode(messageGroup, context)
 
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+                    parentEventId.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
             } catch (throwable: Throwable) {
-                parentEventId.onErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
+                parentEventId.onEachErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
                 messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
             }
+
+            parentEventId.onEachWarning(context, "decoding") { messageGroup.messageIds }
         }
 
         return messageBatch.build().apply {
-            if (source.groupsCount > groupsCount) {
-                onErrorEvent("Size out the output batch ($groupsCount) is smaller than of the input one (${source.groupsCount})")
+            if (source.groupsCount != groupsCount) {
+                onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
     }
