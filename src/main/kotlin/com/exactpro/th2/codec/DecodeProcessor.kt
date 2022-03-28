@@ -70,7 +70,7 @@ class DecodeProcessor(
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
                 val eventIds = parentEventIds.associateWith { messageEventId ->
-                    messageEventId.onErrorEvent(header, messageGroup.messageIds, throwable).id.run((EventID.newBuilder()::setId)).build()
+                    messageEventId.onErrorEvent(header, messageGroup.messageIds, throwable).id.run(EventID.newBuilder()::setId).build()
                 }
 
                 messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, eventIds, throwable))
