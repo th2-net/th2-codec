@@ -16,14 +16,13 @@
 
 package com.exactpro.th2.codec.util
 
-import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
-import com.exactpro.th2.common.value.toValue
+import com.exactpro.th2.common.message.set
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
@@ -31,12 +30,7 @@ const val ERROR_EVENT_ID = "error_event_id"
 
 fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) = message().also {
 
-    val protocol = metadata.protocol.ifBlank {
-        when (protocols.size) {
-            1 -> protocols.first()
-            else -> protocols.toString()
-        }
-    }
+    val protocol = metadata.protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString()
 
     it.metadata = MessageMetadata.newBuilder()
         .setId(metadata.id)
@@ -46,14 +40,14 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
         .setMessageType(ERROR_TYPE_MESSAGE)
         .build()
 
-    it.putFields(ERROR_CONTENT_FIELD, errorMessage.toValue())
-    it.putFields(ERROR_EVENT_ID, errorEventId.toValue())
+    it[ERROR_CONTENT_FIELD] = errorMessage
+    it[ERROR_EVENT_ID] = errorEventId
 }
 
 fun MessageGroup.toErrorGroup(infoMessage: String, protocols: Collection<String>, errorEvents: Map<String?, EventID>, throwable: Throwable?): MessageGroup {
     val content = buildString {
-        append(infoMessage)
-        appendLine("Error for messages: [${messageIds.joinToString(", ") { it.toDebugString() }}] with protocols: [${protocols.joinToString(", ")}]}")
+        appendLine("Error: $infoMessage")
+        appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
         appendLine("Due to the following errors: ")
 
         generateSequence(throwable, Throwable::cause).forEachIndexed { index, cause ->
@@ -63,7 +57,7 @@ fun MessageGroup.toErrorGroup(infoMessage: String, protocols: Collection<String>
 
     return MessageGroup.newBuilder().also { result ->
         for (anyMessage in this.messagesList) {
-            if (anyMessage.kindCase == AnyMessage.KindCase.RAW_MESSAGE && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols }) {
+            if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols }) {
                 result += anyMessage.rawMessage.let { rawMessage ->
                     val eventID = checkNotNull(errorEvents[rawMessage.parentEventIdOrNull]) {
                         "No error event was found for message: ${rawMessage.metadata.id.sequence}"

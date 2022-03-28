@@ -340,8 +340,6 @@ class ProcessorTest {
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
-            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
