@@ -15,6 +15,7 @@ package com.exactpro.th2.codec.grpc
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
@@ -41,7 +42,7 @@ class GrpcCodecService(
         try {
             val parsed = generalDecodeFunc(message)
             if (nextCodec != null && parsed.anyMessage(AnyMessage::hasRawMessage) ) {
-                nextCodec.decode(parsed, mapOf("session-alias" to getSessionAlias(parsed)), responseObserver)
+                nextCodec.decode(parsed, mapOf(SESSION_ALIAS_LABEL to getSessionAlias(parsed)), responseObserver)
             } else {
                 responseObserver.onNext(parsed)
                 responseObserver.onCompleted()
@@ -64,7 +65,7 @@ class GrpcCodecService(
 
         try {
             if (nextCodec != null && message.anyMessage(AnyMessage::hasMessage) ) {
-                nextCodec.encode(message, mapOf("session-alias" to getSessionAlias(message)), nextCodecObserver)
+                nextCodec.encode(message, mapOf(SESSION_ALIAS_LABEL to getSessionAlias(message)), nextCodecObserver)
             } else {
                 nextCodecObserver.onNext(message)
                 nextCodecObserver.onCompleted()
