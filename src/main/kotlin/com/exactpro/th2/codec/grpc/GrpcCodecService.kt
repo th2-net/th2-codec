@@ -34,9 +34,11 @@ class GrpcCodecService(
         LOGGER.info { "Next codec in pipeline stub: $this" }
     }
 
-    private fun getSessionAlias(message: MessageGroupBatch) = message.groupsList
-        .first().messagesList
-        .first().rawMessage.metadata.id.connectionId.sessionAlias
+    private fun getSessionAlias(message: MessageGroupBatch) = message
+        .groupsList.first()
+        .messagesList.first()
+        .run { if (hasMessage()) this.message.metadata.id else rawMessage.metadata.id }
+        .connectionId.sessionAlias
 
     override fun decode(message: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
         try {
