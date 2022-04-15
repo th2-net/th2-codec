@@ -70,6 +70,11 @@ class DecodeProcessor(
                 }
 
                 messageBatch.addGroups(decodedGroup)
+            } catch (e: ValidateException) {
+                parentEventId.onEachErrorEvent(
+                    "Failed to decode message group due to a message with type:" +
+                            " ${e.msgType}, tag: ${e.tag}, scenario ${e.scenario}", messageGroup.messageIds, e
+                )
             } catch (throwable: Throwable) {
                 parentEventId.onEachErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
                 messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))

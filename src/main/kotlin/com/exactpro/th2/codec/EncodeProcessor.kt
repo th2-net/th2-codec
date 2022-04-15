@@ -70,6 +70,12 @@ class EncodeProcessor(
                 }
 
                 messageBatch.addGroups(encodedGroup)
+            } catch (e: ValidateException) {
+                parentEventId.onEachErrorEvent(
+                    "Failed to encode message group due to a message with type:" +
+                            " ${e.msgType}, tag: ${e.tag}, scenario ${e.scenario}", cause = e,
+                    additionalBody = messageGroup.toReadableBody(false)
+                )
             } catch (throwable: Throwable) {
                 // we should not use message IDs because during encoding there is no correct message ID created yet
                 parentEventId.onEachErrorEvent(
@@ -98,7 +104,4 @@ class EncodeProcessor(
             }
         }
     }
-
-
-
 }
