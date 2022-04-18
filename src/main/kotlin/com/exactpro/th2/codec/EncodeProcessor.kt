@@ -72,8 +72,7 @@ class EncodeProcessor(
                 messageBatch.addGroups(encodedGroup)
             } catch (e: ValidateException) {
                 parentEventId.onEachErrorEvent(
-                    "Failed to encode message group due to a message with type:" +
-                            " ${e.msgType}, tag: ${e.tag}, scenario ${e.scenario}", cause = e,
+                    "Failed to encode message group due to a message: ${e.title}", cause = e,
                     additionalBody = messageGroup.toReadableBody(false)
                 )
             } catch (throwable: Throwable) {

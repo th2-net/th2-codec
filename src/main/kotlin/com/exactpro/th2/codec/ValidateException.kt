@@ -2,24 +2,24 @@ package com.exactpro.th2.codec
 
 class ValidateException : CodecException {
 
-    var msgType: String? = null
-    var tag: Int? = null
-    var scenario: String? = null
+    var title: String? = null
 
     constructor() : super()
-    constructor(message: String?) : super(message)
-    constructor(message: String?, cause: Throwable?) : super(message, cause)
+    constructor(title: String?) : super(title) {
+        this.title = title
+    }
+
     constructor(cause: Throwable?) : super(cause)
-    constructor(message: String?, cause: Throwable?, enableSuppression: Boolean, writableStackTrace: Boolean) : super(
-        message,
+    constructor(title: String?, cause: Throwable?, enableSuppression: Boolean, writableStackTrace: Boolean) : super(
+        title,
         cause,
         enableSuppression,
         writableStackTrace
-    )
+    ) {
+        this.title = title
+    }
 
-    constructor(msgType: String?, tag: Int?, scenario: String?, cause: Throwable?) : super(cause) {
-        this.msgType = msgType
-        this.tag = tag
-        this.scenario = scenario
+    constructor(title: String?, cause: Throwable?) : super(title, cause) {
+        this.title = title
     }
 }
