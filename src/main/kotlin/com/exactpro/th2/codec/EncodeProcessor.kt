@@ -75,7 +75,7 @@ class EncodeProcessor(
                 sendErrorEvents("Failed to encode: ${e.title}", parentEventId, messageGroup, e, e.details)
             } catch (throwable: Throwable) {
                 // we should not use message IDs because during encoding there is no correct message ID created yet
-                sendErrorEvents("Failed to encode message group", parentEventId, messageGroup, throwable, null)
+                sendErrorEvents("Failed to encode message group", parentEventId, messageGroup, throwable, emptyList())
             }
 
             parentEventId.onEachWarning(context, "encoding",
@@ -100,8 +100,7 @@ class EncodeProcessor(
     }
 
     private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
-                                cause: Throwable, additionalBody: List<String>?){
-        val body: List<String> = if (additionalBody != null) additionalBody + msgGroup.toReadableBody(false) else msgGroup.toReadableBody(false)
-        parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, body)
+                                cause: Throwable, additionalBody: List<String>){
+        parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
     }
 }
