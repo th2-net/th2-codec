@@ -21,6 +21,7 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.checkAgainstProtocols
+import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
@@ -70,12 +71,11 @@ class EncodeProcessor(
                 }
 
                 messageBatch.addGroups(encodedGroup)
+            } catch (e: ValidateException) {
+                sendErrorEvents("Failed to encode: ${e.title}", parentEventId, messageGroup, e, e.details)
             } catch (throwable: Throwable) {
                 // we should not use message IDs because during encoding there is no correct message ID created yet
-                parentEventId.onEachErrorEvent(
-                    "Failed to encode message group", cause = throwable,
-                    additionalBody = messageGroup.toReadableBody(false)
-                )
+                sendErrorEvents("Failed to encode message group", parentEventId, messageGroup, throwable, emptyList())
             }
 
             parentEventId.onEachWarning(context, "encoding",
@@ -99,6 +99,8 @@ class EncodeProcessor(
         }
     }
 
-
-
+    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
+                                cause: Throwable, additionalBody: List<String>){
+        parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
+    }
 }
