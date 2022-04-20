@@ -1,4 +1,4 @@
-# Description (4.6.1)
+# Description (4.6.2)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -237,6 +237,12 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v4.6.2
+
+#### Fixed:
+
+* Error logs and error events are made more informative (added custom Exception for validating incoming messages)
 
 ### v4.6.1
 
