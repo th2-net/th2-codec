@@ -240,9 +240,9 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ### v4.7.0
 
-#### Fixed:
+#### Added:
 
-* Error logs and error events are made more informative (added custom Exception for validating incoming messages)
+* Error logs and error events are made more informative (added custom `ValidateException` for validating incoming messages)
 
 ### v4.6.1
 
