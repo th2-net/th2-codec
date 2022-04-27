@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.7.0` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.8.0` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -243,6 +243,12 @@ The filtering can also be applied for pins with `subscribe` attribute.
 #### Feature:
 
 * gRPC interface for codec pipeline
+
+### v4.7.0
+
+#### Added:
+
+* Error logs and error events are made more informative (added custom `ValidateException` for validating incoming messages)
 
 ### v4.6.1
 
