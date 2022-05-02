@@ -42,7 +42,7 @@ class DecodeProcessor(
 
         for (messageGroup in source.groupsList) {
             if (messageGroup.messagesCount == 0) {
-                onErrorEvent("Cannot decode empty message group")
+                eventProcessor.onErrorEvent("Cannot decode empty message group")
                 continue
             }
 
@@ -83,7 +83,7 @@ class DecodeProcessor(
 
         return messageBatch.build().apply {
             if (source.groupsCount != groupsCount) {
-                onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
+                eventProcessor.onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
     }

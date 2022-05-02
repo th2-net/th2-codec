@@ -55,24 +55,27 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    fun grpcHandler(message: MessageGroupBatch) = handleMessage(message) ?: message
+    fun grpcHandler(message: MessageGroupBatch) = handleMessage(message)
+        ?: throw CodecException("Failed to handle message: ${message.toDebugString()}")
 
     private fun handleMessage(message: MessageGroupBatch): MessageGroupBatch? {
         var protoResult: MessageGroupBatch? = null
 
-        try {
+        return try {
             protoResult = processor.process(message)
 
-            if (checkResult(protoResult)) {
-                return protoResult
+            if (!checkResult(protoResult)) {
+                throw CodecException("checkResult failed")
             }
+
+            protoResult
+
         } catch (exception: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
             createAndStoreErrorEvent(exception, parentEventId)
             logger.error(exception) { "Failed to handle message: ${message.toDebugString()}" }
+            null
         }
-
-        return null
     }
 
     private fun createAndStoreErrorEvent(exception: CodecException, parentEventID: String) {

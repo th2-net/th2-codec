@@ -43,7 +43,7 @@ class EncodeProcessor(
 
         for (messageGroup in source.groupsList) {
             if (messageGroup.messagesCount == 0) {
-                onErrorEvent("Cannot encode empty message group")
+                eventProcessor.onErrorEvent("Cannot encode empty message group")
                 continue
             }
 
@@ -84,11 +84,10 @@ class EncodeProcessor(
 
         return messageBatch.build().apply {
             if (source.groupsCount != groupsCount) {
-                onEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
+                eventProcessor.onEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
     }
-
 
     private fun MessageGroup.toReadableBody(shortFormat: Boolean): List<String> = mutableListOf<String>().apply {
         messagesList.forEach {

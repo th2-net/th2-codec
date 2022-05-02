@@ -114,7 +114,7 @@ class CodecCommand : CliktCommand() {
             logger.info { "MQ codec service started" }
 
             val grpcRouter: GrpcRouter = commonFactory.grpcRouter
-            val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler)
+            val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler, onEvent)
             val server: Server = grpcRouter.startServer(grpcService)
             server.start()
             logger.info { "gRPC codec service started on port ${server.port}" }
