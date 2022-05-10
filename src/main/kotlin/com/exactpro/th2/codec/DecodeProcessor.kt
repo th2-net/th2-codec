@@ -22,13 +22,10 @@ import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
-import com.exactpro.th2.codec.util.allRawProtocols
-import com.exactpro.th2.codec.util.checkAgainstProtocols
-import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.codec.util.toErrorMessageGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
@@ -57,7 +54,7 @@ class DecodeProcessor(
             }
 
             val msgProtocols = messageGroup.allRawProtocols
-            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
 
             try {
@@ -70,30 +67,19 @@ class DecodeProcessor(
                 val decodedGroup = codec.decode(messageGroup, context)
 
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+                    parentEventIds.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
             } catch (e: ValidateException) {
-                parentEventId.onEachErrorEvent("Failed to decode: ${e.title}", messageGroup.messageIds, e, e.details)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(e, protocols))
+                val header = "Failed to decode: ${e.title}"
+                messageBatch.addGroups(header, parentEventIds, messageGroup, e)
             } catch (throwable: Throwable) {
-                parentEventId.onEachErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
-
                 val header = "Failed to decode message group"
-                val eventIds = parentEventIds.associateWith { messageEventId ->
-                    messageEventId.onErrorEvent(header, messageGroup.messageIds, throwable).id.let { errorEventId ->
-                        checkNotNull(EventUtils.toEventID(errorEventId)) {
-                            "Failed to create EventID from $errorEventId"
-                        }
-                    }
-                }
-
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, eventIds, throwable))
+                messageBatch.addGroups(header, parentEventIds, messageGroup, throwable)
             }
 
-            parentEventId.onEachWarning(context, "decoding") { messageGroup.messageIds }
+            parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
         }
 
         return messageBatch.build().apply {
@@ -101,6 +87,21 @@ class DecodeProcessor(
                 onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
+    }
+
+    private fun MessageGroupBatch.Builder.addGroups(header: String,
+                                                    parentEventIds: Set<String>,
+                                                    messageGroup: MessageGroup,
+                                                    throwable: Throwable) {
+        val eventIds = parentEventIds.associateWith { messageEventId ->
+            messageEventId.onErrorEvent(header, messageGroup.messageIds, throwable).let { errorEventId ->
+                checkNotNull(EventUtils.toEventID(errorEventId)) {
+                    "Failed to create EventID from $errorEventId"
+                }
+            }
+        }
+
+        addGroups(messageGroup.toErrorGroup(header, protocols, eventIds, throwable))
     }
 
 }

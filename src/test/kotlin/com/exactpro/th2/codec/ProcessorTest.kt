@@ -262,11 +262,15 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
@@ -279,6 +283,8 @@ class ProcessorTest {
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
     }
 
@@ -303,17 +309,23 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
         result.getGroups(0).messagesList[2].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
     }
@@ -339,22 +351,30 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("xml", it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasMessage())
         result.getGroups(0).messagesList[1].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("json", it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasRawMessage())
         result.getGroups(0).messagesList[2].rawMessage.let {
             Assertions.assertEquals("http", it.metadata.protocol)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals("[xml, json]", it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
     }

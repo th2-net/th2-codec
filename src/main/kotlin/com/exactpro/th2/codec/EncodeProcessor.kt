@@ -20,13 +20,11 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
-import com.exactpro.th2.codec.util.checkAgainstProtocols
-import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import mu.KotlinLogging
 import com.exactpro.th2.common.message.toJson
 import mu.KotlinLogging
 

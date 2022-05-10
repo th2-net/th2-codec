@@ -19,25 +19,30 @@ package com.exactpro.th2.codec.util
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
-import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.message
+import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.value.toValue
+
 
 val MessageGroup.parentEventId: String?
     get() = messagesList.firstNotNullOfOrNull { anyMessage ->
         when {
-            anyMessage.hasMessage() -> anyMessage.message.parentEventIdOrNull
-            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventIdOrNull
+            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
             else -> null
         }
     }
 
-val MessageGroup.allParentEventIds: Set<String?>
-    get() = messagesList.mapTo(HashSet()) { anyMessage ->
+val MessageGroup.allParentEventIds: Set<String>
+    get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->
         when {
-            anyMessage.hasMessage() -> anyMessage.message.parentEventIdOrNull
-            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventIdOrNull
+            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
+            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
             else -> null
         }
     }

@@ -50,7 +50,7 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
     it.putFields(ERROR_EVENT_ID, errorEventId.toValue())
 }
 
-fun MessageGroup.toErrorGroup(infoMessage: String, protocols: Collection<String>, errorEvents: Map<String?, EventID>, throwable: Throwable?): MessageGroup {
+fun MessageGroup.toErrorGroup(infoMessage: String, protocols: Collection<String>, errorEvents: Map<String, EventID>, throwable: Throwable?): MessageGroup {
     val content = buildString {
         append(infoMessage)
         appendLine("Error for messages: [${messageIds.joinToString(", ") { it.toDebugString() }}] with protocols: [${protocols.joinToString(", ")}]}")
@@ -65,7 +65,7 @@ fun MessageGroup.toErrorGroup(infoMessage: String, protocols: Collection<String>
         for (anyMessage in this.messagesList) {
             if (anyMessage.kindCase == AnyMessage.KindCase.RAW_MESSAGE && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols }) {
                 result += anyMessage.rawMessage.let { rawMessage ->
-                    val eventID = checkNotNull(errorEvents[rawMessage.parentEventIdOrNull]) {
+                    val eventID = checkNotNull(errorEvents[rawMessage.parentEventId.id]) {
                         "No error event was found for message: ${rawMessage.metadata.id.sequence}"
                     }
                     rawMessage.toErrorMessage(protocols, eventID, content)
