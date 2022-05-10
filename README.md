@@ -1,8 +1,25 @@
-# Description (4.5.1)
+# Description (4.7.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
-# Usage:
+# What is a codec?
+
+The codec in th2 is a component that is responsible for transforming messages from human-readable format
+into a format of a corresponding protocol and vice versa.
+It contains the main logic for encoding and decoding messages.
+
+The codec communicates with other components by sending batches with groups of parsed or/and raw messages.
+During encoding, it transforms messages to the corresponding protocol format.
+During decoding, it takes all raw messages that correspond to the codec protocol and transforms them according to its rules.
+
+Several codecs can be joined into a chain of codecs to reuse already implemented codecs. For example, you have **HTTP**, **JSON** and **XML** codec.
+You can join them together for decoding **XML** over **HTTP** or **JSON** over **HTTP**.
+
+Here is a schema that illustrates the common place of the th2-codec component in th2.
+
+![](doc/img/codec-place-in-th2.svg "Place of th2-codec in th2 schema")
+
+# How to create your own codec?
 
 To implement a codec using this library you need to:
 
@@ -18,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.3.0` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.6.0` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -32,8 +49,11 @@ To implement a codec using this library you need to:
 4. implement the codec itself by implementing [`IPipelineCodec`](https://github.com/th2-net/th2-codec/blob/2707a2755038d49110f6f7eb3e3aeb6188ae0c99/src/main/kotlin/com/exactpro/th2/codec/api/IPipelineCodec.kt#L21) interface:
     ```kotlin
     interface IPipelineCodec : AutoCloseable {
-        fun encode(messageGroup: MessageGroup): MessageGroup
-        fun decode(messageGroup: MessageGroup): MessageGroup
+        fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup) method is not implemented")
+        fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
+
+        fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup) method is not implemented")
+        fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
         override fun close() {}
     }
     ```
@@ -42,7 +62,7 @@ To implement a codec using this library you need to:
 
     ```kotlin
     interface IPipelineCodecFactory : AutoCloseable {
-        val protocols: List<String>
+        val protocols: Set<String>
         val settingsClass: Class<out IPipelineCodecSettings>
         fun init(dictionary: InputStream): Unit = TODO("not implemented")
         fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
@@ -112,6 +132,9 @@ spec:
 
 ## Required pins
 
+Pins are a part of the main th2 concept. They describe what are the inputs and outputs of a box.
+You can read more about them [here](https://github.com/th2-net/th2-documentation/wiki/infra:-Theory-of-Pins-and-Links#pins).
+
 Every type of connection has two `subscribe` and `publish` pins.
 The first one is used to receive messages to decode/encode while the second one is used to send decoded/encoded messages further.
 **Configuration should include at least one pin for each of the following sets of attributes:**
@@ -126,6 +149,11 @@ The first one is used to receive messages to decode/encode while the second one 
 
 ### Configuration example
 
+This configuration is a general way for deploying components in th2.
+It contains box configuration, pins' descriptions and other common parameters for a box.
+
+Here is an example of configuration for component based on th2-codec:
+
 ```yaml
 apiVersion: th2.exactpro.com/v1
 kind: Th2Box
@@ -134,7 +162,10 @@ metadata:
 spec:
   custom-config:
     codecSettings:
-    # 
+      parameter1: value
+      parameter2:
+        - value1
+        - value2
   pins:
     # encoder
     - name: in_codec_encode
@@ -187,7 +218,7 @@ spec:
     # decoder
     - name: out_codec_decode_first_session_alias
       connection-type: mq
-      attributes: ['decoder_out', 'parsed', 'publish', 'first_session_alias']
+      attributes: ['decoder_out', 'parsed', 'publish']
       filters:
         - metadata:
             - field-name: session_alias
@@ -195,7 +226,7 @@ spec:
               operation: EQUAL
     - name: out_codec_decode_secon_session_alias
       connection-type: mq
-      attributes: ['decoder_out', 'parsed', 'publish', 'second_session_alias']
+      attributes: ['decoder_out', 'parsed', 'publish']
       filters:
         - metadata:
             - field-name: session_alias
@@ -207,11 +238,34 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
-### v4.5.1
+### v4.7.0
 
-#### Feature:
+#### Added:
 
-* Generate error messages with parent event id from error event 
+* Error logs and error events are made more informative (added custom `ValidateException` for validating incoming messages)
+
+### v4.6.1
+
+#### Fixed:
+
+* Codec continued to work when implementation instance cannot be created
+
+### v4.6.0
+
+#### Fixed:
+
+* Errors and warnings during encoding does not have message IDs attached because the IDs are not correct yet
+
+#### Added:
+
+* Codec can report warnings during decoding and encoding message groups
+
+#### Changed:
+
+* Root codec event's name now uses box name
+* The general encode/decode does not use `parentEventId` from messages when reporting errors and warnings
+* The error/warning events are now attached to the root codec event.
+* The error/warning event is attached to the event that is specified in `parentEventId` as a reference to an event in codec root.
 
 ### v4.5.0
 
