@@ -68,10 +68,9 @@ class CodecCommand : CliktCommand() {
             val messageRouter = commonFactory.messageRouterMessageGroupBatch
             val eventRouter = commonFactory.eventBatchRouter
 
-            val codecName = commonFactory.boxConfiguration?.boxName?.let { "$it " } ?: ""
             val rootEventId = eventRouter.storeEvent(
                 Event.start().apply {
-                    name("Codec $codecName[${LocalDateTime.now()}] protocols: ${applicationContext.protocols.joinToString(",")} ")
+                    name("Codec [${LocalDateTime.now()}] protocols: ${applicationContext.protocols.joinToString(",")} ")
                     type("CodecRoot")
                 }
             ).id
@@ -85,28 +84,19 @@ class CodecCommand : CliktCommand() {
             }
 
             createCodec("decoder") {
-                SyncDecoder(
-                    messageRouter, eventRouter,
-                    DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
-                    rootEventId
-                ).apply {
+                SyncDecoder(messageRouter, eventRouter, DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
                     start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
                 }
             }
 
             createCodec("encoder") {
-                SyncEncoder(
-                    messageRouter,
-                    eventRouter,
-                    EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
-                    rootEventId
-                ).apply {
+                SyncEncoder(messageRouter, eventRouter, EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent), rootEventId).apply {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
                 }
             }
 
-            createGeneralDecoder(applicationContext, rootEventId)
-            createGeneralEncoder(applicationContext, rootEventId)
+            createGeneralDecoder(applicationContext, rootEventId, onEvent)
+            createGeneralEncoder(applicationContext, rootEventId, onEvent)
 
             logger.info { "codec started" }
         } catch (exception: Exception) {
@@ -117,7 +107,8 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralEncoder(
         context: ApplicationContext,
-        rootEventId: String
+        rootEventId: String,
+        onEvent: (event: Event, parentId: String?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 
@@ -125,7 +116,7 @@ class CodecCommand : CliktCommand() {
             SyncEncoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                EncodeProcessor(context.codec, context.protocols, useParentEventId = false) { _: Event, _: String? -> },
+                EncodeProcessor(context.codec, context.protocols, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
@@ -135,7 +126,8 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralDecoder(
         context: ApplicationContext,
-        rootEventId: String
+        rootEventId: String,
+        onEvent: (event: Event, parentId: String?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 
@@ -143,7 +135,7 @@ class CodecCommand : CliktCommand() {
             SyncDecoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                DecodeProcessor(context.codec, context.protocols, useParentEventId = false) { _: Event, _: String? -> },
+                DecodeProcessor(context.codec, context.protocols, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)

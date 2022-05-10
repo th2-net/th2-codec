@@ -17,13 +17,11 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
-import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import mu.KotlinLogging
@@ -34,95 +32,58 @@ abstract class AbstractCodecProcessor(
 ) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
 
-    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = null.onEvent(message, messagesIds)
+    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()): Event = null.onEvent(message, messagesIds)
 
-    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
+    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null): Event = null.onErrorEvent(message, messagesIds, cause)
 
-    protected fun String?.onEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList()
-    ) : String {
-        logger.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        val event = createEvent(message, messagesIds, body = body)
+    protected fun String?.onEvent(message: String, messagesIds: List<MessageID> = emptyList()): Event {
+        logger.warn(message)
+        val event = createEvent(message, messagesIds)
         onEvent(event, this)
-        return event.id
+        return event
     }
 
-    protected fun String?.onErrorEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null,
-        additionalBody: List<String> = emptyList()
-    ): String {
-        logger.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        val event = createEvent(message, messagesIds, FAILED, cause, additionalBody)
+    protected fun String?.onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null): Event {
+        logger.error(cause) { "$message. Messages: ${messagesIds.joinToString(", ") {
+            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
+        }}" }
+        val event = createEvent(message, messagesIds, FAILED, cause)
         onEvent(event, this)
-        return event.id
+        return event
     }
 
-    protected fun Set<String>.onEachEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList()
-    ) {
-        val warnEvent = null.onEvent(message, messagesIds, body)
-        forEach {
-            it.addReferenceTo(warnEvent, message, PASSED)
-        }
-    }
-
-    protected fun Set<String>.onEachErrorEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null,
-        additionalBody: List<String> = emptyList(),
-    ) {
-        val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
-        forEach {
-            it.addReferenceTo(errorEventId, message, FAILED)
-        }
-    }
-
-    protected fun Set<String>.onEachWarning(
-        context: ReportingContext,
-        action: String,
-        additionalBody: () -> List<String> = ::emptyList,
-        messagesIds: () -> List<MessageID> = ::emptyList
-    ) = context.warnings.let { warnings ->
-        if (warnings.isNotEmpty()) {
-            val messages = messagesIds()
-            val body = additionalBody()
-            warnings.forEach { warning ->
-                this.onEachEvent("[WARNING] During $action: $warning", messages, body)
+    /**
+     * Use only if eventId not needed
+     */
+    protected fun Set<String?>.forEachEvent(message: String, messagesIds: List<MessageID> = emptyList()) {
+        when (isEmpty()) {
+            true -> null.onEvent(message, messagesIds)
+            false -> forEach {
+                it.onEvent(message, messagesIds)
             }
         }
     }
 
-    private fun List<MessageID>.joinToReadableString(): String =
-        joinToString(", ") {
-            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
+    protected fun Set<String?>.forEachErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) {
+        when (isEmpty()) {
+            true -> null.onErrorEvent(message, messagesIds, cause)
+            false -> map {
+                it.onErrorEvent(message, messagesIds, cause)
+            }
         }
+    }
 
-    private fun String.addReferenceTo(eventId: String, name: String, status: Status) {
-        onEvent(
-            Event.start()
-                .endTimestamp()
-                .name(name)
-                .status(status)
-                .type(if (status != PASSED) "Error" else "Warn")
-                .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-                .bodyData(ReferenceToEvent(eventId)),
-            this
-        )
+    protected fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
+        incomingProtocols.none { it.isBlank() || it in this }  -> false
+        incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
+        else -> true
     }
 
     private fun createEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         status: Status = PASSED,
-        cause: Throwable? = null,
-        body: List<String> = emptyList(),
+        cause: Throwable? = null
     ) = Event.start().apply {
         name(message)
         type(if (status != PASSED || cause != null) "Error" else "Warn")
@@ -131,20 +92,6 @@ abstract class AbstractCodecProcessor(
 
         generateSequence(cause, Throwable::cause).forEach {
             bodyData(EventUtils.createMessageBean(it.message))
-        }
-
-        if (body.isNotEmpty()) {
-            bodyData(EventUtils.createMessageBean("Information:"))
-            body.forEach { bodyData(EventUtils.createMessageBean(it)) }
-        }
-    }
-
-    private class ReferenceToEvent(val eventId: String) : IBodyData {
-        val type: String
-            get() = TYPE
-
-        companion object {
-            const val TYPE = "reference"
         }
     }
 }

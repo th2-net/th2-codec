@@ -40,12 +40,6 @@ class ApplicationContext(
                 throw IllegalStateException("Failed to load codec factory", it)
             }
 
-            configuration.codecSettings.runCatching(factory::create)
-                .onSuccess(IPipelineCodec::close)
-                .onFailure {
-                    throw IllegalStateException("Failed to create codec instance", it)
-                }
-
             return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
         }
     }

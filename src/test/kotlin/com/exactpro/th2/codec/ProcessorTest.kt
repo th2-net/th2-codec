@@ -17,12 +17,15 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.util.ERROR_CONTENT_FIELD
+import com.exactpro.th2.codec.util.ERROR_EVENT_ID
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.hasField
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
 import org.junit.jupiter.api.Assertions
@@ -35,10 +38,18 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
         }.build()
 
@@ -46,13 +57,14 @@ class ProcessorTest {
 
         Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
     }
-
     @Test
     fun `other protocol in raw message test - decode`() {
         val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
             }.build())
         }.build()
 
@@ -67,10 +79,14 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
             }.build())
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.getDefaultInstance()
@@ -92,16 +108,32 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(secondOriginalProtocol)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(secondOriginalProtocol)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
             }.build())
         }.build()
 
@@ -115,13 +147,19 @@ class ProcessorTest {
         val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     metadataBuilder.protocol = WRONG_PROTOCOL
                 }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
         }.build()
 
@@ -135,7 +173,9 @@ class ProcessorTest {
         val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
             }.build())
         }.build()
 
@@ -149,10 +189,14 @@ class ProcessorTest {
         val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
             }.build())
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.getDefaultInstance()
@@ -173,22 +217,34 @@ class ProcessorTest {
         val processor = EncodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     metadataBuilder.protocol = WRONG_PROTOCOL
                 }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(secondOriginalProtocol)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     metadataBuilder.protocol = WRONG_PROTOCOL
                 }
-                this += RawMessage.newBuilder().setProtocol(secondOriginalProtocol)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = secondOriginalProtocol
+                }
             }.build())
         }.build()
 
@@ -202,10 +258,16 @@ class ProcessorTest {
         val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
                 this += Message.newBuilder()
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
         }.build()
 
@@ -219,13 +281,19 @@ class ProcessorTest {
         val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     metadataBuilder.protocol = ORIGINAL_PROTOCOL
                 }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
         }.build()
 
@@ -239,13 +307,19 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     metadataBuilder.protocol = WRONG_PROTOCOL
                 }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
             }.build())
         }.build()
 
@@ -259,6 +333,8 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
@@ -270,12 +346,16 @@ class ProcessorTest {
         result.getGroups(0).messagesList[2].message.let {
             Assertions.assertEquals( "test-type", it.messageType)
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
+            Assertions.assertFalse(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertFalse(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
     }
 
@@ -284,8 +364,12 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = WRONG_PROTOCOL
+                }
                 this += RawMessage.getDefaultInstance()
             }.build())
         }.build()
@@ -300,17 +384,23 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
         result.getGroups(0).messagesList[1].rawMessage.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
         result.getGroups(0).messagesList[2].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
     }
@@ -320,9 +410,15 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json")) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol("xml")
-                this += RawMessage.newBuilder().setProtocol("json")
-                this += RawMessage.newBuilder().setProtocol("http")
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = "xml"
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = "json"
+                }
+                this += RawMessage.newBuilder().apply {
+                    metadataBuilder.protocol = "http"
+                }
                 this += RawMessage.getDefaultInstance()
             }.build())
         }.build()
@@ -336,22 +432,30 @@ class ProcessorTest {
         result.getGroups(0).messagesList[0].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("xml", it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[1].hasMessage())
         result.getGroups(0).messagesList[1].message.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
             Assertions.assertEquals("json", it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[2].hasRawMessage())
         result.getGroups(0).messagesList[2].rawMessage.let {
             Assertions.assertEquals("http", it.metadata.protocol)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
+            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
         }
 
         Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
         result.getGroups(0).messagesList[3].message.let {
             Assertions.assertEquals("[xml, json]", it.metadata.protocol)
+            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
+            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
 
     }
@@ -361,21 +465,20 @@ class ProcessorTest {
         const val WRONG_PROTOCOL = "http"
         val ORIGINAL_PROTOCOLS = setOf(ORIGINAL_PROTOCOL)
     }
-
-    class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
-        override fun encode(messageGroup: MessageGroup): MessageGroup {
-            if (throwEx) {
-                throw NullPointerException("Simple null pointer exception")
-            }
-            return MessageGroup.newBuilder().addMessages(AnyMessage.newBuilder().setRawMessage(RawMessage.getDefaultInstance()).build()).build()
-        }
-
-        override fun decode(messageGroup: MessageGroup): MessageGroup {
-            if (throwEx) {
-                throw NullPointerException("Simple null pointer exception")
-            }
-            return MessageGroup.newBuilder().addMessages(AnyMessage.newBuilder().setMessage(Message.getDefaultInstance()).build()).build()
-        }
-    }
 }
 
+class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
+    override fun encode(messageGroup: MessageGroup): MessageGroup {
+        if (throwEx) {
+            throw NullPointerException("Simple null pointer exception")
+        }
+        return MessageGroup.newBuilder().addMessages(AnyMessage.newBuilder().setRawMessage(RawMessage.getDefaultInstance()).build()).build()
+    }
+
+    override fun decode(messageGroup: MessageGroup): MessageGroup {
+        if (throwEx) {
+            throw NullPointerException("Simple null pointer exception")
+        }
+        return MessageGroup.newBuilder().addMessages(AnyMessage.newBuilder().setMessage(Message.getDefaultInstance()).build()).build()
+    }
+}
