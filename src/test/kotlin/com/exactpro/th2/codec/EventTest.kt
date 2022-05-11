@@ -163,7 +163,7 @@ class EventTest {
     fun `simple test - decode general with warnings`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -194,7 +194,7 @@ class EventTest {
     fun `Throw test - decode general with warnings`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -247,6 +247,22 @@ class EventTest {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
+            return messageGroup
+        }
+
+        override fun encode(messageGroup: MessageGroup): MessageGroup {
+            if (throwEx) {
+                throw NullPointerException("Simple null pointer exception")
+            }
+
+            return messageGroup
+        }
+
+        override fun decode(messageGroup: MessageGroup): MessageGroup {
+            if (throwEx) {
+                throw NullPointerException("Simple null pointer exception")
+            }
+
             return messageGroup
         }
     }
