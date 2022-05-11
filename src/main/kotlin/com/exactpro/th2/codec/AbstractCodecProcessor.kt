@@ -34,9 +34,9 @@ abstract class AbstractCodecProcessor(
 ) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
 
-    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()): Event = null.onEvent(message, messagesIds)
+    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = null.onEvent(message, messagesIds)
 
-    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null): Event = null.onErrorEvent(message, messagesIds, cause)
+    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
 
     protected fun String?.onEvent(
         message: String,
@@ -77,11 +77,13 @@ abstract class AbstractCodecProcessor(
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList(),
-    ) {
+    ): Set<String> {
         val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
         forEach {
             it.addReferenceTo(errorEventId, message, FAILED)
         }
+
+        return this
     }
 
     protected fun Set<String>.onEachWarning(

@@ -20,16 +20,13 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_CONTENT_FIELD
 import com.exactpro.th2.codec.util.ERROR_EVENT_ID
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageGroup
-import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.grpc.*
 import com.exactpro.th2.common.message.hasField
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.util.*
 
 class ProcessorTest {
 
@@ -242,13 +239,23 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    setProtocol(ORIGINAL_PROTOCOL)
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                }
+                this += RawMessage.newBuilder().apply {
+                    setProtocol(WRONG_PROTOCOL)
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     metadataBuilder.protocol = WRONG_PROTOCOL
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
                 }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
+                this += RawMessage.newBuilder().apply {
+                    setProtocol(ORIGINAL_PROTOCOL)
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                }
             }.build())
         }.build()
 
@@ -293,9 +300,17 @@ class ProcessorTest {
         val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.getDefaultInstance()
+                this += RawMessage.newBuilder().apply {
+                    setProtocol(ORIGINAL_PROTOCOL)
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                }
+                this += RawMessage.newBuilder().apply {
+                    setProtocol(WRONG_PROTOCOL)
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                }
+                this += RawMessage.newBuilder(RawMessage.getDefaultInstance()).apply {
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                }
             }.build())
         }.build()
 
@@ -336,43 +351,20 @@ class ProcessorTest {
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = "xml"
+                    setProtocol("xml")
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = "json"
+                    setProtocol("json")
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = "http"
+                    setProtocol("http")
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
                 }
-                this += RawMessage.getDefaultInstance()
-            }.build())
-        }.build()
-
-        val result = processor.process(batch)
-
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
-        Assertions.assertEquals(4, result.getGroups(0).messagesList.size) {"group of outgoing messages must be the same size"}
-
-        Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
-        result.getGroups(0).messagesList[0].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals("xml", it.metadata.protocol)
-            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
-            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-        }
-
-    }
-
-    @Test
-    fun `multiple protocol test - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json")) { _, _ -> }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol("xml")
-                this += RawMessage.newBuilder().setProtocol("json")
-                this += RawMessage.newBuilder().setProtocol("http")
-                this += RawMessage.getDefaultInstance()
+                this += RawMessage.newBuilder(RawMessage.getDefaultInstance()).apply {
+                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                }
             }.build())
         }.build()
 
@@ -421,13 +413,6 @@ class ProcessorTest {
         }
 
     }
-
-    companion object {
-        const val ORIGINAL_PROTOCOL = "xml"
-        const val WRONG_PROTOCOL = "http"
-        val ORIGINAL_PROTOCOLS = setOf(ORIGINAL_PROTOCOL)
-    }
-
     companion object {
         const val ORIGINAL_PROTOCOL = "xml"
         const val WRONG_PROTOCOL = "http"
