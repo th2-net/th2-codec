@@ -18,13 +18,11 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
-import com.exactpro.th2.codec.util.allParentEventIds
-import com.exactpro.th2.codec.util.allRawProtocols
-import com.exactpro.th2.codec.util.checkAgainstProtocols
-import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.codec.util.toErrorMessageGroup
+import com.exactpro.th2.codec.util.*
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
@@ -53,7 +51,7 @@ class DecodeProcessor(
             }
 
             val msgProtocols = messageGroup.allRawProtocols
-            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
 
             try {
@@ -66,19 +64,25 @@ class DecodeProcessor(
                 val decodedGroup = codec.decode(messageGroup, context)
 
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+                    parentEventIds.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
             } catch (e: ValidateException) {
-                parentEventId.onEachErrorEvent("Failed to decode: ${e.title}", messageGroup.messageIds, e, e.details)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(e, protocols))
+                val header = "Failed to decode: ${e.title}"
+
+                val eventIds = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
+
+                messageBatch.addGroups(header, messageGroup, parentEventIds, e, eventIds)
             } catch (throwable: Throwable) {
-                parentEventId.onEachErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
-                messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
+                val header = "Failed to decode message group"
+
+                val eventIds = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
+
+                messageBatch.addGroups(header, messageGroup, parentEventIds, throwable, eventIds)
             }
 
-            parentEventId.onEachWarning(context, "decoding") { messageGroup.messageIds }
+            parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
         }
 
         return messageBatch.build().apply {
@@ -86,5 +90,17 @@ class DecodeProcessor(
                 onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
+    }
+
+    private fun MessageGroupBatch.Builder.addGroups(header: String,
+                                                    messageGroup: MessageGroup,
+                                                    parentEventIds: Set<String>,
+                                                    throwable: Throwable,
+                                                    eventIds: Set<String>) {
+        val eventIdsMap: Map<String, EventID> = (parentEventIds zip eventIds).associate {
+            it.first to EventID.newBuilder().setId(it.second).build()
+        }
+
+        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId))
     }
 }

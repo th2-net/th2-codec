@@ -28,9 +28,6 @@ import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
-const val ERROR_TYPE_MESSAGE = "th2-codec-error"
-const val ERROR_CONTENT_FIELD = "content"
-
 val MessageGroup.parentEventId: String?
     get() = messagesList.firstNotNullOfOrNull { anyMessage ->
         when {

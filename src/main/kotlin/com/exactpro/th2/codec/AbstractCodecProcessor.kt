@@ -77,11 +77,13 @@ abstract class AbstractCodecProcessor(
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList(),
-    ) {
+    ): Set<String> {
         val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
         forEach {
             it.addReferenceTo(errorEventId, message, FAILED)
         }
+
+        return this
     }
 
     protected fun Set<String>.onEachWarning(
@@ -115,6 +117,12 @@ abstract class AbstractCodecProcessor(
                 .bodyData(ReferenceToEvent(eventId)),
             this
         )
+    }
+
+    protected fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
+        incomingProtocols.none { it.isBlank() || it in this }  -> false
+        incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
+        else -> true
     }
 
     private fun createEvent(
