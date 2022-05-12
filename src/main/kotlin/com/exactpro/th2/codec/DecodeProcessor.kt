@@ -93,14 +93,14 @@ class DecodeProcessor(
     }
 
     private fun MessageGroupBatch.Builder.addGroups(header: String,
-                         messageGroup: MessageGroup,
-                         parentEventIds: Set<String>,
-                         throwable: Throwable,
-                         set: Set<String>) {
-        val eventIds: Map<String, EventID> = (parentEventIds zip set).associate {
+                                                    messageGroup: MessageGroup,
+                                                    parentEventIds: Set<String>,
+                                                    throwable: Throwable,
+                                                    eventIds: Set<String>) {
+        val eventIdsMap: Map<String, EventID> = (parentEventIds zip eventIds).associate {
             it.first to EventID.newBuilder().setId(it.second).build()
         }
 
-        addGroups(messageGroup.toErrorGroup(header, protocols, eventIds, throwable, useParentEventId))
+        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId))
     }
 }
