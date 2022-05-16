@@ -20,7 +20,7 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 class SyncDecoder(
     messageRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
-    processor: AbstractCodecProcessor,
+    processor: MessageProcessor<MessageGroupBatch, MessageGroupBatch>,
     codecRootID: String
 ) : AbstractSyncCodec(
     messageRouter,

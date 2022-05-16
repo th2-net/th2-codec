@@ -23,19 +23,16 @@ import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.checkAgainstProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorMessageGroup
-import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
 class DecodeProcessor(
-    codec: IPipelineCodec,
+    private val codec: IPipelineCodec,
     private val protocols: Set<String>,
     private val useParentEventId: Boolean = true,
-    onEvent: (event: Event, parentId: String?) -> Unit
-) : AbstractCodecProcessor(codec, onEvent) {
-
-    private val logger = KotlinLogging.logger {}
+    private val eventProcessor: EventProcessor
+) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -47,7 +44,7 @@ class DecodeProcessor(
             }
 
             if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
-                logger.debug { "Message group has no raw messages in it" }
+                LOGGER.debug { "Message group has no raw messages in it" }
                 messageBatch.addGroups(messageGroup)
                 continue
             }
@@ -58,7 +55,7 @@ class DecodeProcessor(
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
-                    logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                    LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
                     messageBatch.addGroups(messageGroup)
                     continue
                 }
@@ -66,19 +63,19 @@ class DecodeProcessor(
                 val decodedGroup = codec.decode(messageGroup, context)
 
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    parentEventId.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+                    eventProcessor.onEachEvent(parentEventId, "Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(decodedGroup)
             } catch (e: ValidateException) {
-                parentEventId.onEachErrorEvent("Failed to decode: ${e.title}", messageGroup.messageIds, e, e.details)
+                eventProcessor.onEachErrorEvent(parentEventId, "Failed to decode: ${e.title}", messageGroup.messageIds, e, e.details)
                 messageBatch.addGroups(messageGroup.toErrorMessageGroup(e, protocols))
             } catch (throwable: Throwable) {
-                parentEventId.onEachErrorEvent("Failed to decode message group", messageGroup.messageIds, throwable)
+                eventProcessor.onEachErrorEvent(parentEventId, "Failed to decode message group", messageGroup.messageIds, throwable)
                 messageBatch.addGroups(messageGroup.toErrorMessageGroup(throwable, protocols))
             }
 
-            parentEventId.onEachWarning(context, "decoding") { messageGroup.messageIds }
+            eventProcessor.onEachWarning(parentEventId, context, "decoding") { messageGroup.messageIds }
         }
 
         return messageBatch.build().apply {
@@ -86,5 +83,9 @@ class DecodeProcessor(
                 eventProcessor.onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
     }
 }

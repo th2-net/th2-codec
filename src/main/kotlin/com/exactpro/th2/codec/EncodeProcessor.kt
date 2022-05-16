@@ -22,7 +22,6 @@ import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.checkAgainstProtocols
 import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
@@ -30,13 +29,11 @@ import com.exactpro.th2.common.message.toJson
 import mu.KotlinLogging
 
 class EncodeProcessor(
-    codec: IPipelineCodec,
+    private val codec: IPipelineCodec,
     private val protocols: Set<String>,
     private val useParentEventId: Boolean = true,
-    onEvent: (event: Event, parentId: String?) -> Unit
-) : AbstractCodecProcessor(codec, onEvent) {
-
-    private val logger = KotlinLogging.logger {}
+    private val eventProcessor: EventProcessor
+) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
@@ -48,7 +45,7 @@ class EncodeProcessor(
             }
 
             if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
-                logger.debug { "Message group has no parsed messages in it" }
+                LOGGER.debug { "Message group has no parsed messages in it" }
                 messageBatch.addGroups(messageGroup)
                 continue
             }
@@ -59,7 +56,7 @@ class EncodeProcessor(
 
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
-                    logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                    LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
                     messageBatch.addGroups(messageGroup)
                     continue
                 }
@@ -67,7 +64,7 @@ class EncodeProcessor(
                 val encodedGroup = codec.encode(messageGroup, context)
 
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventId.onEachEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
+                    eventProcessor.onEachEvent(parentEventId, "Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
@@ -78,7 +75,7 @@ class EncodeProcessor(
                 sendErrorEvents("Failed to encode message group", parentEventId, messageGroup, throwable, emptyList())
             }
 
-            parentEventId.onEachWarning(context, "encoding",
+            eventProcessor.onEachWarning(parentEventId, context, "encoding",
                 additionalBody = { messageGroup.toReadableBody(false) })
         }
 
@@ -100,6 +97,10 @@ class EncodeProcessor(
 
     private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
                                 cause: Throwable, additionalBody: List<String>){
-        parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
+        eventProcessor.onEachErrorEvent(parentEventIds, errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
     }
 }

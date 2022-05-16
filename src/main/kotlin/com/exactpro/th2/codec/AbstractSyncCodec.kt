@@ -28,7 +28,7 @@ import java.util.concurrent.TimeoutException
 abstract class AbstractSyncCodec(
     private val messageRouter: MessageRouter<MessageGroupBatch>,
     private val eventRouter: MessageRouter<EventBatch>,
-    private val processor: AbstractCodecProcessor,
+    private val processor: MessageProcessor<MessageGroupBatch, MessageGroupBatch>,
     private val codecRootEvent: String
 ) : AutoCloseable, MessageListener<MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
@@ -49,32 +49,22 @@ abstract class AbstractSyncCodec(
 
     override fun close() {}
 
-    override fun handler(consumerTag: String?, message: MessageGroupBatch) {
-        handleMessage(message)?.let {
-            messageRouter.sendAll(it, this.targetAttributes)
-        }
-    }
+    override fun handler(consumerTag: String?, message: MessageGroupBatch) =
+        messageRouter.sendAll(handleMessage(message), targetAttributes)
 
-    fun grpcHandler(message: MessageGroupBatch) = handleMessage(message)
-        ?: throw CodecException("Failed to handle message: ${message.toDebugString()}")
-
-    private fun handleMessage(message: MessageGroupBatch): MessageGroupBatch? {
+    fun handleMessage(message: MessageGroupBatch): MessageGroupBatch {
         var protoResult: MessageGroupBatch? = null
 
-        return try {
+        try {
             protoResult = processor.process(message)
+            if (!checkResult(protoResult)) throw CodecException("checkResult failed")
+            return protoResult
 
-            if (!checkResult(protoResult)) {
-                throw CodecException("checkResult failed")
-            }
-
-            protoResult
-
-        } catch (exception: CodecException) {
+        } catch (e: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
-            createAndStoreErrorEvent(exception, parentEventId)
-            logger.error(exception) { "Failed to handle message: ${message.toDebugString()}" }
-            null
+            createAndStoreErrorEvent(e, parentEventId)
+            logger.error(e) { "Failed to handle message: ${message.toDebugString()}" }
+            throw e
         }
     }
 

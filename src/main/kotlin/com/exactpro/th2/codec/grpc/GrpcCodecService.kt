@@ -13,11 +13,15 @@
 
 package com.exactpro.th2.codec.grpc
 
+import com.exactpro.th2.codec.CodecException
+import com.exactpro.th2.codec.DecodeException
 import com.exactpro.th2.codec.EventProcessor
+import com.exactpro.th2.codec.util.checkIfSameSessionAlias
+import com.exactpro.th2.codec.util.messageIds
+import com.exactpro.th2.codec.util.sessionAlias
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
@@ -36,55 +40,58 @@ class GrpcCodecService(
         grpcRouter.getService(AsyncCodecService::class.java)
     } catch (t: Throwable) {
         null
-    }.apply {
-        LOGGER.info { "Next codec in pipeline stub: $this" }
     }
 
-    private val MessageGroupBatch.sessionAlias get() = getGroups(0)
-        .getMessages(0).sessionAlias
-        .also { if (!checkIfSameSessionAlias(it)) eventProcessor.onErrorEvent("Batch contains messages with different session aliases.") }
+    private val MessageGroupBatch.sessionAlias get() = (
+            groupsList.asSequence()
+                .flatMap { it.messagesList }
+                .firstOrNull() ?: throw CodecException("Batch does not contain messages")
+            )
+        .sessionAlias
+        .also { alias ->
+            if (!checkIfSameSessionAlias(alias)) {
+                eventProcessor.onErrorEvent(
+                    "Batch contains messages with different session aliases.",
+                    messageIds
+                )
+            }
+        }
 
-    private fun MessageGroupBatch.checkIfSameSessionAlias(alias: String) =
-        groupsList.all { groups -> groups.messagesList.all { it.sessionAlias == alias } }
-
-    private val AnyMessage.sessionAlias get() = if (hasMessage()) message.sessionAlias else rawMessage.sessionAlias
-
-    override fun decode(message: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
+    override fun decode(batch: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
         try {
-            val parsed = generalDecodeFunc(message)
+            val parsed = generalDecodeFunc(batch)
             if (parsed.anyMessage(AnyMessage::hasRawMessage)) {
-                if (nextCodec == null) {
-                    eventProcessor.onErrorEvent("codec pipeline output contains raw messages")
-                } else {
-                    nextCodec.decode(parsed, mapOf("session_alias" to parsed.sessionAlias), responseObserver)
-                }
+                if (nextCodec == null) throw DecodeException("codec pipeline output contains raw messages after decoding")
+                nextCodec.decode(parsed, mapOf("session_alias" to parsed.sessionAlias), responseObserver)
             } else {
                 responseObserver.onNext(parsed)
                 responseObserver.onCompleted()
             }
         } catch (t: Throwable) {
-            eventProcessor.onErrorEvent("'decode' rpc call exception", cause = t)
-            LOGGER.error(t) { "'decode' rpc call exception" }
-            responseObserver.onError(Status.INTERNAL.withDescription(t.message).withCause(t).asException())
+            val errorMessage = "'decode' rpc call exception: ${t.message}"
+            eventProcessor.onErrorEvent(errorMessage, batch.messageIds, t)
+            LOGGER.error(errorMessage, t)
+            responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(t).asException())
         }
     }
 
-    override fun encode(message: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
+    override fun encode(batch: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
         val nextCodecObserver = object : StreamObserver<MessageGroupBatch> by responseObserver {
             override fun onNext(value: MessageGroupBatch) = responseObserver.onNext(generalEncodeFunc(value))
         }
 
         try {
-            if (nextCodec != null && message.anyMessage(AnyMessage::hasMessage)) {
-                nextCodec.encode(message, mapOf("session_alias" to message.sessionAlias), nextCodecObserver)
+            if (nextCodec != null && batch.anyMessage(AnyMessage::hasMessage)) {
+                nextCodec.encode(batch, mapOf("session_alias" to batch.sessionAlias), nextCodecObserver)
             } else {
-                nextCodecObserver.onNext(message)
+                nextCodecObserver.onNext(batch)
                 nextCodecObserver.onCompleted()
             }
         } catch (t: Throwable) {
-            eventProcessor.onErrorEvent("'encode' rpc call exception", cause = t)
-            LOGGER.error(t) { "'encode' rpc call exception" }
-            responseObserver.onError(Status.INTERNAL.withDescription(t.message).withCause(t).asException())
+            val errorMessage = "'encode' rpc call exception: ${t.message}"
+            eventProcessor.onErrorEvent(errorMessage, batch.messageIds, t)
+            LOGGER.error(errorMessage, t)
+            responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(t).asException())
         }
     }
 

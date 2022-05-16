@@ -20,16 +20,23 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
+
+val MessageGroupBatch.messageIds get() = groupsList.flatMap { it.messageIds }
+
+fun MessageGroupBatch.checkIfSameSessionAlias(alias: String) =
+    groupsList.all { groups -> groups.messagesList.all { it.sessionAlias == alias } }
 
 val MessageGroup.parentEventId: String?
     get() = messagesList.firstNotNullOfOrNull { anyMessage ->
@@ -60,7 +67,6 @@ val MessageGroup.allParsedProtocols
         .filter(AnyMessage::hasMessage)
         .map { it.message.metadata.protocol }
         .toSet()
-
 
 val MessageGroup.messageIds: List<MessageID>
     get() = messagesList.map { message ->
@@ -117,6 +123,8 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Colle
     }
     return result.build()
 }
+
+val AnyMessage.sessionAlias: String get() = if (hasMessage()) message.sessionAlias else rawMessage.sessionAlias
 
 private fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageMetadata.Builder {
     val protocol = metadata.protocol.ifBlank {

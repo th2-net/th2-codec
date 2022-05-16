@@ -34,12 +34,12 @@ import org.mockito.kotlin.verify
 import java.util.UUID
 
 class EventTest {
+    private val onEvent = mock<(Event, String?)->Unit>()
+    private val eventProcessor = EventProcessor(onEvent)
 
     @Test
     fun `simple test - decode`() {
-        val onEvent = mock<(Event, String?)->Unit>()
-
-        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -68,9 +68,7 @@ class EventTest {
 
     @Test
     fun `Throw test - decode`() {
-        val onEvent = mock<(Event, String?)->Unit>()
-
-        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -99,9 +97,7 @@ class EventTest {
 
     @Test
     fun `Throw test - decode with warnings`() {
-        val onEvent = mock<(Event, String?)->Unit>()
-
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -130,9 +126,7 @@ class EventTest {
 
     @Test
     fun `simple test - decode with warnings`() {
-        val onEvent = mock<(Event, String?)->Unit>()
-
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -161,9 +155,7 @@ class EventTest {
 
     @Test
     fun `simple test - decode general with warnings`() {
-        val onEvent = mock<(Event, String?)->Unit>()
-
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, eventProcessor = eventProcessor)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -192,9 +184,7 @@ class EventTest {
 
     @Test
     fun `Throw test - decode general with warnings`() {
-        val onEvent = mock<(Event, String?)->Unit>()
-
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, eventProcessor = eventProcessor)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -251,4 +241,3 @@ class EventTest {
         }
     }
 }
-

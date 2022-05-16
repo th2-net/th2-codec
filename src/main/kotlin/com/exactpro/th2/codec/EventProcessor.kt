@@ -23,8 +23,8 @@ import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.MessageID
 import mu.KotlinLogging
 
-class EventProcessor(private val onEvent: (event: Event, parentId: String?) -> Unit) {
-    private val logger = KotlinLogging.logger {}
+class EventProcessor(onEvent: ((event: Event, parentId: String?) -> Unit)?) {
+    private val onEvent = onEvent ?:  { _, _ -> }
 
     fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) =
         null.onEvent(message, messagesIds)
@@ -36,7 +36,7 @@ class EventProcessor(private val onEvent: (event: Event, parentId: String?) -> U
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
     ): String {
-        logger.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
+        LOGGER.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
         val event = createEvent(message, messagesIds, body = body)
         onEvent(event, this)
         return event.id
@@ -48,46 +48,49 @@ class EventProcessor(private val onEvent: (event: Event, parentId: String?) -> U
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList()
     ): String {
-        logger.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
+        LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
         val event = createEvent(message, messagesIds, Event.Status.FAILED, cause, additionalBody)
         onEvent(event, this)
         return event.id
     }
 
-    fun Set<String>.onEachEvent(
+    fun onEachEvent(
+        events: Set<String>,
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
     ) {
         val warnEvent = null.onEvent(message, messagesIds, body)
-        forEach {
+        events.forEach {
             it.addReferenceTo(warnEvent, message, Event.Status.PASSED)
         }
     }
 
-    fun Set<String>.onEachErrorEvent(
+    fun onEachErrorEvent(
+        events: Set<String>,
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList(),
     ) {
         val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
-        forEach {
+        events.forEach {
             it.addReferenceTo(errorEventId, message, Event.Status.FAILED)
         }
     }
 
-    fun Set<String>.onEachWarning(
+    fun onEachWarning(
+        warnings: Set<String>,
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
         messagesIds: () -> List<MessageID> = ::emptyList
-    ) = context.warnings.let { warnings ->
-        if (warnings.isNotEmpty()) {
+    ) = context.warnings.let {
+        if (it.isNotEmpty()) {
             val messages = messagesIds()
             val body = additionalBody()
-            warnings.forEach { warning ->
-                this.onEachEvent("[WARNING] During $action: $warning", messages, body)
+            it.forEach { warning ->
+                onEachEvent(warnings, "[WARNING] During $action: $warning", messages, body)
             }
         }
     }
@@ -139,5 +142,9 @@ class EventProcessor(private val onEvent: (event: Event, parentId: String?) -> U
         companion object {
             const val TYPE = "reference"
         }
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
     }
 }
