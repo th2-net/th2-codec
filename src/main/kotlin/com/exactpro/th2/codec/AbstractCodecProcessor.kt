@@ -5,7 +5,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 
 abstract class AbstractCodecProcessor(
     protected val codec: IPipelineCodec,
-    protected val eventProcessor: EventProcessor
+    protected val eventProcessor: AbstractEventProcessor
 ) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
     protected fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
         incomingProtocols.none { it.isBlank() || it in this }  -> false

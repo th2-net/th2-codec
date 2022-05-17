@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test
 import java.util.*
 
 class ProcessorTest {
-    private val eventProcessor = EventProcessor { _, _ -> }
+    private val eventProcessor = LogOnlyEventProcessor()
 
     @Test
     fun `simple test - decode`() {

@@ -30,7 +30,7 @@ import mu.KotlinLogging
 
 class DecodeProcessor(
     codec: IPipelineCodec,
-    eventProcessor: EventProcessor,
+    eventProcessor: AbstractEventProcessor,
     private val protocols: Set<String>,
     private val useParentEventId: Boolean = true
 ) : AbstractCodecProcessor(codec, eventProcessor) {

@@ -13,10 +13,8 @@
 
 package com.exactpro.th2.codec.grpc
 
-import com.exactpro.th2.codec.CodecException
 import com.exactpro.th2.codec.DecodeException
-import com.exactpro.th2.codec.EventProcessor
-import com.exactpro.th2.codec.util.checkIfSameSessionAlias
+import com.exactpro.th2.codec.StoreEventProcessor
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.sessionAlias
 import com.exactpro.th2.common.event.Event
@@ -34,7 +32,7 @@ class GrpcCodecService(
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : CodecGrpc.CodecImplBase() {
 
-    private val eventProcessor = EventProcessor(onEvent)
+    private val eventProcessor = StoreEventProcessor(onEvent)
 
     private val nextCodec = try {
         grpcRouter.getService(AsyncCodecService::class.java)
@@ -42,19 +40,18 @@ class GrpcCodecService(
         null
     }
 
-    private val MessageGroupBatch.sessionAlias get() = (
-            groupsList.asSequence()
-                .flatMap { it.messagesList }
-                .firstOrNull() ?: throw CodecException("Batch does not contain messages")
-            )
-        .sessionAlias
-        .also { alias ->
-            if (!checkIfSameSessionAlias(alias)) {
-                eventProcessor.onErrorEvent(
-                    "Batch contains messages with different session aliases.",
-                    messageIds
-                )
+    private val MessageGroupBatch.sessionAlias: String
+        get() {
+            var sessionAlias: String? = null
+            for (group in groupsList) {
+                for (message in group.messagesList) {
+                    when (sessionAlias) {
+                        null -> sessionAlias = message.sessionAlias
+                        else -> require(sessionAlias == message.sessionAlias) { "Batch contains more than one session alias" }
+                    }
+                }
             }
+            return requireNotNull(sessionAlias) { "Batch is empty" }
         }
 
     override fun decode(batch: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {

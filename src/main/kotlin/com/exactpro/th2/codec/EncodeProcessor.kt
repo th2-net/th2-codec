@@ -29,7 +29,7 @@ import mu.KotlinLogging
 
 class EncodeProcessor(
     codec: IPipelineCodec,
-    eventProcessor: EventProcessor,
+    eventProcessor: AbstractEventProcessor,
     private val protocols: Set<String>,
     private val useParentEventId: Boolean = true
 ) : AbstractCodecProcessor(codec, eventProcessor) {
@@ -80,7 +80,7 @@ class EncodeProcessor(
 
         return messageBatch.build().apply {
             if (source.groupsCount != groupsCount) {
-                eventProcessor.onEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
+                eventProcessor.onErrorEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
     }

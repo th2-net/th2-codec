@@ -18,65 +18,39 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.event.Event.Status
+import com.exactpro.th2.common.event.Event.Status.PASSED
+import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.MessageID
 import mu.KotlinLogging
 
-class EventProcessor(onEvent: ((event: Event, parentId: String?) -> Unit)?) {
-    private val onEvent = onEvent ?:  { _, _ -> }
-
-    fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) =
-        null.onEvent(message, messagesIds)
-
-    fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
-
-    private fun String?.onEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList()
-    ): String {
+abstract class AbstractEventProcessor {
+    fun onEvent(message: String, messagesIds: List<MessageID> = emptyList(), body: List<String> = emptyList()): String {
         LOGGER.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        val event = createEvent(message, messagesIds, body = body)
-        onEvent(event, this)
-        return event.id
+        return storeEvent(message, messagesIds, body)
     }
 
-    private fun String?.onErrorEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null,
-        additionalBody: List<String> = emptyList()
+    fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(),
+                     cause: Throwable? = null, additionalBody: List<String> = emptyList()
     ): String {
         LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        val event = createEvent(message, messagesIds, Event.Status.FAILED, cause, additionalBody)
-        onEvent(event, this)
-        return event.id
+        return storeErrorEvent(message, messagesIds, cause, additionalBody)
     }
 
-    fun onEachEvent(
-        events: Set<String>,
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList()
+    fun onEachEvent(events: Set<String>, message: String, messagesIds: List<MessageID> = emptyList(),
+                    body: List<String> = emptyList()
     ) {
-        val warnEvent = null.onEvent(message, messagesIds, body)
-        events.forEach {
-            it.addReferenceTo(warnEvent, message, Event.Status.PASSED)
-        }
+        val warnEvent = onEvent(message, messagesIds, body)
+        storeEachEvent(warnEvent, message, events)
     }
 
-    fun onEachErrorEvent(
-        events: Set<String>,
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null,
-        additionalBody: List<String> = emptyList(),
+    fun onEachErrorEvent(events: Set<String>, message: String, messagesIds: List<MessageID> = emptyList(),
+                         cause: Throwable? = null, additionalBody: List<String> = emptyList()
     ) {
-        val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
-        events.forEach {
-            it.addReferenceTo(errorEventId, message, Event.Status.FAILED)
-        }
+        val errorEventId = onErrorEvent(message, messagesIds, cause, additionalBody)
+        storeEachErrorEvent(errorEventId, message, events)
     }
 
     fun onEachWarning(
@@ -95,18 +69,82 @@ class EventProcessor(onEvent: ((event: Event, parentId: String?) -> Unit)?) {
         }
     }
 
+    protected abstract fun storeEvent(message: String, messagesIds: List<MessageID>, body: List<String>): String
+    protected abstract fun storeErrorEvent(message: String, messagesIds: List<MessageID>, cause: Throwable?, additionalBody: List<String>): String
+    protected abstract fun storeEachEvent(warnEvent: String, message: String, events: Set<String>)
+    protected abstract fun storeEachErrorEvent(errorEventId: String, message: String, events: Set<String>)
+
     private fun List<MessageID>.joinToReadableString(): String =
         joinToString(", ") {
             "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }
 
-    private fun String.addReferenceTo(eventId: String, name: String, status: Event.Status) {
-        onEvent(
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
+    }
+}
+
+class LogOnlyEventProcessor : AbstractEventProcessor() {
+    override fun storeEvent(message: String, messagesIds: List<MessageID>, body: List<String>): String = DEFAULT_EVENT_ID
+    override fun storeErrorEvent(message: String, messagesIds: List<MessageID>, cause: Throwable?, additionalBody: List<String>) = DEFAULT_EVENT_ID
+    override fun storeEachEvent(warnEvent: String, message: String, events: Set<String>) {}
+    override fun storeEachErrorEvent(errorEventId: String, message: String, events: Set<String>) {}
+
+    companion object {
+        private const val DEFAULT_EVENT_ID = "0000"
+    }
+}
+
+class StoreEventProcessor(private val storeEventFunc: (Event, String?) -> Unit) : AbstractEventProcessor() {
+
+    override fun storeEvent(
+        message: String,
+        messagesIds: List<MessageID>,
+        body: List<String>
+    ): String {
+        val event = createEvent(message, messagesIds, body = body)
+        storeEventFunc(event, null)
+        return event.id
+    }
+
+    override fun storeErrorEvent(
+        message: String,
+        messagesIds: List<MessageID>,
+        cause: Throwable?,
+        additionalBody: List<String>
+    ): String {
+        val event = createEvent(message, messagesIds, FAILED, cause, additionalBody)
+        storeEventFunc(event, null)
+        return event.id
+    }
+
+    override fun storeEachEvent(
+        warnEvent: String,
+        message: String,
+        events: Set<String>
+    ) {
+        events.forEach {
+            it.addReferenceTo(warnEvent, message, PASSED)
+        }
+    }
+
+    override fun storeEachErrorEvent(
+        errorEventId: String,
+        message: String,
+        events: Set<String>
+    ) {
+        events.forEach {
+            it.addReferenceTo(errorEventId, message, FAILED)
+        }
+    }
+
+    private fun String.addReferenceTo(eventId: String, name: String, status: Status) {
+        storeEventFunc(
             Event.start()
                 .endTimestamp()
                 .name(name)
                 .status(status)
-                .type(if (status != Event.Status.PASSED) "Error" else "Warn")
+                .type(if (status != PASSED) "Error" else "Warn")
                 .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
                 .bodyData(ReferenceToEvent(eventId)),
             this
@@ -116,13 +154,13 @@ class EventProcessor(onEvent: ((event: Event, parentId: String?) -> Unit)?) {
     private fun createEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
-        status: Event.Status = Event.Status.PASSED,
+        status: Status = PASSED,
         cause: Throwable? = null,
         body: List<String> = emptyList(),
     ) = Event.start().apply {
         name(message)
-        type(if (status != Event.Status.PASSED || cause != null) "Error" else "Warn")
-        status(if (cause != null) Event.Status.FAILED else status)
+        type(if (status != PASSED || cause != null) "Error" else "Warn")
+        status(if (cause != null) FAILED else status)
         messagesIds.forEach(::messageID)
 
         generateSequence(cause, Throwable::cause).forEach {
@@ -142,9 +180,5 @@ class EventProcessor(onEvent: ((event: Event, parentId: String?) -> Unit)?) {
         companion object {
             const val TYPE = "reference"
         }
-    }
-
-    companion object {
-        private val LOGGER = KotlinLogging.logger {}
     }
 }

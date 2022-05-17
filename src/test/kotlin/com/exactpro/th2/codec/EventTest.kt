@@ -35,7 +35,7 @@ import java.util.UUID
 
 class EventTest {
     private val onEvent = mock<(Event, String?)->Unit>()
-    private val eventProcessor = EventProcessor(onEvent)
+    private val eventProcessor = StoreEventProcessor(onEvent)
 
     @Test
     fun `simple test - decode`() {

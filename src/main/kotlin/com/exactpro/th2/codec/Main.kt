@@ -79,7 +79,7 @@ class CodecCommand : CliktCommand() {
                 }
             ).id
 
-            val onEvent: (Event, String?) -> Unit = { event, parentId ->
+            val storeEventFunc: (Event, String?) -> Unit = { event, parentId ->
                 eventRouter.runCatching {
                     storeEvent(event, parentId ?: rootEventId)
                 }.onFailure {
@@ -87,7 +87,7 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
-            val eventProcessor = EventProcessor(onEvent)
+            val eventProcessor = StoreEventProcessor(storeEventFunc)
 
             createCodec("decoder") {
                 SyncDecoder(
@@ -110,14 +110,14 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
-            val eventProcessorNoEventStore = EventProcessor(null)
+            val eventProcessorNoEventStore = LogOnlyEventProcessor()
             val decodeHandler = createGeneralDecoder(applicationContext, rootEventId, eventProcessorNoEventStore)::handleMessage
             val encodeHandler = createGeneralEncoder(applicationContext, rootEventId, eventProcessorNoEventStore)::handleMessage
 
             logger.info { "MQ codec service started" }
 
             val grpcRouter: GrpcRouter = commonFactory.grpcRouter
-            val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler, onEvent)
+            val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler, storeEventFunc)
             val server: Server = grpcRouter.startServer(grpcService)
             server.start()
             logger.info { "gRPC codec service started on port ${server.port}" }
@@ -131,7 +131,7 @@ class CodecCommand : CliktCommand() {
     private fun createGeneralEncoder(
         context: ApplicationContext,
         rootEventId: String,
-        eventProcessor: EventProcessor
+        eventProcessor: AbstractEventProcessor
     ) = createCodec("general-encoder") {
             SyncEncoder(
                 context.commonFactory.messageRouterMessageGroupBatch,
@@ -146,7 +146,7 @@ class CodecCommand : CliktCommand() {
     private fun createGeneralDecoder(
         context: ApplicationContext,
         rootEventId: String,
-        eventProcessor: EventProcessor
+        eventProcessor: AbstractEventProcessor
     ) = createCodec("general-decoder") {
         SyncDecoder(
             context.commonFactory.messageRouterMessageGroupBatch,
