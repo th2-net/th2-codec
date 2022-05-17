@@ -244,6 +244,12 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 * gRPC interface for codec pipeline
 
+### v4.7.1
+
+#### Feature:
+
+* Generate error messages with parent event id from an error event
+
 ### v4.7.0
 
 #### Added:

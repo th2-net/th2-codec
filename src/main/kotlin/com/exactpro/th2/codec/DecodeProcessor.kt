@@ -72,14 +72,14 @@ class DecodeProcessor(
                 val header = "Failed to decode: ${e.title}"
 
                 eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.messageIds, e)
-                val eventIds = parentEventIds // TODO: fix - get real eventIds
+                val eventIds = parentEventIds // TODO: fix - get real eventIds?
 
                 messageBatch.addGroups(header, messageGroup, parentEventIds, e, eventIds)
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
 
                 eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.messageIds, throwable)
-                val eventIds = parentEventIds // TODO: fix - get real eventIds
+                val eventIds = parentEventIds // TODO: fix - get real eventIds?
 
                 messageBatch.addGroups(header, messageGroup, parentEventIds, throwable, eventIds)
             }
