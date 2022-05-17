@@ -30,9 +30,6 @@ import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
-const val ERROR_TYPE_MESSAGE = "th2-codec-error"
-const val ERROR_CONTENT_FIELD = "content"
-
 val MessageGroupBatch.messageIds get() = groupsList.flatMap { it.messageIds }
 
 fun MessageGroupBatch.checkIfSameSessionAlias(alias: String) =
@@ -76,12 +73,6 @@ val MessageGroup.messageIds: List<MessageID>
             else -> error("Unknown message kind: $kind")
         }
     }
-
-fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
-    incomingProtocols.none { it.isBlank() || it in this }  -> false
-    incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
-    else -> true
-}
 
 @Deprecated("Please use the toErrorMessageGroup(exception: Throwable, protocols: List<String>) overload instead", ReplaceWith("this.toErrorMessageGroup(exception, listOf(protocol))"))
 fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup = this.toErrorMessageGroup(exception, listOf(protocol))

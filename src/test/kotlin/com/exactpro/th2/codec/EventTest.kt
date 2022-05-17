@@ -39,7 +39,7 @@ class EventTest {
 
     @Test
     fun `simple test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
+        val processor = DecodeProcessor(TestCodec(false), eventProcessor, ProcessorTest.ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -68,7 +68,7 @@ class EventTest {
 
     @Test
     fun `Throw test - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
+        val processor = DecodeProcessor(TestCodec(true), eventProcessor, ProcessorTest.ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -97,7 +97,7 @@ class EventTest {
 
     @Test
     fun `Throw test - decode with warnings`() {
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
+        val processor = DecodeProcessor(TestCodec(true, 2), eventProcessor, ProcessorTest.ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -126,7 +126,7 @@ class EventTest {
 
     @Test
     fun `simple test - decode with warnings`() {
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, eventProcessor = eventProcessor)
+        val processor = DecodeProcessor(TestCodec(false, 2), eventProcessor, ProcessorTest.ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -155,7 +155,7 @@ class EventTest {
 
     @Test
     fun `simple test - decode general with warnings`() {
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, eventProcessor = eventProcessor)
+        val processor = DecodeProcessor(TestCodec(false, 2), eventProcessor, ProcessorTest.ORIGINAL_PROTOCOLS, false)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -184,7 +184,7 @@ class EventTest {
 
     @Test
     fun `Throw test - decode general with warnings`() {
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, eventProcessor = eventProcessor)
+        val processor = DecodeProcessor(TestCodec(true, 2), eventProcessor, ProcessorTest.ORIGINAL_PROTOCOLS, false)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {

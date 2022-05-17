@@ -28,7 +28,7 @@ import java.util.concurrent.TimeoutException
 abstract class AbstractSyncCodec(
     private val messageRouter: MessageRouter<MessageGroupBatch>,
     private val eventRouter: MessageRouter<EventBatch>,
-    private val processor: MessageProcessor<MessageGroupBatch, MessageGroupBatch>,
+    private val processor: AbstractCodecProcessor,
     private val codecRootEvent: String
 ) : AutoCloseable, MessageListener<MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}

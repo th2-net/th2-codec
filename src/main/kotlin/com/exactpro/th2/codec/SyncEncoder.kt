@@ -21,7 +21,7 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 class SyncEncoder(
     messageRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
-    processor: MessageProcessor<MessageGroupBatch, MessageGroupBatch>,
+    processor: AbstractCodecProcessor,
     codecRootID: String
 ) : AbstractSyncCodec(
     messageRouter,

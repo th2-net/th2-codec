@@ -20,7 +20,6 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
-import com.exactpro.th2.codec.util.checkAgainstProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
@@ -29,11 +28,11 @@ import com.exactpro.th2.common.message.toJson
 import mu.KotlinLogging
 
 class EncodeProcessor(
-    private val codec: IPipelineCodec,
+    codec: IPipelineCodec,
+    eventProcessor: EventProcessor,
     private val protocols: Set<String>,
-    private val useParentEventId: Boolean = true,
-    private val eventProcessor: EventProcessor
-) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
+    private val useParentEventId: Boolean = true
+) : AbstractCodecProcessor(codec, eventProcessor) {
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
