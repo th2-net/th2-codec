@@ -32,22 +32,31 @@ abstract class AbstractEventProcessor {
         return storeEvent(message, messagesIds, body)
     }
 
-    fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(),
-                     cause: Throwable? = null, additionalBody: List<String> = emptyList()
+    fun onErrorEvent(
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null,
+        additionalBody: List<String> = emptyList()
     ): String {
         LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
         return storeErrorEvent(message, messagesIds, cause, additionalBody)
     }
 
-    fun onEachEvent(events: Set<String>, message: String, messagesIds: List<MessageID> = emptyList(),
-                    body: List<String> = emptyList()
+    fun onEachEvent(
+        events: Set<String>,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        body: List<String> = emptyList()
     ) {
         val warnEvent = onEvent(message, messagesIds, body)
         storeEachEvent(warnEvent, message, events)
     }
 
-    fun onEachErrorEvent(events: Set<String>, message: String, messagesIds: List<MessageID> = emptyList(),
-                         cause: Throwable? = null, additionalBody: List<String> = emptyList()
+    fun onEachErrorEvent(
+        events: Set<String>,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null, additionalBody: List<String> = emptyList()
     ) {
         val errorEventId = onErrorEvent(message, messagesIds, cause, additionalBody)
         storeEachErrorEvent(errorEventId, message, events)
@@ -85,8 +94,19 @@ abstract class AbstractEventProcessor {
 }
 
 class LogOnlyEventProcessor : AbstractEventProcessor() {
-    override fun storeEvent(message: String, messagesIds: List<MessageID>, body: List<String>): String = DEFAULT_EVENT_ID
-    override fun storeErrorEvent(message: String, messagesIds: List<MessageID>, cause: Throwable?, additionalBody: List<String>) = DEFAULT_EVENT_ID
+    override fun storeEvent(
+        message: String,
+        messagesIds: List<MessageID>,
+        body: List<String>
+    ): String = DEFAULT_EVENT_ID
+
+    override fun storeErrorEvent(
+        message: String,
+        messagesIds: List<MessageID>,
+        cause: Throwable?,
+        additionalBody: List<String>
+    ) = DEFAULT_EVENT_ID
+
     override fun storeEachEvent(warnEvent: String, message: String, events: Set<String>) {}
     override fun storeEachErrorEvent(errorEventId: String, message: String, events: Set<String>) {}
 

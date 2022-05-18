@@ -59,7 +59,6 @@ abstract class AbstractSyncCodec(
             protoResult = processor.process(message)
             if (!checkResult(protoResult)) throw CodecException("checkResult failed")
             return protoResult
-
         } catch (e: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
             createAndStoreErrorEvent(e, parentEventId)

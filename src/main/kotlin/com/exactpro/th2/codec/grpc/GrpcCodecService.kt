@@ -13,7 +13,7 @@
 
 package com.exactpro.th2.codec.grpc
 
-import com.exactpro.th2.codec.DecodeException
+import com.exactpro.th2.codec.CodecException
 import com.exactpro.th2.codec.StoreEventProcessor
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.sessionAlias
@@ -59,7 +59,7 @@ class GrpcCodecService(
         try {
             val parsed = generalDecodeFunc(batch)
             if (parsed.anyMessage(AnyMessage::hasRawMessage)) {
-                if (nextCodec == null) throw DecodeException("codec pipeline output contains raw messages after decoding")
+                if (nextCodec == null) throw CodecException("grpc codec pipeline output contains raw messages after decoding")
                 nextCodec.decode(parsed, mapOf("session_alias" to parsed.sessionAlias), responseObserver)
             } else {
                 responseObserver.onNext(parsed)
@@ -75,16 +75,20 @@ class GrpcCodecService(
     override fun encode(batch: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
         val nextCodecObserver = object : StreamObserver<MessageGroupBatch> by responseObserver {
             override fun onNext(value: MessageGroupBatch) {
-                val encoded = generalEncodeFunc(value)
+                try {
+                    val encoded = generalEncodeFunc(value)
 
-                if (isFirstCodecInPipeline && encoded.anyMessage(AnyMessage::hasMessage)) {
-                    val errorMessage = "'encode' rpc call error: grpc codec pipeline output contains parsed messages after encoding"
-                    eventProcessor.onErrorEvent(errorMessage, batch.messageIds)
-                    responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).asException())
+                    if (isFirstCodecInPipeline && encoded.anyMessage(AnyMessage::hasMessage)) {
+                        throw CodecException("grpc codec pipeline output contains parsed messages after encoding")
+                    }
+
+                    responseObserver.onNext(encoded)
+                    responseObserver.onCompleted()
+                } catch (t: Throwable) {
+                    val errorMessage = "'encode' rpc call exception: ${t.message}"
+                    eventProcessor.onErrorEvent(errorMessage, batch.messageIds, t)
+                    responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(t).asException())
                 }
-
-                responseObserver.onNext(encoded)
-                responseObserver.onCompleted()
             }
 
             override fun onCompleted() {}
