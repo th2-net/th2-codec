@@ -29,7 +29,8 @@ class GrpcCodecService(
     grpcRouter: GrpcRouter,
     private val generalDecodeFunc: ((MessageGroupBatch) -> MessageGroupBatch),
     private val generalEncodeFunc: ((MessageGroupBatch) -> MessageGroupBatch),
-    onEvent: (event: Event, parentId: String?) -> Unit
+    onEvent: (Event, String?) -> Unit,
+    private val isFirstCodecInPipeline: Boolean
 ) : CodecGrpc.CodecImplBase() {
 
     private val eventProcessor = StoreEventProcessor(onEvent)
@@ -67,14 +68,26 @@ class GrpcCodecService(
         } catch (t: Throwable) {
             val errorMessage = "'decode' rpc call exception: ${t.message}"
             eventProcessor.onErrorEvent(errorMessage, batch.messageIds, t)
-            LOGGER.error(errorMessage, t)
             responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(t).asException())
         }
     }
 
     override fun encode(batch: MessageGroupBatch, responseObserver: StreamObserver<MessageGroupBatch>) {
         val nextCodecObserver = object : StreamObserver<MessageGroupBatch> by responseObserver {
-            override fun onNext(value: MessageGroupBatch) = responseObserver.onNext(generalEncodeFunc(value))
+            override fun onNext(value: MessageGroupBatch) {
+                val encoded = generalEncodeFunc(value)
+
+                if (isFirstCodecInPipeline && encoded.anyMessage(AnyMessage::hasMessage)) {
+                    val errorMessage = "'encode' rpc call error: grpc codec pipeline output contains parsed messages after encoding"
+                    eventProcessor.onErrorEvent(errorMessage, batch.messageIds)
+                    responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).asException())
+                }
+
+                responseObserver.onNext(encoded)
+                responseObserver.onCompleted()
+            }
+
+            override fun onCompleted() {}
         }
 
         try {
@@ -87,7 +100,6 @@ class GrpcCodecService(
         } catch (t: Throwable) {
             val errorMessage = "'encode' rpc call exception: ${t.message}"
             eventProcessor.onErrorEvent(errorMessage, batch.messageIds, t)
-            LOGGER.error(errorMessage, t)
             responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(t).asException())
         }
     }
