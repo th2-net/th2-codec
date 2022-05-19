@@ -227,11 +227,6 @@ You can declare multiple pins with attributes `['decoder_out', 'parsed', 'publis
 Every decoded messages will be direct to all declared pins and will send to MQ only if it passes the filter.
 
 ```yaml
-apiVersion: th2.exactpro.com/v1
-kind: Th2Box
-metadata:
-  name: codec
-spec:
   pins:
     # decoder
     - name: out_codec_decode_first_session_alias
@@ -257,11 +252,6 @@ The filtering can also be applied for pins with `subscribe` attribute.
 Using filters with gRPC pins:
 
 ```yaml
-apiVersion: th2.exactpro.com/v1
-kind: Th2Box
-metadata:
-  name: codec
-spec:
   pins:
     - name: out_codec_general_client_1
       connection-type: grpc-client
