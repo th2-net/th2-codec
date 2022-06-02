@@ -1,4 +1,4 @@
-# Description (4.7.0)
+# Description (4.7.1)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
