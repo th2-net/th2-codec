@@ -64,13 +64,10 @@ fun MessageGroup.toErrorGroup(infoMessage: String,
             if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols }) {
                 result += anyMessage.rawMessage.let { rawMessage ->
                     val eventID = if (useParentEventId) {
-                        checkNotNull(errorEvents[rawMessage.parentEventId.id.ifEmpty { null }]) {
-                            "No error event was found for message: ${rawMessage.metadata.id.sequence}"
-                        }
+                        getErrorEventId(errorEvents, rawMessage)
                     } else {
-                        EventID.newBuilder().setId(parentEventId).build()
+                        parentEventId?.let { EventID.newBuilder().setId(it).build() } ?: getErrorEventId(errorEvents, rawMessage)
                     }
-
                     rawMessage.toErrorMessage(protocols, eventID, content)
                 }
             } else {
@@ -78,4 +75,10 @@ fun MessageGroup.toErrorGroup(infoMessage: String,
             }
         }
     }.build()
+}
+
+private fun getErrorEventId(errorEvents: Map<String, EventID>, rawMessage: RawMessage): EventID {
+    return checkNotNull(errorEvents[rawMessage.parentEventId.id.ifEmpty { null }]) {
+        "No error event was found for message: ${rawMessage.metadata.id.sequence}"
+    }
 }
