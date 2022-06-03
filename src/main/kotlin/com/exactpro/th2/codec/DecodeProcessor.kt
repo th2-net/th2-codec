@@ -21,8 +21,6 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.*
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
@@ -51,7 +49,7 @@ class DecodeProcessor(
             }
 
             val msgProtocols = messageGroup.allRawProtocols
-            val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds: Set<String?> = if (useParentEventId) messageGroup.allParentEventIds.ifEmpty { ROOT_EVENT_ID_SET } else ROOT_EVENT_ID_SET
             val context = ReportingContext()
 
             try {
@@ -71,15 +69,15 @@ class DecodeProcessor(
             } catch (e: ValidateException) {
                 val header = "Failed to decode: ${e.title}"
 
-                val eventIds = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
-
-                messageBatch.addGroups(header, messageGroup, parentEventIds, e, eventIds)
+                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e, map))
+//                messageBatch.addGroups(header, messageGroup, parentEventIds, e, eventIds)
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
 
-                val eventIds = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
-
-                messageBatch.addGroups(header, messageGroup, parentEventIds, throwable, eventIds)
+                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable, map))
+//                messageBatch.addGroups(header, messageGroup, parentEventIds, throwable, eventIds)
             }
 
             parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
@@ -92,15 +90,19 @@ class DecodeProcessor(
         }
     }
 
-    private fun MessageGroupBatch.Builder.addGroups(header: String,
-                                                    messageGroup: MessageGroup,
-                                                    parentEventIds: Set<String>,
-                                                    throwable: Throwable,
-                                                    eventIds: Set<String>) {
-        val eventIdsMap: Map<String, EventID> = (parentEventIds zip eventIds).associate {
-            it.first to EventID.newBuilder().setId(it.second).build()
-        }
-
-        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId))
+    companion object {
+        private val ROOT_EVENT_ID_SET = setOf<String?>(null)
     }
+
+//    private fun MessageGroupBatch.Builder.addGroups(header: String,
+//                                                    messageGroup: MessageGroup,
+//                                                    parentEventIds: Set<String>,
+//                                                    throwable: Throwable,
+//                                                    eventIds: Set<String>) {
+//        val eventIdsMap: Map<String, EventID> = (parentEventIds zip eventIds).associate {
+//            it.first to EventID.newBuilder().setId(it.second).build()
+//        }
+//
+//        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId))
+//    }
 }
