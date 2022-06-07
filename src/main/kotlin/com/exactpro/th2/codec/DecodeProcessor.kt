@@ -21,7 +21,9 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.*
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.plusAssign
 import mu.KotlinLogging
 
 class DecodeProcessor(
@@ -69,15 +71,13 @@ class DecodeProcessor(
             } catch (e: ValidateException) {
                 val header = "Failed to decode: ${e.title}"
 
-                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e, map))
-//                messageBatch.addGroups(header, messageGroup, parentEventIds, e, eventIds)
+                parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e))
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
 
-                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable, map))
-//                messageBatch.addGroups(header, messageGroup, parentEventIds, throwable, eventIds)
+                parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable))
             }
 
             parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
@@ -90,19 +90,33 @@ class DecodeProcessor(
         }
     }
 
+    private fun MessageGroup.toErrorGroup(
+        infoMessage: String,
+        protocols: Collection<String>,
+        throwable: Throwable
+    ): MessageGroup {
+        val content = buildString {
+            appendLine("Error: $infoMessage")
+            appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
+            appendLine("Due to the following errors: ")
+
+            generateSequence(throwable, Throwable::cause).forEachIndexed { index, cause ->
+                appendLine("$index: ${cause.message}")
+            }
+        }
+
+        return MessageGroup.newBuilder().also { batchBuilder ->
+            for (anyMessage in this.messagesList) {
+                if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
+                    batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, anyMessage.rawMessage.parentEventId, content)
+                } else {
+                    batchBuilder.addMessages(anyMessage)
+                }
+            }
+        }.build()
+    }
+
     companion object {
         private val ROOT_EVENT_ID_SET = setOf<String?>(null)
     }
-
-//    private fun MessageGroupBatch.Builder.addGroups(header: String,
-//                                                    messageGroup: MessageGroup,
-//                                                    parentEventIds: Set<String>,
-//                                                    throwable: Throwable,
-//                                                    eventIds: Set<String>) {
-//        val eventIdsMap: Map<String, EventID> = (parentEventIds zip eventIds).associate {
-//            it.first to EventID.newBuilder().setId(it.second).build()
-//        }
-//
-//        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId))
-//    }
 }

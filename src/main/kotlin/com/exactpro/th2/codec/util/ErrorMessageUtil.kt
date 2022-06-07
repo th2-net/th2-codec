@@ -17,11 +17,9 @@
 package com.exactpro.th2.codec.util
 
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.message
-import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.set
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
@@ -44,37 +42,3 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
     it[ERROR_EVENT_ID] = errorEventId
 }
 
-//TODO:Move decode processor
-fun MessageGroup.toErrorGroup(
-    infoMessage: String,
-    protocols: Collection<String>,
-    throwable: Throwable,
-    map: Map<String?, EventID>
-): MessageGroup {
-    val content = buildString {
-        appendLine("Error: $infoMessage")
-        appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
-        appendLine("Due to the following errors: ")
-
-        generateSequence(throwable, Throwable::cause).forEachIndexed { index, cause ->
-            appendLine("$index: ${cause.message}")
-        }
-    }
-
-    return MessageGroup.newBuilder().also { batchBuilder ->
-        for (anyMessage in this.messagesList) {
-            when {
-                anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } -> {
-                    val eventID = checkNotNull(map[anyMessage.rawMessage.parentEventId.id.ifEmpty { null }]) {
-                        "No error event was found for message: ${anyMessage.rawMessage.metadata.id.sequence}"
-                    }
-                    batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, eventID, content)
-                }
-                anyMessage.hasMessage() && anyMessage.message.metadata.protocol.run { isBlank() || this in protocols } -> {
-                    batchBuilder.addMessages(anyMessage)
-                }
-                else -> { } // LOGGER.warn { "Unsupported ..." }
-            }
-        }
-    }.build()
-}

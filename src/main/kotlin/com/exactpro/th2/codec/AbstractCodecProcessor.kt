@@ -24,7 +24,6 @@ import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import mu.KotlinLogging
@@ -68,7 +67,7 @@ abstract class AbstractCodecProcessor(
         body: List<String> = emptyList()
     ) {
         val warnEvent = null.onEvent(message, messagesIds, body)
-        forEach {
+        filterNotNull().forEach {
             it.addReferenceTo(warnEvent, message, PASSED)
         }
     }
@@ -78,16 +77,14 @@ abstract class AbstractCodecProcessor(
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList(),
-    ): Map<String?, EventID> {
-        val result = mutableMapOf<String?, EventID>()
+    ) {
         val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
-        forEach {
-            result[it] = it.addReferenceTo(errorEventId, message, FAILED)
+        filterNotNull().forEach {
+            it.addReferenceTo(errorEventId, message, FAILED)
         }
-        return result
     }
 
-    protected fun Set<String>.onEachWarning(
+    protected fun Set<String?>.onEachWarning(
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
@@ -107,24 +104,17 @@ abstract class AbstractCodecProcessor(
             "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }
 
-    private fun String?.addReferenceTo(eventId: String, name: String, status: Status): EventID {
-        Event.start()
-            .endTimestamp()
-            .name(name)
-            .status(status)
-            .type(if (status != PASSED) "Error" else "Warn")
-            .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-            .bodyData(ReferenceToEvent(eventId))
-            .also { event ->
-                onEvent(
-                    event,
-                    this
-                )
-
-                return EventID.newBuilder().apply {
-                    id = event.id
-                }.build()
-            }
+    private fun String?.addReferenceTo(eventId: String, name: String, status: Status) {
+        onEvent(
+            Event.start()
+                .endTimestamp()
+                .name(name)
+                .status(status)
+                .type(if (status != PASSED) "Error" else "Warn")
+                .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
+                .bodyData(ReferenceToEvent(eventId)),
+            this
+        )
     }
 
     protected fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
