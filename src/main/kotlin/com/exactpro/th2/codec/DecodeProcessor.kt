@@ -21,6 +21,7 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.*
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.plusAssign
@@ -71,13 +72,13 @@ class DecodeProcessor(
             } catch (e: ValidateException) {
                 val header = "Failed to decode: ${e.title}"
 
-                parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e))
+                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e, map))
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
 
-                parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable))
+                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable, map))
             }
 
             parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
@@ -93,7 +94,8 @@ class DecodeProcessor(
     private fun MessageGroup.toErrorGroup(
         infoMessage: String,
         protocols: Collection<String>,
-        throwable: Throwable
+        throwable: Throwable,
+        map: Map<String?, EventID>
     ): MessageGroup {
         val content = buildString {
             appendLine("Error: $infoMessage")
@@ -108,7 +110,18 @@ class DecodeProcessor(
         return MessageGroup.newBuilder().also { batchBuilder ->
             for (anyMessage in this.messagesList) {
                 if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
-                    batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, anyMessage.rawMessage.parentEventId, content)
+
+                    val eventID = if (useParentEventId) {
+                        checkNotNull(map[anyMessage.rawMessage.parentEventId.id.ifEmpty { null }]) {
+                            "Not found id: ${anyMessage.rawMessage.parentEventId.id}\n" +
+                                    "Map: ${map.entries.joinToString { e -> "${e.key}:${e.value}" }}" +
+                                    "No error event was found for message: ${anyMessage.rawMessage.metadata.id.sequence}"
+                        }
+                    } else {
+                        EventID.newBuilder().setId(parentEventId).build()
+                    }
+
+                    batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, eventID, content)
                 } else {
                     batchBuilder.addMessages(anyMessage)
                 }
