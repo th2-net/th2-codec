@@ -25,14 +25,21 @@ import com.exactpro.th2.common.message.hasField
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.*
 
 class ProcessorTest {
+    private lateinit var codecRootEvent: String
+
+    @BeforeEach
+    private fun beforeEach() {
+        codecRootEvent = EventID.newBuilder().setId(UUID.randomUUID().toString()).build().id
+    }
 
     @Test
     fun `simple test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -49,7 +56,7 @@ class ProcessorTest {
 
     @Test
     fun `other protocol in raw message test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -64,7 +71,7 @@ class ProcessorTest {
 
     @Test
     fun `one parsed message in group test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -89,7 +96,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = DecodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), originalProtocols, codecRootEvent = codecRootEvent) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -236,7 +243,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
@@ -297,7 +304,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on failed protocol check - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
@@ -347,7 +354,7 @@ class ProcessorTest {
 
     @Test
     fun `multiple protocol test - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json")) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json"), codecRootEvent = codecRootEvent) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {

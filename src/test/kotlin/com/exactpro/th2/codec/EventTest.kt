@@ -25,6 +25,7 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.plusAssign
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -34,12 +35,17 @@ import org.mockito.kotlin.verify
 import java.util.UUID
 
 class EventTest {
+    private lateinit var codecRootEvent: String
+    @BeforeEach
+    private fun beforeEach() {
+        codecRootEvent = EventID.newBuilder().setId(UUID.randomUUID().toString()).build().id
+    }
 
     @Test
     fun `simple test - decode`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -70,7 +76,7 @@ class EventTest {
     fun `Throw test - decode`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -101,7 +107,7 @@ class EventTest {
     fun `Throw test - decode with warnings`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -132,7 +138,7 @@ class EventTest {
     fun `simple test - decode with warnings`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, codecRootEvent = codecRootEvent, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -163,7 +169,7 @@ class EventTest {
     fun `simple test - decode general with warnings`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, codecRootEvent = codecRootEvent, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -194,7 +200,7 @@ class EventTest {
     fun `Throw test - decode general with warnings`() {
         val onEvent = mock<(Event, String?)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, onEvent = onEvent)
+        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, codecRootEvent = codecRootEvent, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {

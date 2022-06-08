@@ -30,6 +30,7 @@ class DecodeProcessor(
     codec: IPipelineCodec,
     private val protocols: Set<String>,
     private val useParentEventId: Boolean = true,
+    private val codecRootEvent: String,
     onEvent: (event: Event, parentId: String?) -> Unit
 ) : AbstractCodecProcessor(codec, onEvent) {
 
@@ -73,13 +74,13 @@ class DecodeProcessor(
 
                 val eventIds = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
 
-                messageBatch.addGroups(header, messageGroup, parentEventIds, e, eventIds)
+                messageBatch.addGroups(header, messageGroup, parentEventIds, e, eventIds, codecRootEvent)
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
 
                 val eventIds = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
 
-                messageBatch.addGroups(header, messageGroup, parentEventIds, throwable, eventIds)
+                messageBatch.addGroups(header, messageGroup, parentEventIds, throwable, eventIds, codecRootEvent)
             }
 
             parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
@@ -96,11 +97,12 @@ class DecodeProcessor(
                                                     messageGroup: MessageGroup,
                                                     parentEventIds: Set<String>,
                                                     throwable: Throwable,
-                                                    eventIds: Set<String>) {
+                                                    eventIds: Set<String>,
+                                                    codecRootEvent: String) {
         val eventIdsMap: Map<String, EventID> = (parentEventIds zip eventIds).associate {
             it.first to EventID.newBuilder().setId(it.second).build()
         }
 
-        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId))
+        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId, codecRootEvent))
     }
 }

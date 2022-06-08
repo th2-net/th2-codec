@@ -48,7 +48,8 @@ fun MessageGroup.toErrorGroup(infoMessage: String,
                               protocols: Collection<String>,
                               errorEvents: Map<String, EventID>,
                               throwable: Throwable?,
-                              useParentEventId: Boolean): MessageGroup {
+                              useParentEventId: Boolean,
+                              codecRootEvent: String): MessageGroup {
     val content = buildString {
         appendLine("Error: $infoMessage")
         appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
@@ -68,7 +69,7 @@ fun MessageGroup.toErrorGroup(infoMessage: String,
                             "No error event was found for message: ${rawMessage.metadata.id.sequence}"
                         }
                     } else {
-                        EventID.newBuilder().setId(parentEventId).build()
+                        EventID.newBuilder().setId(codecRootEvent).build()
                     }
 
                     rawMessage.toErrorMessage(protocols, eventID, content)
