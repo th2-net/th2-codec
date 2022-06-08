@@ -57,7 +57,7 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:3.2.0')
 
-    implementation 'com.exactpro.th2:common:3.39.0-TH2-3574-2449804407-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:3.39.0-TH2-3574-2460807637-SNAPSHOT'
     implementation 'com.exactpro.th2:grpc-codec:0.0.2'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.21'
@@ -75,8 +75,8 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java-util'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
-    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:1.5.32"
-    testImplementation "org.mockito.kotlin:mockito-kotlin:3.2.0"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:4.0.0"
 }
 
 jar {
