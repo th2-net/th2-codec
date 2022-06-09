@@ -24,6 +24,7 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.plusAssign
 import mu.KotlinLogging
 
 class DecodeProcessor(
@@ -104,5 +105,46 @@ class DecodeProcessor(
         }
 
         addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId, codecRootEvent))
+    }
+
+    private fun MessageGroup.toErrorGroup(infoMessage: String,
+                                          protocols: Collection<String>,
+                                          errorEvents: Map<String, EventID>,
+                                          throwable: Throwable?,
+                                          useParentEventId: Boolean,
+                                          codecRootEvent: String): MessageGroup {
+        val content = buildString {
+            appendLine("Error: $infoMessage")
+            appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
+            appendLine("Due to the following errors: ")
+
+            generateSequence(throwable, Throwable::cause).forEachIndexed { index, cause ->
+                appendLine("$index: ${cause.message}")
+            }
+        }
+
+        return MessageGroup.newBuilder().also { result ->
+            for (anyMessage in this.messagesList) {
+                if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols }) {
+                    result += anyMessage.rawMessage.let { rawMessage ->
+                        val eventID: EventID = if (useParentEventId) {
+                            checkNotNull(errorEvents[rawMessage.parentEventId.id.ifEmpty { null }]) {
+                                "No error event was found for message: ${rawMessage.metadata.id.sequence}"
+                            }
+                        } else {
+                            if (parentEventId != null) {
+                                EventID.newBuilder().setId(parentEventId).build()
+                            } else {
+                                EventID.newBuilder().setId(codecRootEvent.onErrorEvent("")).build()
+                            }
+                        }
+
+                        rawMessage.toErrorMessage(protocols, eventID, content)
+                    }
+                } else {
+                    result.addMessages(anyMessage)
+                }
+            }
+        }.build()
     }
 }
