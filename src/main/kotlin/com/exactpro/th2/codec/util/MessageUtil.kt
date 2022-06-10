@@ -37,8 +37,11 @@ val MessageGroup.parentEventId: String?
         }
     }
 
-val MessageGroup.allParentEventIds: Set<String>
-    get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->
+/**
+ * Returns parant event ids from each message. Returns null value if message doesn't contain parentEventId
+ */
+val MessageGroup.allParentEventIds: Set<String?>
+    get() = messagesList.mapTo(HashSet()) { anyMessage ->
         when {
             anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
             anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }

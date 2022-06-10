@@ -20,7 +20,6 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
-import com.exactpro.th2.codec.util.checkAgainstProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
@@ -54,7 +53,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
 
             try {
@@ -67,18 +66,18 @@ class EncodeProcessor(
                 val encodedGroup = codec.encode(messageGroup, context)
 
                 if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventId.onEachEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
+                    parentEventIds.onEachEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
                 }
 
                 messageBatch.addGroups(encodedGroup)
             } catch (e: ValidateException) {
-                sendErrorEvents("Failed to encode: ${e.title}", parentEventId, messageGroup, e, e.details)
+                sendErrorEvents("Failed to encode: ${e.title}", parentEventIds, messageGroup, e, e.details)
             } catch (throwable: Throwable) {
                 // we should not use message IDs because during encoding there is no correct message ID created yet
-                sendErrorEvents("Failed to encode message group", parentEventId, messageGroup, throwable, emptyList())
+                sendErrorEvents("Failed to encode message group", parentEventIds, messageGroup, throwable, emptyList())
             }
 
-            parentEventId.onEachWarning(context, "encoding",
+            parentEventIds.onEachWarning(context, "encoding",
                 additionalBody = { messageGroup.toReadableBody(false) })
         }
 
@@ -99,7 +98,7 @@ class EncodeProcessor(
         }
     }
 
-    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
+    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String?>, msgGroup: MessageGroup,
                                 cause: Throwable, additionalBody: List<String>){
         parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
     }

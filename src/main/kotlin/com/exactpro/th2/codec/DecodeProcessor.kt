@@ -111,14 +111,11 @@ class DecodeProcessor(
             for (anyMessage in this.messagesList) {
                 if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
 
-                    val eventID = if (useParentEventId) {
-                        checkNotNull(map[anyMessage.rawMessage.parentEventId.id.ifEmpty { null }]) {
-                            "Not found id: ${anyMessage.rawMessage.parentEventId.id}\n" +
-                                    "Map: ${map.entries.joinToString { e -> "${e.key}:${e.value}" }}" +
-                                    "No error event was found for message: ${anyMessage.rawMessage.metadata.id.sequence}"
-                        }
-                    } else {
-                        EventID.newBuilder().setId(parentEventId).build()
+                    val originEventId = if (useParentEventId) anyMessage.rawMessage.parentEventId.id.ifEmpty { null } else null
+                    val eventID = checkNotNull(map[originEventId]) {
+                        "Not found id: ${anyMessage.rawMessage.parentEventId.id}\n" +
+                                "Map: ${map.entries.joinToString { e -> "${e.key}:${e.value}" }}" +
+                                "No error event was found for message: ${anyMessage.rawMessage.metadata.id.sequence}"
                     }
 
                     batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, eventID, content)
