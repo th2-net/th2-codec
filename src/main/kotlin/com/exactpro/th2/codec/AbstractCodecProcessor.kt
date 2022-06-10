@@ -68,7 +68,7 @@ abstract class AbstractCodecProcessor(
         body: List<String> = emptyList()
     ) {
         val warnEvent = null.onEvent(message, messagesIds, body)
-        filterNotNull().forEach {
+        forEach {
             it.addReferenceTo(warnEvent, message, PASSED)
         }
     }
