@@ -218,7 +218,7 @@ class EventTest {
 
         processor.process(batch)
 
-        verify(onEvent, times(3) /* 1 root error + 2 root warnings = 3 */).invoke(any(), anyOrNull())
+        verify(onEvent, times(4) /* 2 root error + 2 root warnings = 4 */).invoke(any(), anyOrNull())
     }
 
     companion object {
