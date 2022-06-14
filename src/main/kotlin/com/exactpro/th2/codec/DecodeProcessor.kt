@@ -52,7 +52,7 @@ class DecodeProcessor(
             }
 
             val msgProtocols = messageGroup.allRawProtocols
-            val parentEventIds: Set<String?> = if (useParentEventId) messageGroup.allParentEventIds.ifEmpty { ROOT_EVENT_ID_SET } else ROOT_EVENT_ID_SET
+            val parentEventIds: Set<String> = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
 
             try {
@@ -72,13 +72,13 @@ class DecodeProcessor(
             } catch (e: ValidateException) {
                 val header = "Failed to decode: ${e.title}"
 
-                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e, map))
+                val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e, errorEventId))
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
 
-                val map = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable, map))
+                val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
+                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable, errorEventId))
             }
 
             parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
@@ -95,7 +95,7 @@ class DecodeProcessor(
         infoMessage: String,
         protocols: Collection<String>,
         throwable: Throwable,
-        map: Map<String?, EventID>
+        errorEventID: String
     ): MessageGroup {
         val content = buildString {
             appendLine("Error: $infoMessage")
@@ -110,22 +110,11 @@ class DecodeProcessor(
         return MessageGroup.newBuilder().also { batchBuilder ->
             for (anyMessage in this.messagesList) {
                 if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
-
-                    val originEventId = if (useParentEventId) anyMessage.rawMessage.parentEventId.id.ifEmpty { null } else null
-
-                    val eventID = checkNotNull(map[originEventId]) {
-                        "No error event was found for message: ${anyMessage.rawMessage.metadata.id.sequence}"
-                    }
-
-                    batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, eventID, content)
+                    batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, EventID.newBuilder().setId(errorEventID).build(), content)
                 } else {
                     batchBuilder.addMessages(anyMessage)
                 }
             }
         }.build()
-    }
-
-    companion object {
-        private val ROOT_EVENT_ID_SET = setOf<String?>(null)
     }
 }

@@ -73,14 +73,15 @@ abstract class AbstractCodecProcessor(
         }
     }
 
-    protected fun Set<String?>.onEachErrorEvent(
+    protected fun Set<String>.onEachErrorEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList(),
-    ): Map<String?, EventID> {
+    ): String {
         val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
-        return associate { it to it.addReferenceTo(errorEventId, message, FAILED) }
+        forEach { it.addReferenceTo(errorEventId, message, FAILED) }
+        return errorEventId
     }
 
     protected fun Set<String?>.onEachWarning(

@@ -98,7 +98,7 @@ class EncodeProcessor(
         }
     }
 
-    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String?>, msgGroup: MessageGroup,
+    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
                                 cause: Throwable, additionalBody: List<String>){
         parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
     }
