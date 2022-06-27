@@ -62,7 +62,7 @@ abstract class AbstractCodecProcessor(
         return event.id
     }
 
-    protected fun Set<String?>.onEachEvent(
+    protected fun Set<String>.onEachEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
@@ -84,7 +84,7 @@ abstract class AbstractCodecProcessor(
         return errorEventId
     }
 
-    protected fun Set<String?>.onEachWarning(
+    protected fun Set<String>.onEachWarning(
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
@@ -117,10 +117,8 @@ abstract class AbstractCodecProcessor(
                     event,
                     this
                 )
-
-                return EventID.newBuilder().apply {
-                    id = event.id
-                }.build()
+            }.run {
+                return checkNotNull(EventUtils.toEventID(id))
             }
     }
 

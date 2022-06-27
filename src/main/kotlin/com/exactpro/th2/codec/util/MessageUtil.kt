@@ -38,7 +38,7 @@ val MessageGroup.parentEventId: String?
     }
 
 /**
- * Returns parant event ids from each message. Returns null value if message doesn't contain parentEventId
+ * Returns parent event ids from each message.
  */
 val MessageGroup.allParentEventIds: Set<String>
     get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->

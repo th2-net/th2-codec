@@ -53,7 +53,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds: Set<String> = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
 
             try {
