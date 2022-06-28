@@ -21,10 +21,7 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.*
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.message.plusAssign
 import mu.KotlinLogging
 
 class DecodeProcessor(
@@ -89,32 +86,5 @@ class DecodeProcessor(
                 onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
-    }
-
-    private fun MessageGroup.toErrorGroup(
-        infoMessage: String,
-        protocols: Collection<String>,
-        throwable: Throwable,
-        errorEventID: String
-    ): MessageGroup {
-        val content = buildString {
-            appendLine("Error: $infoMessage")
-            appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
-            appendLine("Due to the following errors: ")
-
-            generateSequence(throwable, Throwable::cause).forEachIndexed { index, cause ->
-                appendLine("$index: ${cause.message}")
-            }
-        }
-
-        return MessageGroup.newBuilder().also { batchBuilder ->
-            for (anyMessage in this.messagesList) {
-                if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
-                    batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, EventID.newBuilder().setId(errorEventID).build(), content)
-                } else {
-                    batchBuilder.addMessages(anyMessage)
-                }
-            }
-        }.build()
     }
 }

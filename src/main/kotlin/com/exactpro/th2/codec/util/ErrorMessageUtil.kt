@@ -17,9 +17,11 @@
 package com.exactpro.th2.codec.util
 
 import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.message
+import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.set
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
@@ -42,3 +44,29 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
     it[ERROR_EVENT_ID] = errorEventId
 }
 
+fun MessageGroup.toErrorGroup(
+    infoMessage: String,
+    protocols: Collection<String>,
+    throwable: Throwable,
+    errorEventID: String
+): MessageGroup {
+    val content = buildString {
+        appendLine("Error: $infoMessage")
+        appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
+        appendLine("Due to the following errors: ")
+
+        generateSequence(throwable, Throwable::cause).forEachIndexed { index, cause ->
+            appendLine("$index: ${cause.message}")
+        }
+    }
+
+    return MessageGroup.newBuilder().also { batchBuilder ->
+        for (anyMessage in this.messagesList) {
+            if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
+                batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, EventID.newBuilder().setId(errorEventID).build(), content)
+            } else {
+                batchBuilder.addMessages(anyMessage)
+            }
+        }
+    }.build()
+}
