@@ -1,4 +1,4 @@
-# Description (4.7.0)
+# Description (4.7.1)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.6.0` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.7.1` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 

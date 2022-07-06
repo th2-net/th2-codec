@@ -24,6 +24,8 @@ import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
 
@@ -89,5 +91,17 @@ class DecodeProcessor(
                 onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
+    }
+
+    private fun MessageGroupBatch.Builder.addGroups(header: String,
+                                                    messageGroup: MessageGroup,
+                                                    parentEventIds: Set<String>,
+                                                    throwable: Throwable,
+                                                    eventIds: Set<String>) {
+        val eventIdsMap: Map<String, EventID> = (parentEventIds zip eventIds).associate {
+            it.first to EventID.newBuilder().setId(it.second).build()
+        }
+
+        addGroups(messageGroup.toErrorGroup(header, protocols, eventIdsMap, throwable, useParentEventId))
     }
 }
