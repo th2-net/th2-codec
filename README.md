@@ -1,4 +1,4 @@
-# Description (4.7.1)
+# Description (4.7.2)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.7.1` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.7.2` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -237,6 +237,12 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v4.7.2
+
+#### Fixed:
+
+* Codec now publishes an error event and an error message successfully when it cannot parse a th2-message
 
 ### v4.7.1
 
