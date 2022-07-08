@@ -242,7 +242,8 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 #### Fixed:
 
-* Codec now publishes an error event and an error message successfully when it cannot parse a th2-message
+* Codec now publishes an error event and an error message successfully when it cannot parse a th2-message. 
+This functionality was broken as `NullPointerException` was thrown during the creation of an error message 
 
 ### v4.7.1
 
