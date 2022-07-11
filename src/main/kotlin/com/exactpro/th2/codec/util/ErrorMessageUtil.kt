@@ -44,11 +44,12 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
     it[ERROR_EVENT_ID] = errorEventId
 }
 
-fun MessageGroup.toErrorGroup(infoMessage: String,
-                              protocols: Collection<String>,
-                              errorEvents: Map<String, EventID>,
-                              throwable: Throwable?,
-                              useParentEventId: Boolean): MessageGroup {
+fun MessageGroup.toErrorGroup(
+    infoMessage: String,
+    protocols: Collection<String>,
+    throwable: Throwable,
+    errorEventID: String
+): MessageGroup {
     val content = buildString {
         appendLine("Error: $infoMessage")
         appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
@@ -59,22 +60,12 @@ fun MessageGroup.toErrorGroup(infoMessage: String,
         }
     }
 
-    return MessageGroup.newBuilder().also { result ->
+    return MessageGroup.newBuilder().also { batchBuilder ->
         for (anyMessage in this.messagesList) {
-            if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols }) {
-                result += anyMessage.rawMessage.let { rawMessage ->
-                    val eventID = if (useParentEventId) {
-                        checkNotNull(errorEvents[rawMessage.parentEventId.id.ifEmpty { null }]) {
-                            "No error event was found for message: ${rawMessage.metadata.id.sequence}"
-                        }
-                    } else {
-                        EventID.newBuilder().setId(parentEventId).build()
-                    }
-
-                    rawMessage.toErrorMessage(protocols, eventID, content)
-                }
+            if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
+                batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, EventID.newBuilder().setId(errorEventID).build(), content)
             } else {
-                result.addMessages(anyMessage)
+                batchBuilder.addMessages(anyMessage)
             }
         }
     }.build()
