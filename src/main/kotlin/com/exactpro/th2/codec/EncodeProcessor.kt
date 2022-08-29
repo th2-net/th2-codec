@@ -27,9 +27,7 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.toJson
 import mu.KotlinLogging
-import java.util.Objects
 import java.util.concurrent.CompletableFuture
-import java.util.stream.Collectors
 
 class EncodeProcessor(
     codec: IPipelineCodec,
@@ -42,22 +40,14 @@ class EncodeProcessor(
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
-        val futureMessageGroups: List<CompletableFuture<MessageGroup>?> = source.groupsList
-            .stream()
-            .map { processMessageGroup(it) }
-            .collect(Collectors.toList())
 
-        val allOfFutureMessageGroups: CompletableFuture<Void> = CompletableFuture.allOf(
-            *futureMessageGroups.toTypedArray()
-        )
+        val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
+            processMessageGroup(source.getGroups(it))
+        }
 
-        allOfFutureMessageGroups.thenApply {
-            futureMessageGroups.stream()
-                .map { it?.join() }
-                .filter(Objects::nonNull)
-                .forEach { messageBatch.addGroups(it) }
+        CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
+            messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
         }.get()
-
         return messageBatch.build().apply {
             if (source.groupsCount != groupsCount) {
                 onEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
@@ -65,8 +55,8 @@ class EncodeProcessor(
         }
     }
 
-    private fun processMessageGroup(messageGroup: MessageGroup): CompletableFuture<MessageGroup>? {
-        return CompletableFuture.supplyAsync {
+    private fun processMessageGroup(messageGroup: MessageGroup) =
+        CompletableFuture.supplyAsync {
             if (messageGroup.messagesCount == 0) {
                 onErrorEvent("Cannot encode empty message group")
                 return@supplyAsync null
@@ -106,7 +96,6 @@ class EncodeProcessor(
                     additionalBody = { messageGroup.toReadableBody(false) })
             }
         }
-    }
 
 
     private fun MessageGroup.toReadableBody(shortFormat: Boolean): List<String> = mutableListOf<String>().apply {

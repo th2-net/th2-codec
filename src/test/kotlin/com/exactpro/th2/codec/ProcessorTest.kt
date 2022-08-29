@@ -111,60 +111,6 @@ class ProcessorTest {
     }
 
     @Test
-    fun `load test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
-
-        var result: MessageGroupBatch? = null
-        for (i in 0..3000 step 10) {
-            result = processor.process(makeRawMessageBatch(i.toLong()))
-        }
-
-        Assertions.assertEquals(10, result?.groupsCount) {"Wrong batch size"}
-    }
-
-    private fun makeRawMessageBatch(sequenceNumber: Long) : MessageGroupBatch {
-        return MessageGroupBatch.newBuilder().apply {
-            for (i in sequenceNumber..sequenceNumber + 9) {
-                this.addGroups(MessageGroup.newBuilder().apply {
-                    this += RawMessage.newBuilder().apply {
-                        metadataBuilder.apply {
-                            protocol = ORIGINAL_PROTOCOL
-                            idBuilder.sequence = i
-                        }
-                    }
-                }.build())
-            }
-        }.build()
-    }
-
-    @Test
-    fun `load test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
-
-        var result: MessageGroupBatch? = null
-        for (i in 0..3000 step 10) {
-            result = processor.process(makeMessageBatch(i.toLong()))
-        }
-
-        Assertions.assertEquals(10, result?.groupsCount) {"Wrong batch size"}
-    }
-
-    private fun makeMessageBatch(sequenceNumber: Long) : MessageGroupBatch {
-        return MessageGroupBatch.newBuilder().apply {
-            for (i in sequenceNumber..sequenceNumber + 9) {
-                this.addGroups(MessageGroup.newBuilder().apply {
-                    this += Message.newBuilder().apply {
-                        metadataBuilder.apply {
-                            protocol = ORIGINAL_PROTOCOL
-                            idBuilder.sequence = i
-                        }
-                    }
-                }.build())
-            }
-        }.build()
-    }
-
-    @Test
     fun `simple test - encode`() {
         val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
         val batch = MessageGroupBatch.newBuilder().apply {
