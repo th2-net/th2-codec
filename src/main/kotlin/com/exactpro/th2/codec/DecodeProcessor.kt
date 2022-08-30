@@ -32,19 +32,26 @@ class DecodeProcessor(
     codec: IPipelineCodec,
     eventProcessor: AbstractEventProcessor,
     private val protocols: Set<String>,
-    private val useParentEventId: Boolean = true
+    private val useParentEventId: Boolean = true,
 ) : AbstractCodecProcessor(codec, eventProcessor) {
+    private val async = Runtime.getRuntime().availableProcessors() > 1
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
-        val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
-            processMessageGroup(source.getGroups(it))
-        }
+        if (async) {
+            val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
+                processMessageGroupAsync(source.getGroups(it))
+            }
 
-        CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
-            messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
-        }.get()
+            CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
+                messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
+            }.get()
+        } else {
+            source.groupsList.forEach { group ->
+                processMessageGroup(group)?.run(messageBatch::addGroups)
+            }
+        }
 
         return messageBatch.build().apply {
             if (source.groupsCount != groupsCount) {
@@ -53,47 +60,48 @@ class DecodeProcessor(
         }
     }
 
-    private fun processMessageGroup(messageGroup: MessageGroup) =
-        CompletableFuture.supplyAsync {
-            if (messageGroup.messagesCount == 0) {
-                eventProcessor.onErrorEvent("Cannot decode empty message group")
-                return@supplyAsync null
-            }
+    private fun processMessageGroupAsync(group: MessageGroup) = CompletableFuture.supplyAsync { processMessageGroup(group) }
 
-            if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
-                LOGGER.debug { "Message group has no raw messages in it" }
-                return@supplyAsync messageGroup
-            }
-
-            val msgProtocols: Set<String> = messageGroup.allRawProtocols
-            val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
-            val context = ReportingContext()
-
-            try {
-                if (!protocols.checkAgainstProtocols(msgProtocols)) {
-                    LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
-                    return@supplyAsync messageGroup
-                }
-
-                val decodedGroup = codec.decode(messageGroup, context)
-
-                if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                    eventProcessor.onEachEvent(parentEventIds, "Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
-                }
-
-                return@supplyAsync decodedGroup
-            } catch (e: ValidateException) {
-                val header = "Failed to decode: ${e.title}"
-                val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.messageIds, e)
-                return@supplyAsync messageGroup.toErrorGroup(header, protocols, e, errorEventId)
-            } catch (throwable: Throwable) {
-                val header = "Failed to decode message group"
-                val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.messageIds, throwable)
-                return@supplyAsync messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
-            } finally {
-                eventProcessor.onEachWarning(parentEventIds, context, "decoding") { messageGroup.messageIds }
-            }
+    private fun processMessageGroup(messageGroup: MessageGroup): MessageGroup? {
+        if (messageGroup.messagesCount == 0) {
+            eventProcessor.onErrorEvent("Cannot decode empty message group")
+            return null
         }
+
+        if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
+            LOGGER.debug { "Message group has no raw messages in it" }
+            return messageGroup
+        }
+
+        val msgProtocols: Set<String> = messageGroup.allRawProtocols
+        val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+        val context = ReportingContext()
+
+        try {
+            if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                return messageGroup
+            }
+
+            val decodedGroup = codec.decode(messageGroup, context)
+
+            if (decodedGroup.messagesCount < messageGroup.messagesCount) {
+                eventProcessor.onEachEvent(parentEventIds, "Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+            }
+
+            return decodedGroup
+        } catch (e: ValidateException) {
+            val header = "Failed to decode: ${e.title}"
+            val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.messageIds, e)
+            return messageGroup.toErrorGroup(header, protocols, e, errorEventId)
+        } catch (throwable: Throwable) {
+            val header = "Failed to decode message group"
+            val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.messageIds, throwable)
+            return messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
+        } finally {
+            eventProcessor.onEachWarning(parentEventIds, context, "decoding") { messageGroup.messageIds }
+        }
+    }
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}
