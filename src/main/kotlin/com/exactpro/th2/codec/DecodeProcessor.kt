@@ -24,8 +24,10 @@ import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
+import java.util.concurrent.CompletableFuture
 
 class DecodeProcessor(
     codec: IPipelineCodec,
@@ -39,16 +41,30 @@ class DecodeProcessor(
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
-        for (messageGroup in source.groupsList) {
+        val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
+            processMessageGroup(source.getGroups(it))
+        }
+
+        CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
+            messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
+        }.get()
+        return messageBatch.build().apply {
+            if (source.groupsCount != groupsCount) {
+                onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
+            }
+        }
+    }
+
+    private fun processMessageGroup(messageGroup: MessageGroup) =
+        CompletableFuture.supplyAsync {
             if (messageGroup.messagesCount == 0) {
                 onErrorEvent("Cannot decode empty message group")
-                continue
+                return@supplyAsync null
             }
 
             if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
                 logger.debug { "Message group has no raw messages in it" }
-                messageBatch.addGroups(messageGroup)
-                continue
+                return@supplyAsync messageGroup
             }
 
             val msgProtocols = messageGroup.allRawProtocols
@@ -58,8 +74,7 @@ class DecodeProcessor(
             try {
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
                     logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
-                    messageBatch.addGroups(messageGroup)
-                    continue
+                    return@supplyAsync messageGroup
                 }
 
                 val decodedGroup = codec.decode(messageGroup, context)
@@ -68,26 +83,19 @@ class DecodeProcessor(
                     parentEventIds.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
                 }
 
-                messageBatch.addGroups(decodedGroup)
+                return@supplyAsync decodedGroup
             } catch (e: ValidateException) {
                 val header = "Failed to decode: ${e.title}"
 
                 val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, e, errorEventId))
+                return@supplyAsync messageGroup.toErrorGroup(header, protocols, e, errorEventId)
             } catch (throwable: Throwable) {
                 val header = "Failed to decode message group"
 
                 val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
-                messageBatch.addGroups(messageGroup.toErrorGroup(header, protocols, throwable, errorEventId))
-            }
-
-            parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
-        }
-
-        return messageBatch.build().apply {
-            if (source.groupsCount != groupsCount) {
-                onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
+                return@supplyAsync messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
+            } finally {
+                parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
             }
         }
-    }
 }
