@@ -23,6 +23,7 @@ import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import mu.KotlinLogging
 
@@ -56,10 +57,12 @@ abstract class AbstractEventProcessor {
         events: Set<String>,
         message: String,
         messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null, additionalBody: List<String> = emptyList()
-    ) {
+        cause: Throwable? = null,
+        additionalBody: List<String> = emptyList()
+    ): String {
         val errorEventId = onErrorEvent(message, messagesIds, cause, additionalBody)
         storeEachErrorEvent(errorEventId, message, events)
+        return errorEventId
     }
 
     fun onEachWarning(
@@ -158,17 +161,19 @@ class StoreEventProcessor(private val storeEventFunc: (Event, String?) -> Unit) 
         }
     }
 
-    private fun String.addReferenceTo(eventId: String, name: String, status: Status) {
-        storeEventFunc(
-            Event.start()
-                .endTimestamp()
-                .name(name)
-                .status(status)
-                .type(if (status != PASSED) "Error" else "Warn")
-                .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-                .bodyData(ReferenceToEvent(eventId)),
-            this
-        )
+    private fun String?.addReferenceTo(eventId: String, name: String, status: Status): EventID {
+        Event.start()
+            .endTimestamp()
+            .name(name)
+            .status(status)
+            .type(if (status != PASSED) "Error" else "Warn")
+            .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
+            .bodyData(ReferenceToEvent(eventId))
+            .also { event ->
+                storeEventFunc(event, this)
+            }.run {
+                return checkNotNull(EventUtils.toEventID(id))
+            }
     }
 
     private fun createEvent(

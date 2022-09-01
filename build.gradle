@@ -57,10 +57,10 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:3.2.0')
 
-    implementation 'com.exactpro.th2:common:3.39.0-TH2-3574-2460807637-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:3.40.0'
     implementation 'com.exactpro.th2:grpc-codec:0.0.2'
 
-    implementation 'io.github.microutils:kotlin-logging:2.1.21'
+    implementation 'io.github.microutils:kotlin-logging:2.1.23'
 
     implementation 'org.apache.logging.log4j:log4j-slf4j-impl'
     implementation 'org.apache.logging.log4j:log4j-1.2-api'
@@ -70,11 +70,11 @@ dependencies {
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
 
-    implementation("com.github.ajalt:clikt:2.8.0")
+    implementation "com.github.ajalt:clikt:2.8.0"
 
     implementation 'com.google.protobuf:protobuf-java-util'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
+    testImplementation "org.junit.jupiter:junit-jupiter:5.9.0"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
     testImplementation "org.mockito.kotlin:mockito-kotlin:4.0.0"
 }

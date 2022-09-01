@@ -17,8 +17,11 @@ import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
+import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.storeEvent
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
@@ -43,14 +46,14 @@ class CodecCommand : CliktCommand() {
 
     init {
         Runtime.getRuntime().addShutdownHook(thread(start = false, name = "shutdown") {
-                try {
-                    logger.info { "Shutdown start" }
-                    resources.descendingIterator().forEach { action ->
-                        runCatching(action).onFailure { logger.error(it.message, it) }
-                    }
-                } finally {
-                    logger.info { "Shutdown end" }
+            try {
+                logger.info { "Shutdown start" }
+                resources.descendingIterator().forEach { action ->
+                    runCatching(action).onFailure { logger.error(it.message, it) }
                 }
+            } finally {
+                logger.info { "Shutdown end" }
+            }
         })
     }
 
@@ -68,11 +71,11 @@ class CodecCommand : CliktCommand() {
 
             val configuration = Configuration.create(commonFactory, codecSettings)
             val applicationContext = ApplicationContext.create(configuration, commonFactory).apply { resources += ::close }
-            val messageRouter = commonFactory.messageRouterMessageGroupBatch
-            val eventRouter = commonFactory.eventBatchRouter
+            val messageRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
+            val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
 
             val codecName = commonFactory.boxConfiguration?.boxName?.let { "$it " } ?: ""
-            val rootEventId = eventRouter.storeEvent(
+            val rootEventId: String = eventRouter.storeEvent(
                 Event.start().apply {
                     name("Codec $codecName[${LocalDateTime.now()}] protocols: ${applicationContext.protocols.joinToString(",")} ")
                     type("CodecRoot")
@@ -82,6 +85,14 @@ class CodecCommand : CliktCommand() {
             val storeEventFunc: (Event, String?) -> Unit = { event, parentId ->
                 eventRouter.runCatching {
                     storeEvent(event, parentId ?: rootEventId)
+                }.onFailure {
+                    logger.error(it) { "Failed to store event: $event" }
+                }
+            }
+
+            val storeRootEventFunc: (Event, String?) -> Unit = { event, parentId ->
+                eventRouter.runCatching {
+                    storeEvent(event, rootEventId)
                 }.onFailure {
                     logger.error(it) { "Failed to store event: $event" }
                 }
@@ -110,7 +121,7 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
-            val eventProcessorNoEventStore = LogOnlyEventProcessor()
+            val eventProcessorNoEventStore = StoreEventProcessor(storeRootEventFunc)
             val decodeHandler = createGeneralDecoder(applicationContext, rootEventId, eventProcessorNoEventStore)::handleMessage
             val encodeHandler = createGeneralEncoder(applicationContext, rootEventId, eventProcessorNoEventStore)::handleMessage
 
@@ -133,15 +144,15 @@ class CodecCommand : CliktCommand() {
         rootEventId: String,
         eventProcessor: AbstractEventProcessor
     ) = createCodec("general-encoder") {
-            SyncEncoder(
-                context.commonFactory.messageRouterMessageGroupBatch,
-                context.commonFactory.eventBatchRouter,
-                EncodeProcessor(context.codec, eventProcessor, context.protocols, false),
-                rootEventId
-            ).apply {
-                start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
-            }
+        SyncEncoder(
+            context.commonFactory.messageRouterMessageGroupBatch,
+            context.commonFactory.eventBatchRouter,
+            EncodeProcessor(context.codec, eventProcessor, context.protocols, false),
+            rootEventId
+        ).apply {
+            start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
         }
+    }
 
     private fun createGeneralDecoder(
         context: ApplicationContext,

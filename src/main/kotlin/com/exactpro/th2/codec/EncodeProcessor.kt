@@ -26,6 +26,7 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.toJson
 import mu.KotlinLogging
+import java.util.concurrent.CompletableFuture
 
 class EncodeProcessor(
     codec: IPipelineCodec,
@@ -37,46 +38,13 @@ class EncodeProcessor(
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
 
-        for (messageGroup in source.groupsList) {
-            if (messageGroup.messagesCount == 0) {
-                eventProcessor.onErrorEvent("Cannot encode empty message group")
-                continue
-            }
-
-            if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
-                LOGGER.debug { "Message group has no parsed messages in it" }
-                messageBatch.addGroups(messageGroup)
-                continue
-            }
-
-            val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventId = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
-            val context = ReportingContext()
-
-            try {
-                if (!protocols.checkAgainstProtocols(msgProtocols)) {
-                    LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
-                    messageBatch.addGroups(messageGroup)
-                    continue
-                }
-
-                val encodedGroup = codec.encode(messageGroup, context)
-
-                if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    eventProcessor.onEachEvent(parentEventId, "Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
-                }
-
-                messageBatch.addGroups(encodedGroup)
-            } catch (e: ValidateException) {
-                sendErrorEvents("Failed to encode: ${e.title}", parentEventId, messageGroup, e, e.details)
-            } catch (throwable: Throwable) {
-                // we should not use message IDs because during encoding there is no correct message ID created yet
-                sendErrorEvents("Failed to encode message group", parentEventId, messageGroup, throwable, emptyList())
-            }
-
-            eventProcessor.onEachWarning(parentEventId, context, "encoding",
-                additionalBody = { messageGroup.toReadableBody(false) })
+        val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
+            processMessageGroup(source.getGroups(it))
         }
+
+        CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
+            messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
+        }.get()
 
         return messageBatch.build().apply {
             if (source.groupsCount != groupsCount) {
@@ -84,6 +52,51 @@ class EncodeProcessor(
             }
         }
     }
+
+    private fun processMessageGroup(messageGroup: MessageGroup) =
+        CompletableFuture.supplyAsync {
+            if (messageGroup.messagesCount == 0) {
+                eventProcessor.onErrorEvent("Cannot encode empty message group")
+                return@supplyAsync null
+            }
+
+            if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
+                LOGGER.debug { "Message group has no parsed messages in it" }
+                return@supplyAsync messageGroup
+            }
+
+            val msgProtocols: Set<String> = messageGroup.allParsedProtocols
+            val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val context = ReportingContext()
+
+            try {
+                if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                    LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                    return@supplyAsync messageGroup
+                }
+
+                val encodedGroup = codec.encode(messageGroup, context)
+
+                if (encodedGroup.messagesCount > messageGroup.messagesCount) {
+                    eventProcessor.onEachEvent(
+                        parentEventIds,
+                        "Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})"
+                    )
+                }
+
+                return@supplyAsync encodedGroup
+            } catch (e: ValidateException) {
+                sendErrorEvents("Failed to encode: ${e.title}", parentEventIds, messageGroup, e, e.details)
+                return@supplyAsync null
+            } catch (throwable: Throwable) {
+                // we should not use message IDs because during encoding there is no correct message ID created yet
+                sendErrorEvents("Failed to encode message group", parentEventIds, messageGroup, throwable, emptyList())
+                return@supplyAsync null
+            } finally {
+                eventProcessor.onEachWarning(parentEventIds, context, "encoding",
+                    additionalBody = { messageGroup.toReadableBody(false) })
+            }
+        }
 
     private fun MessageGroup.toReadableBody(shortFormat: Boolean): List<String> = mutableListOf<String>().apply {
         messagesList.forEach {
@@ -94,9 +107,17 @@ class EncodeProcessor(
         }
     }
 
-    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
-                                cause: Throwable, additionalBody: List<String>){
-        eventProcessor.onEachErrorEvent(parentEventIds, errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
+    private fun sendErrorEvents(
+        errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
+        cause: Throwable, additionalBody: List<String>
+    ) {
+        eventProcessor.onEachErrorEvent(
+            parentEventIds,
+            errorMsg,
+            msgGroup.messageIds,
+            cause,
+            additionalBody + msgGroup.toReadableBody(false)
+        )
     }
 
     companion object {

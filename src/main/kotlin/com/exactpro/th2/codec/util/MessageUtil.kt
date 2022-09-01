@@ -32,9 +32,6 @@ import com.exactpro.th2.common.value.toValue
 
 val MessageGroupBatch.messageIds get() = groupsList.flatMap { it.messageIds }
 
-fun MessageGroupBatch.checkIfSameSessionAlias(alias: String) =
-    groupsList.all { groups -> groups.messagesList.all { it.sessionAlias == alias } }
-
 val MessageGroup.parentEventId: String?
     get() = messagesList.firstNotNullOfOrNull { anyMessage ->
         when {
@@ -44,6 +41,9 @@ val MessageGroup.parentEventId: String?
         }
     }
 
+/**
+ * Returns parent event ids from each message.
+ */
 val MessageGroup.allParentEventIds: Set<String>
     get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->
         when {
