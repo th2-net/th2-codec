@@ -4,6 +4,7 @@ import com.exactpro.th2.codec.api.DictionaryAlias
 import com.exactpro.th2.codec.api.IPipelineCodecContext
 import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import java.io.InputStream
 
 class PipelineCodecContext(private val commonFactory: CommonFactory) : IPipelineCodecContext {
@@ -11,4 +12,5 @@ class PipelineCodecContext(private val commonFactory: CommonFactory) : IPipeline
     override fun get(type: DictionaryType): InputStream = commonFactory.readDictionary(type)
     override fun get(alias: DictionaryAlias): InputStream = commonFactory.loadDictionary(alias)
     override fun getDictionaryAliases(): Set<String> = commonFactory.dictionaryAliases
+    override fun getGrpcRouter(): GrpcRouter = commonFactory.grpcRouter
 }

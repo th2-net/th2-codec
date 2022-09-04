@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec.api
 
 import com.exactpro.th2.common.schema.dictionary.DictionaryType
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import java.io.InputStream
 
 typealias DictionaryAlias = String
@@ -26,4 +27,5 @@ interface IPipelineCodecContext {
     operator fun get(type: DictionaryType): InputStream
     operator fun get(alias: DictionaryAlias): InputStream
     fun getDictionaryAliases(): Set<String>
+    fun getGrpcRouter(): GrpcRouter
 }
