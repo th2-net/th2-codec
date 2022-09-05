@@ -292,12 +292,6 @@ Using filters with gRPC pins:
 * Codec now publishes an error event and an error message successfully when it cannot parse a th2-message. 
 This functionality was broken as `NullPointerException` was thrown during the creation of an error message 
 
-### v4.8.0
-
-#### Feature:
-
-* gRPC interface for codec pipeline
-
 ### v4.7.1
 
 #### Feature:

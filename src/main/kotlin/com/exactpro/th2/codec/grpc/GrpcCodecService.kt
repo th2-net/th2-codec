@@ -13,11 +13,10 @@
 
 package com.exactpro.th2.codec.grpc
 
+import com.exactpro.th2.codec.AbstractEventProcessor
 import com.exactpro.th2.codec.CodecException
-import com.exactpro.th2.codec.StoreEventProcessor
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.sessionAlias
-import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
@@ -29,11 +28,9 @@ class GrpcCodecService(
     grpcRouter: GrpcRouter,
     private val generalDecodeFunc: ((MessageGroupBatch) -> MessageGroupBatch),
     private val generalEncodeFunc: ((MessageGroupBatch) -> MessageGroupBatch),
-    onEvent: (Event, String?) -> Unit,
+    private val eventProcessor: AbstractEventProcessor,
     private val isFirstCodecInPipeline: Boolean
 ) : CodecGrpc.CodecImplBase() {
-
-    private val eventProcessor = StoreEventProcessor(onEvent)
 
     private val nextCodec = try {
         grpcRouter.getService(AsyncCodecService::class.java)

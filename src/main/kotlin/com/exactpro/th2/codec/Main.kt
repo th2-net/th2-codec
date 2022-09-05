@@ -90,7 +90,7 @@ class CodecCommand : CliktCommand() {
                 }
             }
 
-            val storeRootEventFunc: (Event, String?) -> Unit = { event, parentId ->
+            val storeRootEventFunc: (Event, String?) -> Unit = { event, _ ->
                 eventRouter.runCatching {
                     storeEvent(event, rootEventId)
                 }.onFailure {
@@ -128,7 +128,7 @@ class CodecCommand : CliktCommand() {
             logger.info { "MQ codec service started" }
 
             val grpcRouter: GrpcRouter = commonFactory.grpcRouter
-            val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler, storeEventFunc, configuration.isFirstCodecInPipeline)
+            val grpcService = GrpcCodecService(grpcRouter, decodeHandler, encodeHandler, eventProcessor, configuration.isFirstCodecInPipeline)
             val server: Server = grpcRouter.startServer(grpcService)
             server.start()
             logger.info { "gRPC codec service started on port ${server.port}. Is first codec in pipeline = ${configuration.isFirstCodecInPipeline}" }

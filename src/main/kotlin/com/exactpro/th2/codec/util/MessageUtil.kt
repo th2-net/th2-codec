@@ -30,7 +30,7 @@ import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
-val MessageGroupBatch.messageIds get() = groupsList.flatMap { it.messageIds }
+val MessageGroupBatch.messageIds get(): List<MessageID>  = groupsList.flatMap { it.messageIds }
 
 val MessageGroup.parentEventId: String?
     get() = messagesList.firstNotNullOfOrNull { anyMessage ->
