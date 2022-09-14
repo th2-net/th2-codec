@@ -22,7 +22,6 @@ import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
-import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import mu.KotlinLogging
@@ -59,12 +58,12 @@ class DecodeProcessor(
                 eventProcessor.onErrorEvent("Cannot decode empty message group")
                 return@supplyAsync null
             }
-
+/*
             if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
                 LOGGER.debug { "Message group has no raw messages in it" }
                 return@supplyAsync messageGroup
             }
-
+*/
             val msgProtocols: Set<String> = messageGroup.allRawProtocols
             val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
