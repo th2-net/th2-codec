@@ -300,7 +300,7 @@ class ProcessorTest {
             Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
     }
-
+/*
     @Test
     fun `error message on failed protocol check - decode`() {
         val processor = DecodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
@@ -349,7 +349,7 @@ class ProcessorTest {
         }
 
     }
-
+*/
     @Test
     fun `multiple protocol test - decode`() {
         val processor = DecodeProcessor(TestCodec(true), eventProcessor, setOf("xml", "json"))

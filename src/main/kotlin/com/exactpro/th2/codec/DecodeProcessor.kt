@@ -19,7 +19,7 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
-import com.exactpro.th2.codec.util.allRawProtocols
+//import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.common.grpc.MessageGroup
@@ -64,16 +64,17 @@ class DecodeProcessor(
                 return@supplyAsync messageGroup
             }
 */
-            val msgProtocols: Set<String> = messageGroup.allRawProtocols
+//            val msgProtocols: Set<String> = messageGroup.allRawProtocols
             val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
             val context = ReportingContext()
 
             try {
+/*
                 if (!protocols.checkAgainstProtocols(msgProtocols)) {
                     LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
                     return@supplyAsync messageGroup
                 }
-
+*/
                 val decodedGroup = codec.decode(messageGroup, context)
 
                 if (decodedGroup.messagesCount < messageGroup.messagesCount) {
