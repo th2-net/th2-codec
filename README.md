@@ -242,7 +242,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 #### Changed:
 
-* Updated common and bom versions to removed vulnerable dependencies
+* Updated common and BOM versions to remove vulnerable dependencies
 
 ### v4.7.3
 
