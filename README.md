@@ -279,6 +279,12 @@ Using filters with gRPC pins:
 
 * gRPC interface for codec pipeline
 
+### v4.7.4
+
+#### Changed:
+
+* Updated common and BOM versions to remove vulnerable dependencies
+
 ### v4.7.3
 
 #### Changed:
