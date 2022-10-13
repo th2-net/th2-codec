@@ -1,4 +1,4 @@
-# Description (4.8.0)
+# Description (4.8.1)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.8.0` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.8.1` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -99,6 +99,8 @@ If exception was thrown, all raw messages will be replaced with th2-codec-error 
 
 > **NOTE**: codec can replace raw message with a parsed message followed by several raw messages
 > (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
+
+Codec processes message batches concurrently. You can set the level of parallelism using JVM parameter: `-Djava.util.concurrent.ForkJoinPool.common.parallelism={positive integer}`
 
 # Configuration
 
@@ -258,20 +260,26 @@ Using filters with gRPC pins:
       service-class: com.exactpro.th2.codec.grpc.CodecService
       filters:
         - properties:
-          - field-name: "session_alias"
-            expected-value: "*alias_1*"
-            operation: "WILDCARD"
+            - field-name: "session_alias"
+              expected-value: "*alias_1*"
+              operation: "WILDCARD"
     - name: out_codec_general_client_2
       connection-type: grpc-client
       service-class: com.exactpro.th2.codec.grpc.CodecService
       filters:
         - properties:
-          - field-name: "session_alias"
-            expected-value: "*alias_2*"
-            operation: "WILDCARD"
+            - field-name: "session_alias"
+              expected-value: "*alias_2*"
+              operation: "WILDCARD"
 ```
 
 ## Changelog
+
+### v4.8.1
+
+#### Changed:
+
+* Message groups aren't processed concurrently if there's only one CPU core available
 
 ### v4.8.0
 
