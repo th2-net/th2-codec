@@ -1,4 +1,4 @@
-# Description (4.8.1)
+# Description (4.8.2)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.8.1` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:4.8.2` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -260,20 +260,26 @@ Using filters with gRPC pins:
       service-class: com.exactpro.th2.codec.grpc.CodecService
       filters:
         - properties:
-            - field-name: "session_alias"
-              expected-value: "*alias_1*"
-              operation: "WILDCARD"
+          - field-name: "session_alias"
+            expected-value: "*alias_1*"
+            operation: "WILDCARD"
     - name: out_codec_general_client_2
       connection-type: grpc-client
       service-class: com.exactpro.th2.codec.grpc.CodecService
       filters:
         - properties:
-            - field-name: "session_alias"
-              expected-value: "*alias_2*"
-              operation: "WILDCARD"
+          - field-name: "session_alias"
+            expected-value: "*alias_2*"
+            operation: "WILDCARD"
 ```
 
 ## Changelog
+
+### v4.8.2
+
+#### Fixed:
+
+* Thread-local codec-instance wasn't disposed on thread death
 
 ### v4.8.1
 
