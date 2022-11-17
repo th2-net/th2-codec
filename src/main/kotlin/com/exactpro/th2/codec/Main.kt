@@ -102,7 +102,8 @@ class CodecCommand : CliktCommand() {
                 SyncDecoder(
                     messageRouter, eventRouter,
                     DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
-                    rootEventId
+                    rootEventId,
+                    configuration.enabledExternalQueueRouting
                 ).apply {
                     start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
                 }
@@ -113,7 +114,8 @@ class CodecCommand : CliktCommand() {
                     messageRouter,
                     eventRouter,
                     EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
-                    rootEventId
+                    rootEventId,
+                    configuration.enabledExternalQueueRouting
                 ).apply {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
                 }
@@ -140,7 +142,8 @@ class CodecCommand : CliktCommand() {
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
                 EncodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent = onRootEvent),
-                rootEventId
+                rootEventId,
+                configuration.enabledExternalQueueRouting
             ).apply {
                 start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
             }
@@ -158,7 +161,8 @@ class CodecCommand : CliktCommand() {
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
                 DecodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent = onRootEvent),
-                rootEventId
+                rootEventId,
+                configuration.enabledExternalQueueRouting
             ).apply {
                 start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
             }

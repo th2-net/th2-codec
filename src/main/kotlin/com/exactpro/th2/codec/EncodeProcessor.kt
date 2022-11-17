@@ -40,6 +40,7 @@ class EncodeProcessor(
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
+            .setMetadata(source.metadata)
 
         val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
             processMessageGroup(source.getGroups(it))

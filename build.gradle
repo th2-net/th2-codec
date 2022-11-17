@@ -58,8 +58,8 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:4.0.1')
 
-    implementation 'com.exactpro.th2:grpc-common:3.11.1'
-    implementation 'com.exactpro.th2:common:3.41.0'
+    implementation 'com.exactpro.th2:grpc-common:3.12.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3480850604-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:3.42.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3472025892-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 
