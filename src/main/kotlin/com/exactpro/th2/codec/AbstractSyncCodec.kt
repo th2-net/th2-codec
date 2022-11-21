@@ -92,5 +92,5 @@ abstract class AbstractSyncCodec(
 
     abstract fun getParentEventId(codecRootID: String, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): String
     abstract fun checkResult(protoResult: MessageGroupBatch): Boolean
-    abstract fun isTransformationComplete(protoResult: MessageGroupBatch): Boolean
+    abstract fun isCompletelyProcessed(protoResult: MessageGroupBatch): Boolean
 }

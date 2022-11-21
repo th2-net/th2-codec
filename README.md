@@ -102,13 +102,12 @@ If exception was thrown, all raw messages will be replaced with th2-codec-error 
 
 ## External queue routing logic
 
-Codec can send batch to external queue instead of configured by infra schema. The next condition must be met:
-* enabledExternalQueueRouting must be true
-* MessageGroupBatch.metadata.externalUserQueue of income batch must be not blank
-* Processed batch must be transformed completely. For example: 
-  * encoder considers batch as transformed completed when all messages are converted to raw format.
-  * decoder considers batch as transformed completed when all messages are converted to parsed format.
-  * batch isn't considered as transformed if it contains raw and parsed messages.
+Codec can send a batch to an external queue instead of the one configured by infra schema. The following conditions must be met:
+* `enabledExternalQueueRouting` setting must be set to `true`
+* `MessageGroupBatch.metadata.externalUserQueue` of an incoming batch must be not blank
+* batch must be processed completely e.g.: 
+  * encoded batch is completely processed when it has no parsed messages
+  * decoded batch is completely processed when it has no raw messages
 
 # Configuration
 
@@ -122,7 +121,7 @@ Codec never mixes messages from the _stream_ and the _general_ connections
 ## Codec settings
 
 Common codec settings:
-* enabledExternalQueueRouting - option to enable/disable external queue routing logic. Default value is false.
+* enableExternalQueueRouting - enables external queue routing logic. Default value is `false`.
 
 Codec settings can be specified in `codecSettings` field of `custom-config`. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
 of `IPipelineCodecFactory.create` method
@@ -254,9 +253,9 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ### v4.7.4+
 
-#### Changed:
+#### Added:
 
-* Implemented logic to send completely transformed batch to external queue instead of configured by schema.
+* Logic to send completely transformed batch to an external queue instead of a schema-configured one.
 
 ### v4.7.4
 

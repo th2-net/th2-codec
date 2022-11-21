@@ -34,7 +34,5 @@ class SyncDecoder(
 ) {
     override fun getParentEventId(codecRootID: String, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): String = codecRootID
     override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
-    override fun isTransformationComplete(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList.asSequence()
-        .flatMap(MessageGroup::getMessagesList)
-        .all(AnyMessage::hasMessage)
+    override fun isTransformationComplete(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList.all { it.messagesList.all(AnyMessage::hasMessage) }
 }

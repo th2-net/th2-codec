@@ -150,10 +150,10 @@ class SyncCodecTest {
         private val BATCH_METADATA = MessageGroupBatchMetadata.newBuilder().setExternalUserQueue("external-queue")
 
         private val BATCH_WITH_BOTH_TYPES = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
+            addGroupsBuilder().apply {
                 this += Message.getDefaultInstance()
                 this += RawMessage.getDefaultInstance()
-            }.build())
+            }
         }.build()
         private val BATCH_WITH_RAW = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
