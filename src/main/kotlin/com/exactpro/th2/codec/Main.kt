@@ -103,7 +103,7 @@ class CodecCommand : CliktCommand() {
                     messageRouter, eventRouter,
                     DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
                     rootEventId,
-                    configuration.enabledExternalQueueRouting
+                    configuration.enableExternalQueueRouting
                 ).apply {
                     start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
                 }
@@ -115,7 +115,7 @@ class CodecCommand : CliktCommand() {
                     eventRouter,
                     EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
                     rootEventId,
-                    configuration.enabledExternalQueueRouting
+                    configuration.enableExternalQueueRouting
                 ).apply {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
                 }
@@ -143,7 +143,7 @@ class CodecCommand : CliktCommand() {
                 commonFactory.eventBatchRouter,
                 EncodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent = onRootEvent),
                 rootEventId,
-                configuration.enabledExternalQueueRouting
+                configuration.enableExternalQueueRouting
             ).apply {
                 start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
             }
@@ -162,7 +162,7 @@ class CodecCommand : CliktCommand() {
                 commonFactory.eventBatchRouter,
                 DecodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent = onRootEvent),
                 rootEventId,
-                configuration.enabledExternalQueueRouting
+                configuration.enableExternalQueueRouting
             ).apply {
                 start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
             }

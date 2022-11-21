@@ -133,10 +133,8 @@ class SyncCodecTest {
             protoSource: MessageGroupBatch,
             protoResult: MessageGroupBatch?
         ): String = codecRootID
-
         override fun checkResult(protoResult: MessageGroupBatch): Boolean = true
-
-        override fun isTransformationComplete(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList
+        override fun isCompletelyProcessed(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList
             .flatMap(MessageGroup::getMessagesList)
             .run { all(AnyMessage::hasMessage) || all(AnyMessage::hasRawMessage) }
     }

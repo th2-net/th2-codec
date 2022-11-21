@@ -58,7 +58,7 @@ abstract class AbstractSyncCodec(
 
             if (checkResult(protoResult)) {
                 val externalQueue = protoResult.metadata.externalUserQueue
-                if (enabledExternalQueueRouting && externalQueue.isNotBlank() && isTransformationComplete(protoResult)) {
+                if (enabledExternalQueueRouting && externalQueue.isNotBlank() && isCompletelyProcessed(protoResult)) {
                     messageRouter.sendExclusive(externalQueue, protoResult)
                     return
                 }
