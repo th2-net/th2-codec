@@ -47,4 +47,3 @@ class SyncEncoder(
     override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
     override fun isCompletelyProcessed(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList.all { it.messagesList.all(AnyMessage::hasRawMessage) }
 }
-

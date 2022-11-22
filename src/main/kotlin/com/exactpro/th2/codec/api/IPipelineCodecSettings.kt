@@ -16,5 +16,4 @@
 
 package com.exactpro.th2.codec.api
 
-interface IPipelineCodecSettings {
-}
+interface IPipelineCodecSettings

@@ -21,7 +21,6 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
@@ -31,73 +30,80 @@ import java.util.concurrent.CompletableFuture
 
 class EncodeProcessor(
     codec: IPipelineCodec,
+    eventProcessor: AbstractEventProcessor,
     private val protocols: Set<String>,
     private val useParentEventId: Boolean = true,
-    onEvent: (event: Event, parentId: String?) -> Unit
-) : AbstractCodecProcessor(codec, onEvent) {
-
-    private val logger = KotlinLogging.logger {}
+) : AbstractCodecProcessor(codec, eventProcessor) {
+    private val async = Runtime.getRuntime().availableProcessors() > 1
 
     override fun process(source: MessageGroupBatch): MessageGroupBatch {
         val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
             .setMetadata(source.metadata)
 
-        val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
-            processMessageGroup(source.getGroups(it))
+        if (async) {
+            val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
+                processMessageGroupAsync(source.getGroups(it))
+            }
+
+            CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
+                messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
+            }.get()
+        } else {
+            source.groupsList.forEach { group ->
+                processMessageGroup(group)?.run(messageBatch::addGroups)
+            }
         }
 
-        CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
-            messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
-        }.get()
         return messageBatch.build().apply {
             if (source.groupsCount != groupsCount) {
-                onEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
+                eventProcessor.onErrorEvent("Group count in the encoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
             }
         }
     }
 
-    private fun processMessageGroup(messageGroup: MessageGroup) =
-        CompletableFuture.supplyAsync {
-            if (messageGroup.messagesCount == 0) {
-                onErrorEvent("Cannot encode empty message group")
-                return@supplyAsync null
-            }
+    private fun processMessageGroupAsync(group: MessageGroup) = CompletableFuture.supplyAsync { processMessageGroup(group) }
 
-            if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
-                logger.debug { "Message group has no parsed messages in it" }
-                return@supplyAsync messageGroup
-            }
-
-            val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventIds: Set<String> = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
-            val context = ReportingContext()
-
-            try {
-                if (!protocols.checkAgainstProtocols(msgProtocols)) {
-                    logger.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
-                    return@supplyAsync messageGroup
-                }
-
-                val encodedGroup = codec.encode(messageGroup, context)
-
-                if (encodedGroup.messagesCount > messageGroup.messagesCount) {
-                    parentEventIds.onEachEvent("Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})")
-                }
-
-                return@supplyAsync encodedGroup
-            } catch (e: ValidateException) {
-                sendErrorEvents("Failed to encode: ${e.title}", parentEventIds, messageGroup, e, e.details)
-                return@supplyAsync null
-            } catch (throwable: Throwable) {
-                // we should not use message IDs because during encoding there is no correct message ID created yet
-                sendErrorEvents("Failed to encode message group", parentEventIds, messageGroup, throwable, emptyList())
-                return@supplyAsync null
-            } finally {
-                parentEventIds.onEachWarning(context, "encoding",
-                    additionalBody = { messageGroup.toReadableBody(false) })
-            }
+    private fun processMessageGroup(messageGroup: MessageGroup): MessageGroup? {
+        if (messageGroup.messagesCount == 0) {
+            eventProcessor.onErrorEvent("Cannot encode empty message group")
+            return null
         }
 
+        if (messageGroup.messagesList.none(AnyMessage::hasMessage)) {
+            LOGGER.debug { "Message group has no parsed messages in it" }
+            return messageGroup
+        }
+
+        val msgProtocols: Set<String> = messageGroup.allParsedProtocols
+        val parentEventIds = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+        val context = ReportingContext()
+
+        try {
+            if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                return messageGroup
+            }
+
+            val encodedGroup = codec.encode(messageGroup, context)
+
+            if (encodedGroup.messagesCount > messageGroup.messagesCount) {
+                eventProcessor.onEachEvent(
+                    parentEventIds, "Encoded message group contains more messages (${encodedGroup.messagesCount}) than decoded one (${messageGroup.messagesCount})"
+                )
+            }
+
+            return encodedGroup
+        } catch (e: ValidateException) {
+            sendErrorEvents("Failed to encode: ${e.title}", parentEventIds, messageGroup, e, e.details)
+            return null
+        } catch (throwable: Throwable) {
+            // we should not use message IDs because during encoding there is no correct message ID created yet
+            sendErrorEvents("Failed to encode message group", parentEventIds, messageGroup, throwable, emptyList())
+            return null
+        } finally {
+            eventProcessor.onEachWarning(parentEventIds, context, "encoding", additionalBody = { messageGroup.toReadableBody(false) })
+        }
+    }
 
     private fun MessageGroup.toReadableBody(shortFormat: Boolean): List<String> = mutableListOf<String>().apply {
         messagesList.forEach {
@@ -108,8 +114,20 @@ class EncodeProcessor(
         }
     }
 
-    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
-                                cause: Throwable, additionalBody: List<String>){
-        parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
+    private fun sendErrorEvents(
+        errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
+        cause: Throwable, additionalBody: List<String>,
+    ) {
+        eventProcessor.onEachErrorEvent(
+            parentEventIds,
+            errorMsg,
+            msgGroup.messageIds,
+            cause,
+            additionalBody + msgGroup.toReadableBody(false)
+        )
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
     }
 }

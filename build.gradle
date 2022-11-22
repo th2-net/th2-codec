@@ -54,12 +54,12 @@ repositories {
     }
 }
 
-
 dependencies {
     api platform('com.exactpro.th2:bom:4.0.1')
 
-    implementation 'com.exactpro.th2:grpc-common:3.12.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3480850604-SNAPSHOT'
     implementation 'com.exactpro.th2:common:3.42.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3472025892-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-codec:0.0.2'
+    implementation 'com.exactpro.th2:grpc-common:3.12.0-TH2-4262-reduce-load-on-a-separate-boxes-in-crawler-schema-3480850604-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 
@@ -67,16 +67,13 @@ dependencies {
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
 
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21'
-    implementation 'org.jetbrains.kotlin:kotlin-reflect:1.6.21'
-
-    implementation('com.github.ajalt:clikt:2.8.0')
+    implementation "com.github.ajalt:clikt:2.8.0"
 
     implementation 'com.google.protobuf:protobuf-java-util'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
-    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.7.10'
-    testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
+    testImplementation "org.junit.jupiter:junit-jupiter:5.9.0"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:4.0.0"
 }
 
 jar {

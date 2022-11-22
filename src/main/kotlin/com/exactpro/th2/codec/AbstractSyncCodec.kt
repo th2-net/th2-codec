@@ -51,23 +51,27 @@ abstract class AbstractSyncCodec(
     override fun close() {}
 
     override fun handler(consumerTag: String?, message: MessageGroupBatch) {
+        val protoResult = handleMessage(message)
+        val externalQueue = protoResult.metadata.externalUserQueue
+        if (enabledExternalQueueRouting && externalQueue.isNotBlank() && isCompletelyProcessed(protoResult)) {
+            messageRouter.sendExclusive(externalQueue, protoResult)
+            return
+        }
+        messageRouter.sendAll(protoResult, targetAttributes)
+    }
+
+    fun handleMessage(message: MessageGroupBatch): MessageGroupBatch {
         var protoResult: MessageGroupBatch? = null
 
         try {
             protoResult = processor.process(message)
-
-            if (checkResult(protoResult)) {
-                val externalQueue = protoResult.metadata.externalUserQueue
-                if (enabledExternalQueueRouting && externalQueue.isNotBlank() && isCompletelyProcessed(protoResult)) {
-                    messageRouter.sendExclusive(externalQueue, protoResult)
-                    return
-                }
-                messageRouter.sendAll(protoResult, this.targetAttributes)
-            }
-        } catch (exception: CodecException) {
+            if (!checkResult(protoResult)) throw CodecException("checkResult failed")
+            return protoResult
+        } catch (e: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
-            createAndStoreErrorEvent(exception, parentEventId)
-            logger.error(exception) { "Failed to handle message: ${message.toDebugString()}" }
+            createAndStoreErrorEvent(e, parentEventId)
+            logger.error(e) { "Failed to handle message: ${message.toDebugString()}" }
+            throw e
         }
     }
 

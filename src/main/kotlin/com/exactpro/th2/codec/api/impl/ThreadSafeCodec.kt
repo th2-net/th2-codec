@@ -21,7 +21,11 @@ import com.exactpro.th2.codec.api.IPipelineCodecFactory
 import com.exactpro.th2.codec.api.IPipelineCodecSettings
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.common.grpc.MessageGroup
+import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit.MINUTES
+import java.util.concurrent.TimeUnit.SECONDS
 import javax.annotation.concurrent.ThreadSafe
 
 @ThreadSafe
@@ -29,7 +33,12 @@ class ThreadSafeCodec(
     private val codecFactory: IPipelineCodecFactory,
     private val codecSettings: IPipelineCodecSettings?
 ) : IPipelineCodec {
-    private val instances = ConcurrentHashMap<Long, IPipelineCodec>()
+    private val logger = KotlinLogging.logger {}
+    private val instances = ConcurrentHashMap<Thread, IPipelineCodec>()
+
+    private val executor = Executors.newSingleThreadScheduledExecutor().apply {
+        scheduleAtFixedRate(::cleanup, 1, 1, MINUTES)
+    }
 
     override fun encode(messageGroup: MessageGroup) = getInstance().let { codec ->
         synchronized(codec) {
@@ -55,11 +64,27 @@ class ThreadSafeCodec(
         }
     }
 
-    private fun getInstance() = instances.computeIfAbsent(Thread.currentThread().id) {
+    private fun getInstance() = instances.computeIfAbsent(Thread.currentThread()) {
         synchronized(codecFactory) { codecFactory.create(codecSettings) }
     }
 
+    private fun cleanup() = instances.entries.removeIf { (thread, instance) ->
+        if (thread.isAlive) return@removeIf false
+
+        instance.runCatching(IPipelineCodec::close).onFailure {
+            logger.error(it) { "Failed to close codec instance" }
+        }
+
+        true
+    }
+
     override fun close() {
+        executor.shutdown()
+
+        if (!executor.awaitTermination(5, SECONDS)) {
+            executor.shutdownNow()
+        }
+
         synchronized(codecFactory) {
             instances.values.forEach { codec ->
                 synchronized(codec, codec::close)
