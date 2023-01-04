@@ -30,6 +30,10 @@ ext {
 group 'com.exactpro.th2'
 version release_version
 
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 repositories {
     maven {
         name 'MavenLocal'
