@@ -16,29 +16,29 @@
 
 package com.exactpro.th2.codec.util
 
-import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
-
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 
-val MessageGroup.parentEventId: String?
+val MessageGroup.parentEventId: EventID?
     get() = messagesList.asSequence()
         .map {
             when {
-                it.hasMessage() -> it.message.parentEventId.id.ifEmpty { null }
-                it.hasRawMessage() -> it.rawMessage.parentEventId.id.ifEmpty { null }
+                it.hasMessage() -> it.message.parentEventId
+                it.hasRawMessage() -> it.rawMessage.parentEventId
                 else -> null
             }
         }
@@ -89,10 +89,13 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String) : M
     return result.build()
 }
 
-fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder {
-    return MessageMetadata.newBuilder()
-        .setId(metadata.id)
-        .setTimestamp(metadata.timestamp)
-        .setProtocol(protocol)
-        .putAllProperties(metadata.propertiesMap)
-}
+//FIXME: copy batch metadata
+fun RawMessage.toMessageMetadataBuilder(protocol: String): MessageMetadata.Builder = MessageMetadata.newBuilder()
+    .setId(metadata.id)
+    .setProtocol(protocol)
+    .putAllProperties(metadata.propertiesMap)
+
+fun Message.toRawMetadataBuilder(protocol: String): RawMessageMetadata.Builder = RawMessageMetadata.newBuilder()
+    .setId(metadata.id)
+    .setProtocol(protocol)
+    .putAllProperties(metadata.propertiesMap)

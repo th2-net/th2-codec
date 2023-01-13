@@ -15,6 +15,7 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
@@ -22,7 +23,7 @@ class SyncEncoder(
     messageRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
-    codecRootID: String
+    codecRootID: EventID
 ) : AbstractSyncCodec(
     messageRouter,
     eventRouter,
@@ -30,16 +31,15 @@ class SyncEncoder(
     codecRootID
 ) {
     override fun getParentEventId(
-        codecRootID: String,
+        codecRootID: EventID,
         protoSource: MessageGroupBatch,
         protoResult: MessageGroupBatch?
-    ): String = protoSource.run {
+    ): EventID = protoSource.run {
         groupsList.getOrNull(0)
             ?.messagesList
             ?.find { it.kindCase == MESSAGE }
             ?.message
             ?.parentEventId
-            ?.id
     } ?: codecRootID
 
     override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0

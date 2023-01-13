@@ -16,12 +16,12 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.storeEvent
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import mu.KotlinLogging
-import java.time.LocalDateTime
 import java.util.Deque
 import java.util.concurrent.ConcurrentLinkedDeque
 import kotlin.concurrent.thread
@@ -68,14 +68,9 @@ class CodecCommand : CliktCommand() {
             val messageRouter = commonFactory.messageRouterMessageGroupBatch
             val eventRouter = commonFactory.eventBatchRouter
 
-            val rootEventId = eventRouter.storeEvent(
-                Event.start().apply {
-                    name("Codec_${applicationContext.protocol}_${LocalDateTime.now()}")
-                    type("CodecRoot")
-                }
-            ).id
+            val rootEventId = commonFactory.rootEventId
 
-            val onEvent: (Event, String?) -> Unit = { event, parentId ->
+            val onEvent: (Event, EventID?) -> Unit = { event, parentId ->
                 eventRouter.runCatching {
                     storeEvent(event, parentId ?: rootEventId)
                 }.onFailure {
@@ -107,8 +102,8 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralEncoder(
         context: ApplicationContext,
-        rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        rootEventId: EventID,
+        onEvent: (event: Event, parentId: EventID?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 
@@ -126,8 +121,8 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralDecoder(
         context: ApplicationContext,
-        rootEventId: String,
-        onEvent: (event: Event, parentId: String?) -> Unit
+        rootEventId: EventID,
+        onEvent: (event: Event, parentId: EventID?) -> Unit
     ) {
         val commonFactory = context.commonFactory
 

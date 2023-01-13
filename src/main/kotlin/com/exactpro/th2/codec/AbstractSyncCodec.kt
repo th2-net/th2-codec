@@ -18,7 +18,9 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import mu.KotlinLogging
@@ -29,7 +31,7 @@ abstract class AbstractSyncCodec(
     private val messageRouter: MessageRouter<MessageGroupBatch>,
     private val eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor,
-    private val codecRootEvent: String
+    private val codecRootEvent: EventID
 ) : AutoCloseable, MessageListener<MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
@@ -49,7 +51,7 @@ abstract class AbstractSyncCodec(
 
     override fun close() {}
 
-    override fun handler(consumerTag: String?, message: MessageGroupBatch) {
+    override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
         var protoResult: MessageGroupBatch? = null
 
         try {
@@ -65,7 +67,7 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    private fun createAndStoreErrorEvent(exception: CodecException, parentEventID: String) {
+    private fun createAndStoreErrorEvent(exception: CodecException, parentEventID: EventID) {
         try {
             eventRouter.send(
                 EventBatch.newBuilder().addEvents(
@@ -75,8 +77,7 @@ abstract class AbstractSyncCodec(
                         .status(FAILED)
                         .bodyData(Message().apply {
                             data = exception.getAllMessages()
-                        })
-                        .toProtoEvent(parentEventID)
+                        }).toProto(parentEventID)
                 ).build()
             )
         } catch (exception: Exception) {
@@ -84,6 +85,6 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    abstract fun getParentEventId(codecRootID: String, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): String
+    abstract fun getParentEventId(codecRootID: EventID, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): EventID
     abstract fun checkResult(protoResult: MessageGroupBatch): Boolean
 }

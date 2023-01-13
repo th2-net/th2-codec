@@ -14,6 +14,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
@@ -21,13 +22,13 @@ class SyncDecoder(
     messageRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
-    codecRootID: String
+    codecRootID: EventID
 ) : AbstractSyncCodec(
     messageRouter,
     eventRouter,
     processor,
     codecRootID
 ) {
-    override fun getParentEventId(codecRootID: String, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): String = codecRootID
+    override fun getParentEventId(codecRootID: EventID, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): EventID = codecRootID
     override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
 }

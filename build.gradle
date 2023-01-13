@@ -17,37 +17,24 @@
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'org.jetbrains.kotlin.jvm' version '1.5.21'
+    id 'org.jetbrains.kotlin.jvm' version '1.6.21'
     id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
     id 'signing'
-}
-
-
-ext {
-    sharedDir          = file("${project.rootDir}/shared")
 }
 
 group 'com.exactpro.th2'
 version release_version
 
 repositories {
-    maven {
-        name 'MavenLocal'
-        url sharedDir
-    }
-
     mavenCentral()
-
     maven {
             name 'Sonatype_snapshots'
             url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
-
     maven {
             name 'Sonatype_releases'
             url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
-
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
@@ -56,12 +43,11 @@ repositories {
 
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:4.0.2')
 
-    implementation 'com.exactpro.th2:grpc-common:3.2.0'
-    implementation 'com.exactpro.th2:common:3.17.0'
+    implementation 'com.exactpro.th2:common:5.0.0-dev-version-5-3838510969-SNAPSHOT'
 
-    implementation 'io.github.microutils:kotlin-logging:2.0.10'
+    implementation 'io.github.microutils:kotlin-logging:3.0.0'
 
     implementation 'org.slf4j:slf4j-api'
     implementation 'org.slf4j:slf4j-log4j12'
@@ -70,16 +56,13 @@ dependencies {
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
 
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.5.21'
-    implementation 'org.jetbrains.kotlin:kotlin-reflect:1.5.21'
-
-    implementation("com.github.ajalt:clikt:2.7.0")
+    implementation('com.github.ajalt:clikt:2.8.0')
 
     implementation 'com.google.protobuf:protobuf-java-util'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.2'
-    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:1.5.21"
-    testImplementation 'org.mockito:mockito-inline:3.5.6'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.7.22'
+    testImplementation 'org.mockito:mockito-inline:4.11.0'
 }
 
 jar {
@@ -167,10 +150,6 @@ publishing {
         }
     }
     repositories {
-        maven {
-            name = 'localRepo'
-            url = sharedDir
-        }
 //Nexus repo to publish from gitlab
         maven {
             name = 'nexusRepository'
@@ -197,10 +176,6 @@ signing {
     def signingPassword = findProperty("signingPassword")
     useInMemoryPgpKeys(signingKey, signingPassword)
     sign publishing.publications.mavenJava
-}
-
-clean {
-    delete sharedDir
 }
 
 compileKotlin {

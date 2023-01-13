@@ -18,15 +18,18 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.toTimestamp
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 class DecodeProcessorTest {
 
@@ -39,17 +42,29 @@ class DecodeProcessorTest {
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = originalProtocol
+                    }
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = wrongProtocol
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = wrongProtocol
+                    }
                 }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = originalProtocol
+                    }
                 }
                 this += RawMessage.newBuilder().apply {
-                    metadataBuilder.protocol = originalProtocol
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = originalProtocol
+                    }
                 }
                 this += RawMessage.getDefaultInstance()
             }.build())
@@ -89,6 +104,17 @@ class DecodeProcessorTest {
             Assertions.assertEquals(originalProtocol, it.metadata.protocol)
         }
 
+    }
+    companion object {
+        private val MESSAGE_ID = MessageID.newBuilder().apply {
+            connectionIdBuilder.apply {
+                sessionAlias = "test-session-alias"
+            }
+            bookName = "test-book"
+            direction = Direction.FIRST
+            timestamp = Instant.now().toTimestamp()
+            sequence = 1
+        }.build()
     }
 }
 
