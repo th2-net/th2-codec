@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,27 +18,24 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
-import com.exactpro.th2.common.message.toTimestamp
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import java.time.Instant
 
 class DecodeProcessorTest {
 
     @Test
     fun `error message check`() {
         val originalProtocol = "xml"
+        val originalProtocols = setOf(originalProtocol)
         val wrongProtocol = "http"
 
-        val processor = DecodeProcessor(TestCodec(true), originalProtocol) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID, false) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
@@ -104,17 +101,6 @@ class DecodeProcessorTest {
             Assertions.assertEquals(originalProtocol, it.metadata.protocol)
         }
 
-    }
-    companion object {
-        private val MESSAGE_ID = MessageID.newBuilder().apply {
-            connectionIdBuilder.apply {
-                sessionAlias = "test-session-alias"
-            }
-            bookName = "test-book"
-            direction = Direction.FIRST
-            timestamp = Instant.now().toTimestamp()
-            sequence = 1
-        }.build()
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,20 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.codec.api
+package com.exactpro.th2.codec.api.impl
 
-interface IPipelineCodecSettings {
+import com.exactpro.th2.codec.api.IReportingContext
+
+class ReportingContext : IReportingContext {
+    private val _warnings = arrayListOf<String>()
+    val warnings: List<String>
+        get() = _warnings
+
+    override fun warning(message: String) {
+        _warnings += message
+    }
+
+    override fun warnings(messages: Iterable<String>) {
+        _warnings += messages
+    }
 }

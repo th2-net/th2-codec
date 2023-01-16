@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,7 @@ package com.exactpro.th2.codec.configuration
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IPipelineCodecFactory
+import com.exactpro.th2.codec.api.impl.PipelineCodecContext
 import com.exactpro.th2.codec.api.impl.ThreadSafeCodec
 import com.exactpro.th2.codec.util.load
 import com.exactpro.th2.common.schema.factory.CommonFactory
@@ -23,7 +24,7 @@ import mu.KotlinLogging
 class ApplicationContext(
     val commonFactory: CommonFactory,
     val codec: IPipelineCodec,
-    val protocol: String
+    val protocols: Set<String>
 ) : AutoCloseable {
     override fun close() = codec.close()
 
@@ -33,13 +34,19 @@ class ApplicationContext(
         fun create(configuration: Configuration, commonFactory: CommonFactory): ApplicationContext {
             val factory = runCatching {
                 load<IPipelineCodecFactory>().apply {
-                    init(commonFactory::readDictionary)
+                    init(PipelineCodecContext(commonFactory))
                 }
             }.getOrElse {
                 throw IllegalStateException("Failed to load codec factory", it)
             }
 
-            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocol)
+            configuration.codecSettings.runCatching(factory::create)
+                .onSuccess(IPipelineCodec::close)
+                .onFailure {
+                    throw IllegalStateException("Failed to create codec instance", it)
+                }
+
+            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
         }
     }
 }
