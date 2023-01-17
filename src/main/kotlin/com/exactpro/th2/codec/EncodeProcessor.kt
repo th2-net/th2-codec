@@ -69,7 +69,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventIds: Set<EventID> = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds: Sequence<EventID> = if (useParentEventId) messageGroup.allParentEventIds else emptySequence()
             val context = ReportingContext()
 
             try {
@@ -108,7 +108,7 @@ class EncodeProcessor(
         }
     }
 
-    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<EventID>, msgGroup: MessageGroup,
+    private fun sendErrorEvents(errorMsg: String, parentEventIds: Sequence<EventID>, msgGroup: MessageGroup,
                                 cause: Throwable, additionalBody: List<String>){
         parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
     }

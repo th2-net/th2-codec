@@ -61,7 +61,7 @@ abstract class AbstractCodecProcessor(
         return publishEvent(message, messagesIds, FAILED, cause, additionalBody).id
     }
 
-    protected fun Set<EventID>.onEachEvent(
+    protected fun Sequence<EventID>.onEachEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
@@ -72,7 +72,7 @@ abstract class AbstractCodecProcessor(
         }
     }
 
-    protected fun Set<EventID>.onEachErrorEvent(
+    protected fun Sequence<EventID>.onEachErrorEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
@@ -83,7 +83,7 @@ abstract class AbstractCodecProcessor(
         return errorEventId
     }
 
-    protected fun Set<EventID>.onEachWarning(
+    protected fun Sequence<EventID>.onEachWarning(
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,

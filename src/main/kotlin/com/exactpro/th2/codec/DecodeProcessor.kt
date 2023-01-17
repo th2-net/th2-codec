@@ -69,7 +69,7 @@ class DecodeProcessor(
             }
 
             val msgProtocols = messageGroup.allRawProtocols
-            val parentEventIds: Set<EventID> = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds: Sequence<EventID> = if (useParentEventId) messageGroup.allParentEventIds else emptySequence()
             val context = ReportingContext()
 
             try {
