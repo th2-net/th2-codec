@@ -48,8 +48,7 @@ val MessageGroup.parentEventId: EventID?
  */
 val MessageGroup.allParentEventIds: Sequence<EventID>
     get() = messagesList.asSequence()
-        .map(AnyMessage::parentEventId)
-        .filterNotNull()
+        .mapNotNull(AnyMessage::parentEventId)
 
 val MessageGroup.allRawProtocols
     get() = messagesList.asSequence()
