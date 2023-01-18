@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,40 +14,41 @@
  * limitations under the License.
  */
 
+@file:Suppress("unused")
+
 package com.exactpro.th2.codec.util
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
 
-val MessageGroup.parentEventId: String?
-    get() = messagesList.firstNotNullOfOrNull { anyMessage ->
-        when {
-            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
-            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
-            else -> null
-        }
+val AnyMessage.parentEventId: EventID?
+    get() = when {
+        hasMessage() -> with(message) { if (hasParentEventId()) parentEventId else null }
+        hasRawMessage() -> with(rawMessage) { if (hasParentEventId()) parentEventId else null }
+        else -> error("Unsupported $kindCase kind")
     }
+
+val MessageGroup.parentEventId: EventID?
+    get() = messagesList.firstNotNullOfOrNull(AnyMessage::parentEventId)
 
 /**
  * Returns parent event ids from each message.
  */
-val MessageGroup.allParentEventIds: Set<String>
-    get() = messagesList.mapNotNullTo(HashSet()) { anyMessage ->
-        when {
-            anyMessage.hasMessage() -> anyMessage.message.parentEventId.id.ifEmpty { null }
-            anyMessage.hasRawMessage() -> anyMessage.rawMessage.parentEventId.id.ifEmpty { null }
-            else -> null
-        }
-    }
+val MessageGroup.allParentEventIds: Sequence<EventID>
+    get() = messagesList.asSequence()
+        .mapNotNull(AnyMessage::parentEventId)
 
 val MessageGroup.allRawProtocols
     get() = messagesList.asSequence()
@@ -128,7 +129,20 @@ private fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): 
 
     return MessageMetadata.newBuilder()
         .setId(metadata.id)
-        .setTimestamp(metadata.timestamp)
+        .setProtocol(protocol)
+        .putAllProperties(metadata.propertiesMap)
+}
+
+private fun Message.toRawMetadataBuilder(protocols: Collection<String>): RawMessageMetadata.Builder {
+    val protocol = metadata.protocol.ifBlank {
+        when(protocols.size) {
+            1 -> protocols.first()
+            else -> protocols.toString()
+        }
+    }
+
+    return RawMessageMetadata.newBuilder()
+        .setId(metadata.id)
         .setProtocol(protocol)
         .putAllProperties(metadata.propertiesMap)
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.toJson
@@ -32,9 +32,10 @@ import java.util.concurrent.CompletableFuture
 class EncodeProcessor(
     codec: IPipelineCodec,
     private val protocols: Set<String>,
+    codecEventID: EventID,
     private val useParentEventId: Boolean = true,
-    onEvent: (event: Event, parentId: String?) -> Unit
-) : AbstractCodecProcessor(codec, onEvent) {
+    onEvent: (event: ProtoEvent) -> Unit
+) : AbstractCodecProcessor(codec, codecEventID, onEvent) {
 
     private val logger = KotlinLogging.logger {}
 
@@ -68,7 +69,7 @@ class EncodeProcessor(
             }
 
             val msgProtocols = messageGroup.allParsedProtocols
-            val parentEventIds: Set<String> = if (useParentEventId) messageGroup.allParentEventIds else emptySet()
+            val parentEventIds: Sequence<EventID> = if (useParentEventId) messageGroup.allParentEventIds else emptySequence()
             val context = ReportingContext()
 
             try {
@@ -107,7 +108,7 @@ class EncodeProcessor(
         }
     }
 
-    private fun sendErrorEvents(errorMsg: String, parentEventIds: Set<String>, msgGroup: MessageGroup,
+    private fun sendErrorEvents(errorMsg: String, parentEventIds: Sequence<EventID>, msgGroup: MessageGroup,
                                 cause: Throwable, additionalBody: List<String>){
         parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody(false))
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ class ProcessorTest {
 
     @Test
     fun `simple test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -49,7 +49,7 @@ class ProcessorTest {
 
     @Test
     fun `other protocol in raw message test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -64,7 +64,7 @@ class ProcessorTest {
 
     @Test
     fun `one parsed message in group test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -89,7 +89,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = DecodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -112,7 +112,7 @@ class ProcessorTest {
 
     @Test
     fun `simple test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -132,7 +132,7 @@ class ProcessorTest {
 
     @Test
     fun `other protocol in parsed message test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -146,7 +146,7 @@ class ProcessorTest {
 
     @Test
     fun `one raw message in group test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -170,7 +170,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = EncodeProcessor(TestCodec(false), originalProtocols) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -199,7 +199,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on failed protocol check - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -216,14 +216,27 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - encode`() {
-        val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
+                this += Message.newBuilder().apply {
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = EventTest.ORIGINAL_PROTOCOL
+                    }
+                }
+                this += Message.newBuilder().apply {
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = EventTest.WRONG_PROTOCOL
+                    }
+                }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
-                    metadataBuilder.protocol = ORIGINAL_PROTOCOL
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = ORIGINAL_PROTOCOL
+                    }
                 }
                 this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
             }.build())
@@ -236,25 +249,34 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
-                    setProtocol(ORIGINAL_PROTOCOL)
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = ORIGINAL_PROTOCOL
+                    }
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder().apply {
-                    setProtocol(WRONG_PROTOCOL)
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = WRONG_PROTOCOL
+                    }
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += Message.newBuilder().apply {
                     messageType = "test-type"
                     metadataBuilder.protocol = WRONG_PROTOCOL
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder().apply {
-                    setProtocol(ORIGINAL_PROTOCOL)
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = ORIGINAL_PROTOCOL
+                    }
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
             }.build())
         }.build()
@@ -297,19 +319,25 @@ class ProcessorTest {
 
     @Test
     fun `error message on failed protocol check - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
-                    setProtocol(ORIGINAL_PROTOCOL)
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = ORIGINAL_PROTOCOL
+                    }
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder().apply {
-                    setProtocol(WRONG_PROTOCOL)
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    metadataBuilder.apply {
+                        id = MESSAGE_ID
+                        protocol = WRONG_PROTOCOL
+                    }
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder(RawMessage.getDefaultInstance()).apply {
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
             }.build())
         }.build()
@@ -347,23 +375,23 @@ class ProcessorTest {
 
     @Test
     fun `multiple protocol test - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json")) { _, _ -> }
+        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID) { }
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
                     setProtocol("xml")
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder().apply {
                     setProtocol("json")
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder().apply {
                     setProtocol("http")
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
                 this += RawMessage.newBuilder(RawMessage.getDefaultInstance()).apply {
-                    parentEventId = EventID.newBuilder().setId(UUID.randomUUID().toString()).build()
+                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
                 }
             }.build())
         }.build()

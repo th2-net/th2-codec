@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,64 +27,63 @@ import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.isValid
+import com.exactpro.th2.common.utils.event.logId
 import mu.KotlinLogging
 
 abstract class AbstractCodecProcessor(
     protected val codec: IPipelineCodec,
-    private val onEvent: (event: Event, parentId: String?) -> Unit
+    private val codecEventID: EventID,
+    private val onEvent: (event: ProtoEvent) -> Unit
 ) : MessageProcessor<MessageGroupBatch, MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
 
-    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = null.onEvent(message, messagesIds)
+    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)
 
-    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = null.onErrorEvent(message, messagesIds, cause)
+    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
 
-    protected fun String?.onEvent(
+    private fun EventID.onEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
-    ) : String {
+    ) : EventID {
         logger.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        val event = createEvent(message, messagesIds, body = body)
-        onEvent(event, this)
-        return event.id
+        return this.publishEvent(message, messagesIds, body = body).id
     }
 
-    protected fun String?.onErrorEvent(
+    private fun EventID.onErrorEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList()
-    ): String {
+    ): EventID {
         logger.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        val event = createEvent(message, messagesIds, FAILED, cause, additionalBody)
-        onEvent(event, this)
-        return event.id
+        return publishEvent(message, messagesIds, FAILED, cause, additionalBody).id
     }
 
-    protected fun Set<String>.onEachEvent(
+    protected fun Sequence<EventID>.onEachEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
     ) {
-        val warnEvent = null.onEvent(message, messagesIds, body)
+        val warnEvent = codecEventID.onEvent(message, messagesIds, body)
         forEach {
             it.addReferenceTo(warnEvent, message, PASSED)
         }
     }
 
-    protected fun Set<String>.onEachErrorEvent(
+    protected fun Sequence<EventID>.onEachErrorEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList(),
-    ): String {
-        val errorEventId = null.onErrorEvent(message, messagesIds, cause, additionalBody)
+    ): EventID {
+        val errorEventId = codecEventID.onErrorEvent(message, messagesIds, cause, additionalBody)
         forEach { it.addReferenceTo(errorEventId, message, FAILED) }
         return errorEventId
     }
 
-    protected fun Set<String>.onEachWarning(
+    protected fun Sequence<EventID>.onEachWarning(
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
@@ -104,23 +103,16 @@ abstract class AbstractCodecProcessor(
             "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
         }
 
-    private fun String?.addReferenceTo(eventId: String, name: String, status: Status): EventID {
-        Event.start()
-            .endTimestamp()
-            .name(name)
-            .status(status)
-            .type(if (status != PASSED) "Error" else "Warn")
-            .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-            .bodyData(ReferenceToEvent(eventId))
-            .also { event ->
-                onEvent(
-                    event,
-                    this
-                )
-            }.run {
-                return checkNotNull(EventUtils.toEventID(id))
-            }
-    }
+    private fun EventID.addReferenceTo(eventId: EventID, name: String, status: Status): EventID = Event.start()
+        .endTimestamp()
+        .name(name)
+        .status(status)
+        .type(if (status != PASSED) "Error" else "Warn")
+        .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
+        .bodyData(ReferenceToEvent(eventId.logId))
+        .toProto(this)
+        .also(onEvent)
+        .id
 
     protected fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
         incomingProtocols.none { it.isBlank() || it in this }  -> false
@@ -128,17 +120,21 @@ abstract class AbstractCodecProcessor(
         else -> true
     }
 
-    private fun createEvent(
+    private fun EventID.publishEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         status: Status = PASSED,
         cause: Throwable? = null,
         body: List<String> = emptyList(),
-    ) = Event.start().apply {
+    ): ProtoEvent = Event.start().apply {
         name(message)
         type(if (status != PASSED || cause != null) "Error" else "Warn")
         status(if (cause != null) FAILED else status)
-        messagesIds.forEach(::messageID)
+        messagesIds.forEach { messageId ->
+            if (messageId.isValid) {
+                messageID(messageId)
+            }
+        }
 
         generateSequence(cause, Throwable::cause).forEach {
             bodyData(EventUtils.createMessageBean(it.message))
@@ -148,8 +144,9 @@ abstract class AbstractCodecProcessor(
             bodyData(EventUtils.createMessageBean("Information:"))
             body.forEach { bodyData(EventUtils.createMessageBean(it)) }
         }
-    }
+    }.toProto(this).also(onEvent)
 
+    @Suppress("unused")
     private class ReferenceToEvent(val eventId: String) : IBodyData {
         val type: String
             get() = TYPE

@@ -34,7 +34,6 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
 
     it.metadata = MessageMetadata.newBuilder()
         .setId(metadata.id)
-        .setTimestamp(metadata.timestamp)
         .setProtocol(protocol)
         .putAllProperties(metadata.propertiesMap)
         .setMessageType(ERROR_TYPE_MESSAGE)
@@ -48,7 +47,7 @@ fun MessageGroup.toErrorGroup(
     infoMessage: String,
     protocols: Collection<String>,
     throwable: Throwable,
-    errorEventID: String
+    errorEventID: EventID
 ): MessageGroup {
     val content = buildString {
         appendLine("Error: $infoMessage")
@@ -63,7 +62,7 @@ fun MessageGroup.toErrorGroup(
     return MessageGroup.newBuilder().also { batchBuilder ->
         for (anyMessage in this.messagesList) {
             if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
-                batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, EventID.newBuilder().setId(errorEventID).build(), content)
+                batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, errorEventID, content)
             } else {
                 batchBuilder.addMessages(anyMessage)
             }

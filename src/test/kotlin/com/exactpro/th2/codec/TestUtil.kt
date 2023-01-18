@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,13 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.toTimestamp
+import java.time.Instant
 
 fun Message.Builder.setProtocol(protocol: String) = apply {
     metadataBuilder.protocol = protocol
@@ -26,3 +31,22 @@ fun Message.Builder.setProtocol(protocol: String) = apply {
 fun RawMessage.Builder.setProtocol(protocol: String) = apply {
     metadataBuilder.protocol = protocol
 }
+
+const val BOOK_NAME = "test-book"
+
+val CODEC_EVENT_ID: EventID = EventID.newBuilder().apply {
+    bookName = BOOK_NAME
+    scope = "test-scope"
+    startTimestamp = Instant.now().toTimestamp()
+    id = "test-codec"
+}.build()
+
+val MESSAGE_ID: MessageID = MessageID.newBuilder().apply {
+    connectionIdBuilder.apply {
+        sessionAlias = "test-session-alias"
+    }
+    bookName = BOOK_NAME
+    direction = Direction.FIRST
+    timestamp = Instant.now().toTimestamp()
+    sequence = 1
+}.build()

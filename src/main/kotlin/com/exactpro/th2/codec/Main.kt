@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,20 +15,19 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
-import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.storeEvent
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import mu.KotlinLogging
-import java.time.LocalDateTime
-import java.util.Deque
+import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
+typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 private val logger = KotlinLogging.logger {}
 
 fun main(args: Array<String>) {
@@ -55,29 +54,13 @@ class CodecCommand : CliktCommand() {
 
     private val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
 
-    private val codecName = commonFactory.boxConfiguration?.boxName?.let { "$it " } ?: ""
-    private val rootEventId: String = eventRouter.storeEvent(
-        Event.start().apply {
-            name("Codec $codecName[${LocalDateTime.now()}] protocols: ${applicationContext.protocols.joinToString(",")} ")
-            type("CodecRoot")
-        }
-    ).id
+    private val rootEventId = commonFactory.rootEventId
 
-    private val onEvent: (Event, String?) -> Unit = { event, parentId ->
+    private val onEvent: (ProtoEvent) -> Unit = { event ->
         eventRouter.runCatching {
-            storeEvent(event, parentId ?: rootEventId)
+            sendAll(EventBatch.newBuilder().addEvents(event).build())
         }.onFailure {
             logger.error(it) { "Failed to store event: $event" }
-        }
-    }
-
-    private val onRootEvent: (Event, String?) -> Unit = { event, parentId ->
-        if (parentId == null) {
-            eventRouter.runCatching {
-                storeEvent(event, rootEventId)
-            }.onFailure {
-                logger.error(it) { "Failed to store event: $event" }
-            }
         }
     }
 
@@ -101,7 +84,7 @@ class CodecCommand : CliktCommand() {
             createCodec("decoder") {
                 SyncDecoder(
                     messageRouter, eventRouter,
-                    DecodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
+                    DecodeProcessor(applicationContext.codec, applicationContext.protocols, rootEventId, onEvent = onEvent),
                     rootEventId
                 ).apply {
                     start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
@@ -112,7 +95,7 @@ class CodecCommand : CliktCommand() {
                 SyncEncoder(
                     messageRouter,
                     eventRouter,
-                    EncodeProcessor(applicationContext.codec, applicationContext.protocols, onEvent = onEvent),
+                    EncodeProcessor(applicationContext.codec, applicationContext.protocols, rootEventId, onEvent = onEvent),
                     rootEventId
                 ).apply {
                     start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
@@ -131,7 +114,7 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralEncoder(
         context: ApplicationContext,
-        rootEventId: String
+        rootEventId: EventID
     ) {
         val commonFactory = context.commonFactory
 
@@ -139,7 +122,7 @@ class CodecCommand : CliktCommand() {
             SyncEncoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                EncodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent = onRootEvent),
+                EncodeProcessor(context.codec, context.protocols, rootEventId, false, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
@@ -149,7 +132,7 @@ class CodecCommand : CliktCommand() {
 
     private fun createGeneralDecoder(
         context: ApplicationContext,
-        rootEventId: String
+        rootEventId: EventID
     ) {
         val commonFactory = context.commonFactory
 
@@ -157,7 +140,7 @@ class CodecCommand : CliktCommand() {
             SyncDecoder(
                 commonFactory.messageRouterMessageGroupBatch,
                 commonFactory.eventBatchRouter,
-                DecodeProcessor(context.codec, context.protocols, useParentEventId = false, onEvent = onRootEvent),
+                DecodeProcessor(context.codec, context.protocols, rootEventId, false, onEvent),
                 rootEventId
             ).apply {
                 start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
