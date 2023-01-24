@@ -119,7 +119,7 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Colle
     return result.build()
 }
 
-private fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageMetadata.Builder {
+fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageMetadata.Builder {
     val protocol = metadata.protocol.ifBlank {
         when(protocols.size) {
             1 -> protocols.first()
@@ -133,7 +133,7 @@ private fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): 
         .putAllProperties(metadata.propertiesMap)
 }
 
-private fun Message.toRawMetadataBuilder(protocols: Collection<String>): RawMessageMetadata.Builder {
+fun Message.toRawMetadataBuilder(protocols: Collection<String>): RawMessageMetadata.Builder {
     val protocol = metadata.protocol.ifBlank {
         when(protocols.size) {
             1 -> protocols.first()
