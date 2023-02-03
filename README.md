@@ -260,6 +260,17 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 * Implemented logic to send completely transformed batch to external queue instead of configured by schema.
 
+### v4.7.5
+
+#### Updated:
+
++ bom to `4.1.0`
+* common to `3.44.0`
+
+#### Added:
+
+* Vulnerabilities check
+
 ### v4.7.4
 
 #### Changed:
