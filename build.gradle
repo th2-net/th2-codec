@@ -20,6 +20,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
     id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
     id 'signing'
+
 }
 
 
@@ -29,6 +30,10 @@ ext {
 
 group 'com.exactpro.th2'
 version release_version
+
+dependencyLocking {
+    lockAllConfigurations()
+}
 
 repositories {
     maven {
@@ -56,10 +61,10 @@ repositories {
 
 
 dependencies {
-    api platform('com.exactpro.th2:bom:4.0.1')
+    api platform('com.exactpro.th2:bom:4.1.0')
 
     implementation 'com.exactpro.th2:grpc-common:3.11.1'
-    implementation 'com.exactpro.th2:common:3.41.0'
+    implementation 'com.exactpro.th2:common:3.44.0'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 
