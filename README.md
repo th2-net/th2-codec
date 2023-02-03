@@ -147,7 +147,7 @@ metadata:
 spec:
   custom-config:
     isFirstCodecInPipeline: true
-    enabledExternalQueueRouting: false
+    enableExternalQueueRouting: false
     codecSettings:
       messageTypeDetection: BY_INNER_FIELD
       messageTypeField: "messageType"

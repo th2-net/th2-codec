@@ -30,7 +30,7 @@ abstract class AbstractSyncCodec(
     private val eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor,
     private val codecRootEvent: String,
-    private val enabledExternalQueueRouting: Boolean
+    private val enableExternalQueueRouting: Boolean
 ) : AutoCloseable, MessageListener<MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""

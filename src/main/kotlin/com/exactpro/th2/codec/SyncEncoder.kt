@@ -30,7 +30,7 @@ class SyncEncoder(
     eventRouter,
     processor,
     codecRootID,
-    enabledExternalQueueRouting
+    enableExternalQueueRouting
 ) {
     override fun getParentEventId(
         codecRootID: String,

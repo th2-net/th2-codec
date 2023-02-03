@@ -23,7 +23,7 @@ class SyncDecoder(
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
     codecRootID: String,
-    enabledExternalQueueRouting: Boolean
+    enableExternalQueueRouting: Boolean
 ) : AbstractSyncCodec(
     messageRouter,
     eventRouter,
