@@ -100,6 +100,16 @@ If exception was thrown, all raw messages will be replaced with th2-codec-error 
 > **NOTE**: codec can replace raw message with a parsed message followed by several raw messages
 > (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
 
+## External queue routing logic
+
+Codec can send batch to external queue instead of configured by infra schema. The next condition must be met:
+* enabledExternalQueueRouting must be true
+* MessageGroupBatch.metadata.externalUserQueue of income batch must be not blank
+* Processed batch must be transformed completely. For example: 
+  * encoder considers batch as transformed completed when all messages are converted to raw format.
+  * decoder considers batch as transformed completed when all messages are converted to parsed format.
+  * batch isn't considered as transformed if it contains raw and parsed messages.
+
 # Configuration
 
 Codec has four types of connection: stream and general for encode and decode functions.
@@ -110,6 +120,9 @@ Codec has four types of connection: stream and general for encode and decode fun
 Codec never mixes messages from the _stream_ and the _general_ connections
 
 ## Codec settings
+
+Common codec settings:
+* enabledExternalQueueRouting - option to enable/disable external queue routing logic. Default value is false.
 
 Codec settings can be specified in `codecSettings` field of `custom-config`. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
 of `IPipelineCodecFactory.create` method
@@ -123,6 +136,7 @@ metadata:
   name: codec
 spec:
   custom-config:
+    enabledExternalQueueRouting: false
     codecSettings:
       messageTypeDetection: BY_INNER_FIELD
       messageTypeField: "messageType"
@@ -241,6 +255,21 @@ The filtering can also be applied for pins with `subscribe` attribute.
 ### v5.0.0
 
 * Migrated to book & page concept
+
+#### Changed:
+
+* Implemented logic to send completely transformed batch to external queue instead of configured by schema.
+
+### v4.7.5
+
+#### Updated:
+
++ bom to `4.1.0`
+* common to `3.44.0`
+
+#### Added:
+
+* Vulnerabilities check
 
 ### v4.7.4
 
