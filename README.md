@@ -240,6 +240,11 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ### v4.7.5
 
+#### Updated:
+
++ bom to `4.1.0`
+* common to `3.44.0`
+
 #### Added:
 
 * Vulnerabilities check
