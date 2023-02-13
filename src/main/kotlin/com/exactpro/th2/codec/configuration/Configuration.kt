@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import java.io.File
 
 internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(YAMLFactory()).apply {
     registerKotlinModule()
@@ -43,23 +42,7 @@ class Configuration {
         const val GENERAL_ENCODER_INPUT_ATTRIBUTE: String = "general_encoder_in"
         const val GENERAL_ENCODER_OUTPUT_ATTRIBUTE: String = "general_encoder_out"
 
-        fun create(commonFactory: CommonFactory, settingsPath: String?): Configuration {
-            return commonFactory.getCustomConfiguration(Configuration::class.java, OBJECT_MAPPER).apply {
-                codecSettings = codecSettings ?: settingsPath?.run {
-                    check(isNotBlank()) { "Path to codec settings file is empty" }
-
-                    val type = load<IPipelineCodecFactory>().settingsClass
-                    val file = File(this)
-
-                    check(file.isFile) { "Path to codec settings does not exist or is not a file: ${file.canonicalPath}" }
-
-                    file.inputStream().use {
-                        runCatching { OBJECT_MAPPER.readValue(it, type) }.getOrElse {
-                            throw ConfigurationException("Failed to parse codec settings from file: ${file.canonicalPath}", it)
-                        }
-                    }
-                }
-            }
-        }
+        fun create(commonFactory: CommonFactory): Configuration =
+            commonFactory.getCustomConfiguration(Configuration::class.java, OBJECT_MAPPER)
     }
 }
