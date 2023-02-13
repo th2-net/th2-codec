@@ -47,10 +47,10 @@ repositories {
 
 
 dependencies {
-    api platform('com.exactpro.th2:bom:4.0.2')
+    api platform('com.exactpro.th2:bom:4.1.0')
 
-    implementation 'com.exactpro.th2:common:5.0.0-dev-version-5-3838510969-SNAPSHOT'
-    implementation 'com.exactpro.th2:common-utils:0.0.1-book-and-page-3836172629-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:5.1.0-dev-version-5-4085018593-8adee33-SNAPSHOT'
+    implementation 'com.exactpro.th2:common-utils:1.0.0-book-and-page-4086360735-d23a5e0-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:3.0.0'
 
