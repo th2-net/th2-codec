@@ -1,4 +1,4 @@
-# Description (5.0.0)
+# Description (5.0.1)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -238,9 +238,30 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
+### v5.0.1
+
+* Merged v4.7.6 version
+
 ### v5.0.0
 
 * Migrated to book & page concept
+
+### v4.7.6
+
+#### Fixed:
+
++ Uses common approach to run the application via command line.
+
+### v4.7.5
+
+#### Updated:
+
++ bom to `4.1.0`
+* common to `3.44.0`
+
+#### Added:
+
+* Vulnerabilities check
 
 ### v4.7.4
 
