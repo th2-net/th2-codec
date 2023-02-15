@@ -135,10 +135,8 @@ class SyncCodecTest {
             protoSource: MessageGroupBatch,
             protoResult: MessageGroupBatch?
         ): EventID = codecRootID
-
         override fun checkResult(protoResult: MessageGroupBatch): Boolean = true
-
-        override fun isTransformationComplete(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList
+        override fun isCompletelyProcessed(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList
             .flatMap(MessageGroup::getMessagesList)
             .run { all(AnyMessage::hasMessage) || all(AnyMessage::hasRawMessage) }
     }
@@ -151,10 +149,10 @@ class SyncCodecTest {
         private val BATCH_METADATA = MessageGroupBatchMetadata.newBuilder().setExternalQueue("external-queue")
 
         private val BATCH_WITH_BOTH_TYPES = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
+            addGroupsBuilder().apply {
                 this += Message.getDefaultInstance()
                 this += RawMessage.getDefaultInstance()
-            }.build())
+            }
         }.build()
         private val BATCH_WITH_RAW = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {

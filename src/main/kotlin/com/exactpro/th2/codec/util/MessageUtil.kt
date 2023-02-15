@@ -24,14 +24,18 @@ import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.value.toValue
+
+val MessageGroupBatch.messageIds get(): List<MessageID>  = groupsList.flatMap { it.messageIds }
 
 val AnyMessage.parentEventId: EventID?
     get() = when {
@@ -62,7 +66,6 @@ val MessageGroup.allParsedProtocols
         .map { it.message.metadata.protocol }
         .toSet()
 
-
 val MessageGroup.messageIds: List<MessageID>
     get() = messagesList.map { message ->
         when (val kind = message.kindCase) {
@@ -71,12 +74,6 @@ val MessageGroup.messageIds: List<MessageID>
             else -> error("Unknown message kind: $kind")
         }
     }
-
-fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
-    incomingProtocols.none { it.isBlank() || it in this }  -> false
-    incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
-    else -> true
-}
 
 @Deprecated("Please use the toErrorMessageGroup(exception: Throwable, protocols: List<String>) overload instead", ReplaceWith("this.toErrorMessageGroup(exception, listOf(protocol))"))
 fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup = this.toErrorMessageGroup(exception, listOf(protocol))
@@ -118,6 +115,8 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Colle
     }
     return result.build()
 }
+
+val AnyMessage.sessionAlias: String get() = if (hasMessage()) message.sessionAlias else rawMessage.sessionAlias
 
 fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageMetadata.Builder {
     val protocol = metadata.protocol.ifBlank {

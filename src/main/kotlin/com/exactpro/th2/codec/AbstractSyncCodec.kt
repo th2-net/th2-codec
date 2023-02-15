@@ -53,23 +53,27 @@ abstract class AbstractSyncCodec(
     override fun close() {}
 
     override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
+        val protoResult = handleMessage(message)
+        val externalQueue = protoResult.metadata.externalQueue
+        if (enabledExternalQueueRouting && externalQueue.isNotBlank() && isCompletelyProcessed(protoResult)) {
+            messageRouter.sendExclusive(externalQueue, protoResult)
+            return
+        }
+        messageRouter.sendAll(protoResult, targetAttributes)
+    }
+
+    fun handleMessage(message: MessageGroupBatch): MessageGroupBatch {
         var protoResult: MessageGroupBatch? = null
 
         try {
             protoResult = processor.process(message)
-
-            if (checkResult(protoResult)) {
-                val externalQueue = protoResult.metadata.externalQueue
-                if (enabledExternalQueueRouting && externalQueue.isNotBlank() && isTransformationComplete(protoResult)) {
-                    messageRouter.sendExclusive(externalQueue, protoResult)
-                    return
-                }
-                messageRouter.sendAll(protoResult, this.targetAttributes)
-            }
-        } catch (exception: CodecException) {
+            if (!checkResult(protoResult)) throw CodecException("checkResult failed")
+            return protoResult
+        } catch (e: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
-            createAndStoreErrorEvent(exception, parentEventId)
-            logger.error(exception) { "Failed to handle message: ${message.toDebugString()}" }
+            createAndStoreErrorEvent(e, parentEventId)
+            logger.error(e) { "Failed to handle message: ${message.toDebugString()}" }
+            throw e
         }
     }
 
@@ -93,5 +97,5 @@ abstract class AbstractSyncCodec(
 
     abstract fun getParentEventId(codecRootID: EventID, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): EventID
     abstract fun checkResult(protoResult: MessageGroupBatch): Boolean
-    abstract fun isTransformationComplete(protoResult: MessageGroupBatch): Boolean
+    abstract fun isCompletelyProcessed(protoResult: MessageGroupBatch): Boolean
 }

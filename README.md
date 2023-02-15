@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.7.2` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:5.+` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -100,29 +100,39 @@ If exception was thrown, all raw messages will be replaced with th2-codec-error 
 > **NOTE**: codec can replace raw message with a parsed message followed by several raw messages
 > (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
 
+Codec processes message batches concurrently. You can set the level of parallelism using JVM parameter: `-Djava.util.concurrent.ForkJoinPool.common.parallelism={positive integer}`
+
 ## External queue routing logic
 
-Codec can send batch to external queue instead of configured by infra schema. The next condition must be met:
-* enabledExternalQueueRouting must be true
-* MessageGroupBatch.metadata.externalUserQueue of income batch must be not blank
-* Processed batch must be transformed completely. For example: 
-  * encoder considers batch as transformed completed when all messages are converted to raw format.
-  * decoder considers batch as transformed completed when all messages are converted to parsed format.
-  * batch isn't considered as transformed if it contains raw and parsed messages.
+Codec can send a batch to an external queue instead of the one configured by infra schema. The following conditions must be met:
+* `enabledExternalQueueRouting` setting must be set to `true`
+* `MessageGroupBatch.metadata.externalUserQueue` of an incoming batch must be not blank
+* batch must be processed completely e.g.: 
+  * encoded batch is completely processed when it has no parsed messages
+  * decoded batch is completely processed when it has no raw messages
 
 # Configuration
 
-Codec has four types of connection: stream and general for encode and decode functions.
+## MQ connections
+
+Codec has four types of MQ connections: stream and general for encode and decode functions.
 
 * stream encode / decode connections works 24 / 7
 * general encode / decode connections works on demand
 
 Codec never mixes messages from the _stream_ and the _general_ connections
 
+## gRPC connections
+
+Codec provides [gRPC service](https://github.com/th2-net/th2-grpc-codec/blob/master/src/main/proto/th2_grpc_codec/codec.proto) and can be connected to the next codec in pipeline via `grpc-client` pin.
+First codec in pipeline should be marked by setting `custom-config` field `isFirstCodecInPipeline` to `true` (this switches on verification of pipeline output during encoding). 
+
+Codec never mixes messages from the _MQ_ and the _gRPC_ connections
+
 ## Codec settings
 
 Common codec settings:
-* enabledExternalQueueRouting - option to enable/disable external queue routing logic. Default value is false.
+* enableExternalQueueRouting - enables external queue routing logic. Default value is `false`.
 
 Codec settings can be specified in `codecSettings` field of `custom-config`. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
 of `IPipelineCodecFactory.create` method
@@ -136,7 +146,8 @@ metadata:
   name: codec
 spec:
   custom-config:
-    enabledExternalQueueRouting: false
+    isFirstCodecInPipeline: true
+    enableExternalQueueRouting: false
     codecSettings:
       messageTypeDetection: BY_INNER_FIELD
       messageTypeField: "messageType"
@@ -175,12 +186,21 @@ metadata:
   name: codec
 spec:
   custom-config:
+    isFirstCodecInPipeline: true
+    enabledExternalQueueRouting: false
     codecSettings:
       parameter1: value
       parameter2:
         - value1
         - value2
   pins:
+    - name: in_codec_general
+      connection-type: grpc-server
+      service-classes:
+        - com.exactpro.th2.codec.grpc.CodecService
+    - name: out_codec_general
+      connection-type: grpc-client
+      service-class: com.exactpro.th2.codec.grpc.CodecService
     # encoder
     - name: in_codec_encode
       connection-type: mq
@@ -223,11 +243,6 @@ You can declare multiple pins with attributes `['decoder_out', 'parsed', 'publis
 Every decoded messages will be direct to all declared pins and will send to MQ only if it passes the filter.
 
 ```yaml
-apiVersion: th2.exactpro.com/v1
-kind: Th2Box
-metadata:
-  name: codec
-spec:
   pins:
     # decoder
     - name: out_codec_decode_first_session_alias
@@ -238,7 +253,7 @@ spec:
             - field-name: session_alias
               expected-value: first_session_alias
               operation: EQUAL
-    - name: out_codec_decode_secon_session_alias
+    - name: out_codec_decode_second_session_alias
       connection-type: mq
       attributes: ['decoder_out', 'parsed', 'publish']
       filters:
@@ -250,15 +265,56 @@ spec:
 
 The filtering can also be applied for pins with `subscribe` attribute.
 
+Using filters with gRPC pins:
+
+```yaml
+  pins:
+    - name: out_codec_general_client_1
+      connection-type: grpc-client
+      service-class: com.exactpro.th2.codec.grpc.CodecService
+      filters:
+        - properties:
+          - field-name: "session_alias"
+            expected-value: "*alias_1*"
+            operation: "WILDCARD"
+    - name: out_codec_general_client_2
+      connection-type: grpc-client
+      service-class: com.exactpro.th2.codec.grpc.CodecService
+      filters:
+        - properties:
+          - field-name: "session_alias"
+            expected-value: "*alias_2*"
+            operation: "WILDCARD"
+```
+
 ## Changelog
 
 ### v5.0.0
 
 * Migrated to book & page concept
+* Logic to send completely transformed batch to an external queue instead of a schema-configured one.
 
 #### Changed:
 
 * Implemented logic to send completely transformed batch to external queue instead of configured by schema.
+
+### v4.8.2
+
+#### Fixed:
+
+* Thread-local codec-instance wasn't disposed on thread death
+
+### v4.8.1
+
+#### Changed:
+
+* Message groups aren't processed concurrently if there's only one CPU core available
+
+### v4.8.0
+
+#### Feature:
+
+* gRPC interface for codec pipeline
 
 ### v4.7.5
 

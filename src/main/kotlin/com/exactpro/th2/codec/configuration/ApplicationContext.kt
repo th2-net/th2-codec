@@ -23,6 +23,7 @@ import mu.KotlinLogging
 
 class ApplicationContext(
     val commonFactory: CommonFactory,
+    val configuration: Configuration,
     val codec: IPipelineCodec,
     val protocols: Set<String>
 ) : AutoCloseable {
@@ -46,7 +47,7 @@ class ApplicationContext(
                     throw IllegalStateException("Failed to create codec instance", it)
                 }
 
-            return ApplicationContext(commonFactory, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
+            return ApplicationContext(commonFactory, configuration, ThreadSafeCodec(factory, configuration.codecSettings), factory.protocols)
         }
     }
 }

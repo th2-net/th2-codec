@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
 class DecodeProcessorTest {
+    private val eventProcessor = LogOnlyEventProcessor()
 
     @Test
     fun `error message check`() {
@@ -35,7 +36,7 @@ class DecodeProcessorTest {
         val originalProtocols = setOf(originalProtocol)
         val wrongProtocol = "http"
 
-        val processor = DecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID, false) { }
+        val processor = DecodeProcessor(TestCodec(true), eventProcessor, originalProtocols)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {

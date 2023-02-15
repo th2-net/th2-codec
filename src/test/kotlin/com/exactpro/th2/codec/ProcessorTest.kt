@@ -20,7 +20,11 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_CONTENT_FIELD
 import com.exactpro.th2.codec.util.ERROR_EVENT_ID
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.common.grpc.*
+import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.hasField
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.plusAssign
@@ -29,10 +33,11 @@ import org.junit.jupiter.api.Test
 import java.util.*
 
 class ProcessorTest {
+    private val eventProcessor = LogOnlyEventProcessor()
 
     @Test
     fun `simple test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = DecodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -49,7 +54,7 @@ class ProcessorTest {
 
     @Test
     fun `other protocol in raw message test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = DecodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -64,7 +69,7 @@ class ProcessorTest {
 
     @Test
     fun `one parsed message in group test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = DecodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -89,7 +94,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = DecodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID) { }
+        val processor = DecodeProcessor(TestCodec(false), eventProcessor, originalProtocols)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -112,7 +117,7 @@ class ProcessorTest {
 
     @Test
     fun `simple test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = EncodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -132,7 +137,7 @@ class ProcessorTest {
 
     @Test
     fun `other protocol in parsed message test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = EncodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
@@ -146,7 +151,7 @@ class ProcessorTest {
 
     @Test
     fun `one raw message in group test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = EncodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -170,7 +175,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = EncodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID) { }
+        val processor = EncodeProcessor(TestCodec(false), eventProcessor, originalProtocols)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -199,7 +204,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on failed protocol check - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = EncodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
@@ -216,7 +221,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - encode`() {
-        val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = EncodeProcessor(TestCodec(true), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -249,7 +254,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = DecodeProcessor(TestCodec(true), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
@@ -319,7 +324,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on failed protocol check - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
+        val processor = DecodeProcessor(TestCodec(false), eventProcessor, ORIGINAL_PROTOCOLS)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
@@ -341,7 +346,6 @@ class ProcessorTest {
                 }
             }.build())
         }.build()
-
 
         val result = processor.process(batch)
 
@@ -375,7 +379,7 @@ class ProcessorTest {
 
     @Test
     fun `multiple protocol test - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID) { }
+        val processor = DecodeProcessor(TestCodec(true), eventProcessor, setOf("xml", "json"))
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += RawMessage.newBuilder().apply {
@@ -439,8 +443,8 @@ class ProcessorTest {
             Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
             Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
         }
-
     }
+
     companion object {
         const val ORIGINAL_PROTOCOL = "xml"
         const val WRONG_PROTOCOL = "http"
@@ -463,4 +467,3 @@ class ProcessorTest {
         }
     }
 }
-

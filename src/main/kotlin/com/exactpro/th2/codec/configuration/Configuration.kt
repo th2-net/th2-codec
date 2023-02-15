@@ -32,7 +32,8 @@ internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(YAMLFactory()).apply {
 
 class Configuration {
     var codecSettings: IPipelineCodecSettings? = null
-    var enabledExternalQueueRouting = false
+    var isFirstCodecInPipeline = false
+    var enableExternalQueueRouting = false
 
     companion object {
         const val DECODER_INPUT_ATTRIBUTE: String = "decoder_in"

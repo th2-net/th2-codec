@@ -17,7 +17,6 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
@@ -45,11 +44,6 @@ class SyncEncoder(
             ?.message
             ?.parentEventId
     } ?: codecRootID
-
     override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
-
-    override fun isTransformationComplete(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList.asSequence()
-        .flatMap(MessageGroup::getMessagesList)
-        .all(AnyMessage::hasRawMessage)
+    override fun isCompletelyProcessed(protoResult: MessageGroupBatch): Boolean = protoResult.groupsList.all { it.messagesList.all(AnyMessage::hasRawMessage) }
 }
-
