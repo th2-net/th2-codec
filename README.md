@@ -1,4 +1,4 @@
-# Description (5.0.1)
+# Description (5.1.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -111,7 +111,12 @@ Codec never mixes messages from the _stream_ and the _general_ connections
 
 ## Codec settings
 
-Codec settings can be specified in `codecSettings` field of `custom-config`. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
+Codec core has the following parameters:
+
+**enableVerticalScaling** - this setting allow to controll vertical scaling mode. Codec splits an incoming batch into message groups and process each of them via the ForkJoinPool.commonPool(). The default value is `false`.
+Please note this is experemntal feature.
+
+**codecSettings** - the implementaion codec settings. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
 of `IPipelineCodecFactory.create` method
 
 For example:
@@ -123,6 +128,7 @@ metadata:
   name: codec
 spec:
   custom-config:
+    enableVerticalScaling: false
     codecSettings:
       messageTypeDetection: BY_INNER_FIELD
       messageTypeField: "messageType"
@@ -161,6 +167,7 @@ metadata:
   name: codec
 spec:
   custom-config:
+    enableVerticalScaling: false
     codecSettings:
       parameter1: value
       parameter2:
@@ -238,6 +245,10 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
+### v5.1.0
+
+* Merged v4.8.0 version
+
 ### v5.0.1
 
 * Merged v4.7.6 version
@@ -245,6 +256,12 @@ The filtering can also be applied for pins with `subscribe` attribute.
 ### v5.0.0
 
 * Migrated to book & page concept
+
+### v4.8.0
+
+#### Changed:
+
++ Added enableVerticalScaling option
 
 ### v4.7.6
 

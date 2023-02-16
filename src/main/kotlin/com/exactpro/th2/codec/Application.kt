@@ -55,7 +55,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
 
     private val decoder: AutoCloseable = SyncDecoder(
         messageRouter, eventRouter,
-        DecodeProcessor(context.codec, context.protocols, rootEventId, onEvent = onEvent),
+        DecodeProcessor(context.codec, context.protocols, rootEventId, true, configuration.enableVerticalScaling, onEvent),
         rootEventId
     ).apply {
         start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
@@ -64,7 +64,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     private val encoder: AutoCloseable = SyncEncoder(
         messageRouter,
         eventRouter,
-        EncodeProcessor(context.codec, context.protocols, rootEventId, onEvent = onEvent),
+        EncodeProcessor(context.codec, context.protocols, rootEventId, true, configuration.enableVerticalScaling, onEvent),
         rootEventId
     ).apply {
         start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
@@ -73,7 +73,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     private val generalDecoder: AutoCloseable = SyncDecoder(
             commonFactory.messageRouterMessageGroupBatch,
             commonFactory.eventBatchRouter,
-            DecodeProcessor(context.codec, context.protocols, rootEventId, false, onEvent),
+            DecodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
             rootEventId
         ).apply {
             start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
@@ -82,7 +82,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     private val generalEncoder: AutoCloseable = SyncEncoder(
             commonFactory.messageRouterMessageGroupBatch,
             commonFactory.eventBatchRouter,
-            EncodeProcessor(context.codec, context.protocols, rootEventId, false, onEvent),
+            EncodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
             rootEventId
         ).apply {
             start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)

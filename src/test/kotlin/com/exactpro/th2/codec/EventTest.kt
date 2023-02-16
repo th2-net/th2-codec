@@ -36,7 +36,7 @@ class EventTest {
     fun `simple test - decode`() {
         val onEvent = mock<(ProtoEvent)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID, true, onEvent)
+        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -79,7 +79,7 @@ class EventTest {
     fun `Throw test - decode`() {
         val onEvent = mock<(ProtoEvent)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID, true, onEvent)
+        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -122,7 +122,7 @@ class EventTest {
     fun `Throw test - decode with warnings`() {
         val onEvent = mock<(ProtoEvent)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  true, onEvent)
+        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -165,7 +165,7 @@ class EventTest {
     fun `simple test - decode with warnings`() {
         val onEvent = mock<(ProtoEvent)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  true, onEvent)
+        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -208,7 +208,7 @@ class EventTest {
     fun `simple test - decode general with warnings`() {
         val onEvent = mock<(ProtoEvent)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  false, onEvent)
+        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  false, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
@@ -251,7 +251,7 @@ class EventTest {
     fun `Throw test - decode general with warnings`() {
         val onEvent = mock<(ProtoEvent)->Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  false, onEvent)
+        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID,  false, onEvent = onEvent)
         val batch = MessageGroupBatch.newBuilder().apply {
             addGroups(MessageGroup.newBuilder().apply {
                 this += Message.newBuilder().apply {
