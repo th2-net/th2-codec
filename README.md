@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:4.7.2` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:5.1.0-dev` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
