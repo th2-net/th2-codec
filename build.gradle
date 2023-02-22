@@ -20,6 +20,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
     id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
     id 'signing'
+    id "org.owasp.dependencycheck" version "8.1.0"
 
 }
 
@@ -61,16 +62,15 @@ repositories {
 
 
 dependencies {
-    api platform('com.exactpro.th2:bom:4.1.0')
+    api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:grpc-common:3.11.1'
-    implementation 'com.exactpro.th2:common:3.44.0'
+    implementation 'com.exactpro.th2:grpc-common'
+    implementation('com.exactpro.th2:common:3.44.1')
 
-    implementation 'io.github.microutils:kotlin-logging:2.1.23'
+    implementation 'io.github.microutils:kotlin-logging'
 
     implementation 'com.fasterxml.jackson.core:jackson-core'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
-    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
 
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21'
     implementation 'org.jetbrains.kotlin:kotlin-reflect:1.6.21'
@@ -207,4 +207,21 @@ clean {
 
 compileKotlin {
     kotlinOptions.jvmTarget = "11"
+}
+
+configurations {
+    compileClasspath {
+        resolutionStrategy.activateDependencyLocking()
+    }
+}
+
+dependencyCheck {
+    formats=['SARIF', 'JSON', 'HTML']
+    failBuildOnCVSS=5
+
+    analyzers {
+        assemblyEnabled = false
+        nugetconfEnabled = false
+        nodeEnabled = false
+    }
 }
