@@ -245,6 +245,11 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
+### v4.8.1
+#### Updated:
++ bom to `4.2.0`
++ common to `3.44.1`
+
 ### v4.8.0
 
 #### Changed:
