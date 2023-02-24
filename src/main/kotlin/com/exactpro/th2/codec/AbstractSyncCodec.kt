@@ -32,7 +32,7 @@ abstract class AbstractSyncCodec(
     private val eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor,
     private val codecRootEvent: EventID,
-    private val enabledExternalQueueRouting: Boolean
+    private val enableExternalQueueRouting: Boolean
 ) : AutoCloseable, MessageListener<MessageGroupBatch> {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
@@ -55,7 +55,7 @@ abstract class AbstractSyncCodec(
     override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
         val protoResult = handleMessage(message)
         val externalQueue = protoResult.metadata.externalQueue
-        if (enabledExternalQueueRouting && externalQueue.isNotBlank() && isCompletelyProcessed(protoResult)) {
+        if (enableExternalQueueRouting && externalQueue.isNotBlank() && isCompletelyProcessed(protoResult)) {
             messageRouter.sendExclusive(externalQueue, protoResult)
             return
         }

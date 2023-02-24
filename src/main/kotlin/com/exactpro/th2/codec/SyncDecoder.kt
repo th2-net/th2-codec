@@ -24,13 +24,13 @@ class SyncDecoder(
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
     codecRootID: EventID,
-    enabledExternalQueueRouting: Boolean
+    enableExternalQueueRouting: Boolean
 ) : AbstractSyncCodec(
     messageRouter,
     eventRouter,
     processor,
     codecRootID,
-    enabledExternalQueueRouting
+    enableExternalQueueRouting
 ) {
     override fun getParentEventId(codecRootID: EventID, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): EventID = codecRootID
     override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0

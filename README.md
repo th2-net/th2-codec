@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:5.+` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:5.0.0` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -105,7 +105,7 @@ Codec processes message batches concurrently. You can set the level of paralleli
 ## External queue routing logic
 
 Codec can send a batch to an external queue instead of the one configured by infra schema. The following conditions must be met:
-* `enabledExternalQueueRouting` setting must be set to `true`
+* `enableExternalQueueRouting` setting must be set to `true`
 * `MessageGroupBatch.metadata.externalUserQueue` of an incoming batch must be not blank
 * batch must be processed completely e.g.: 
   * encoded batch is completely processed when it has no parsed messages
@@ -187,7 +187,7 @@ metadata:
 spec:
   custom-config:
     isFirstCodecInPipeline: true
-    enabledExternalQueueRouting: false
+    enableExternalQueueRouting: false
     codecSettings:
       parameter1: value
       parameter2:

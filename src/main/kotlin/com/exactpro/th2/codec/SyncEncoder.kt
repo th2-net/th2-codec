@@ -25,13 +25,13 @@ class SyncEncoder(
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
     codecRootID: EventID,
-    enabledExternalQueueRouting: Boolean
+    enableExternalQueueRouting: Boolean
 ) : AbstractSyncCodec(
     messageRouter,
     eventRouter,
     processor,
     codecRootID,
-    enabledExternalQueueRouting
+    enableExternalQueueRouting
 ) {
     override fun getParentEventId(
         codecRootID: EventID,
