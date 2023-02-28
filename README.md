@@ -278,7 +278,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 + Added enableVerticalScaling option
 
-### v4.7.5
+### v4.7.6
 
 #### Fixed:
 
