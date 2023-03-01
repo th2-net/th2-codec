@@ -1,4 +1,4 @@
-# Description (5.1.0)
+# Description (5.2.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:5.1.0-dev` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:5.2.0-dev` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -245,6 +245,10 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
 
+### v5.2.0
+
+* Updated common to 5.2.0-dev
+
 ### v5.1.0
 
 * Merged v4.8.0 version
@@ -256,6 +260,17 @@ The filtering can also be applied for pins with `subscribe` attribute.
 ### v5.0.0
 
 * Migrated to book & page concept
+
+### v4.8.0
+
+#### Changed:
+
++ Added enableVerticalScaling option
+
+### v4.8.1
+#### Updated:
++ bom to `4.2.0`
++ common to `3.44.1`
 
 ### v4.8.0
 

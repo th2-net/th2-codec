@@ -20,10 +20,10 @@ import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 
-internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(YAMLFactory()).apply {
+internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(JsonFactory()).apply {
     registerKotlinModule()
     registerModule(SimpleModule().addAbstractTypeMapping(IPipelineCodecSettings::class.java, load<IPipelineCodecFactory>().settingsClass))
     configure(FAIL_ON_UNKNOWN_PROPERTIES, false)
