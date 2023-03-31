@@ -16,37 +16,24 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.message.toTimestamp
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.INCOMING
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoEventId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
 import java.time.Instant
-
-fun Message.Builder.setProtocol(protocol: String) = apply {
-    metadataBuilder.protocol = protocol
-}
-
-fun RawMessage.Builder.setProtocol(protocol: String) = apply {
-    metadataBuilder.protocol = protocol
-}
 
 const val BOOK_NAME = "test-book"
 
-val CODEC_EVENT_ID: EventID = EventID.newBuilder().apply {
-    bookName = BOOK_NAME
+val CODEC_EVENT_ID: DemoEventId = DemoEventId().apply {
+    book = BOOK_NAME
     scope = "test-scope"
-    startTimestamp = Instant.now().toTimestamp()
+    timestamp = Instant.now()
     id = "test-codec"
-}.build()
+}
 
-val MESSAGE_ID: MessageID = MessageID.newBuilder().apply {
-    connectionIdBuilder.apply {
-        sessionAlias = "test-session-alias"
-    }
-    bookName = BOOK_NAME
-    direction = Direction.FIRST
-    timestamp = Instant.now().toTimestamp()
+val MESSAGE_ID: DemoMessageId = DemoMessageId().apply {
+    sessionAlias = "test-session-alias"
+    book = BOOK_NAME
+    direction = INCOMING
+    timestamp = Instant.now()
     sequence = 1
-}.build()
+}

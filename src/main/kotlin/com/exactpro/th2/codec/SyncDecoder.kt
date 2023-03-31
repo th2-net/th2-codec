@@ -15,20 +15,20 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
 
 class SyncDecoder(
-    messageRouter: MessageRouter<MessageGroupBatch>,
+    messageRouter: MessageRouter<DemoGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
-    codecRootID: EventID
+    codecRootID: EventID,
 ) : AbstractSyncCodec(
     messageRouter,
     eventRouter,
     processor,
     codecRootID
 ) {
-    override fun getParentEventId(codecRootID: EventID, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): EventID = codecRootID
-    override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
+    override fun getParentEventId(codecRootID: EventID, protoSource: DemoGroupBatch, protoResult: DemoGroupBatch?): EventID = codecRootID
+    override fun checkResult(protoResult: DemoGroupBatch): Boolean = protoResult.groups.isNotEmpty()
 }

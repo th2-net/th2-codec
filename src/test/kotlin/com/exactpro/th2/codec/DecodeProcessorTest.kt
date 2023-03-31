@@ -18,14 +18,15 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageGroup
-import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.codec.util.toProto
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import kotlin.test.assertIs
 
 class DecodeProcessorTest {
 
@@ -35,82 +36,79 @@ class DecodeProcessorTest {
         val originalProtocols = setOf(originalProtocol)
         val wrongProtocol = "http"
 
-        val processor = DecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID, false) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+        val processor = DecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID.toProto(), false) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = originalProtocol
                     }
-                }
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = wrongProtocol
                     }
-                }
-                this += Message.newBuilder().apply {
-                    messageType = "test-type"
-                    metadataBuilder.apply {
+                    this += DemoParsedMessage().apply {
+                        type = "test-type"
                         id = MESSAGE_ID
                         protocol = originalProtocol
                     }
-                }
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = originalProtocol
                     }
-                }
-                this += RawMessage.getDefaultInstance()
-            }.build())
-        }.build()
-
+                    this += DemoRawMessage()
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(5, result.getGroups(0).messagesList.size) {"group of outgoing messages must be the same size"}
+        Assertions.assertEquals(5, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
-        result.getGroups(0).messagesList[0].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
+        val message0 = assertIs<DemoParsedMessage>(result.groups[0].messages[0])
+
+        message0.let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals(originalProtocol, it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
-        result.getGroups(0).messagesList[1].rawMessage.let {
-            Assertions.assertEquals(wrongProtocol, it.metadata.protocol)
+        val message1 = assertIs<DemoRawMessage>(result.groups[0].messages[1])
+
+        message1.let {
+            Assertions.assertEquals(wrongProtocol, it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
-        result.getGroups(0).messagesList[2].message.let {
-            Assertions.assertEquals( "test-type", it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
+        val message2 = assertIs<DemoParsedMessage>(result.groups[0].messages[2])
+
+        message2.let {
+            Assertions.assertEquals("test-type", it.type)
+            Assertions.assertEquals(originalProtocol, it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
-        result.getGroups(0).messagesList[3].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
+        val message3 = assertIs<DemoParsedMessage>(result.groups[0].messages[3])
+
+        message3.let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals(originalProtocol, it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[4].hasMessage())
-        result.getGroups(0).messagesList[4].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(originalProtocol, it.metadata.protocol)
-        }
+        val message4 = assertIs<DemoParsedMessage>(result.groups[0].messages[4])
 
+        message4.let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals(originalProtocol, it.protocol)
+        }
     }
 }
 
 class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
-    override fun encode(messageGroup: MessageGroup): MessageGroup = MessageGroup.getDefaultInstance()
+    override fun encode(messageGroup: DemoMessageGroup): DemoMessageGroup = DemoMessageGroup()
 
-    override fun decode(messageGroup: MessageGroup): MessageGroup {
+    override fun decode(messageGroup: DemoMessageGroup): DemoMessageGroup {
         if (throwEx) {
             throw NullPointerException("Simple null pointer exception")
         }
-        return MessageGroup.getDefaultInstance()
+        return DemoMessageGroup()
     }
 }

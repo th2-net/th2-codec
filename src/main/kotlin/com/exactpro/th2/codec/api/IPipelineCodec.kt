@@ -16,13 +16,13 @@
 
 package com.exactpro.th2.codec.api
 
-import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
 
 interface IPipelineCodec : AutoCloseable {
-    fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup) method is not implemented")
-    fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
+    fun encode(messageGroup: DemoMessageGroup): DemoMessageGroup = TODO("encode(messageGroup) method is not implemented")
+    fun encode(messageGroup: DemoMessageGroup, context: IReportingContext): DemoMessageGroup = encode(messageGroup)
 
-    fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup) method is not implemented")
-    fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
+    fun decode(messageGroup: DemoMessageGroup): DemoMessageGroup = TODO("decode(messageGroup) method is not implemented")
+    fun decode(messageGroup: DemoMessageGroup, context: IReportingContext): DemoMessageGroup = decode(messageGroup)
     override fun close() {}
 }

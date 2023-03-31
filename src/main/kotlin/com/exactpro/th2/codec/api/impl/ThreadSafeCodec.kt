@@ -20,7 +20,7 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IPipelineCodecFactory
 import com.exactpro.th2.codec.api.IPipelineCodecSettings
 import com.exactpro.th2.codec.api.IReportingContext
-import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
 import java.util.concurrent.ConcurrentHashMap
 import javax.annotation.concurrent.ThreadSafe
 
@@ -31,25 +31,25 @@ class ThreadSafeCodec(
 ) : IPipelineCodec {
     private val instances = ConcurrentHashMap<Long, IPipelineCodec>()
 
-    override fun encode(messageGroup: MessageGroup) = getInstance().let { codec ->
+    override fun encode(messageGroup: DemoMessageGroup) = getInstance().let { codec ->
         synchronized(codec) {
             codec.encode(messageGroup)
         }
     }
 
-    override fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = getInstance().let { codec ->
+    override fun encode(messageGroup: DemoMessageGroup, context: IReportingContext): DemoMessageGroup = getInstance().let { codec ->
         synchronized(codec) {
             codec.encode(messageGroup, context)
         }
     }
 
-    override fun decode(messageGroup: MessageGroup) = getInstance().let { codec ->
+    override fun decode(messageGroup: DemoMessageGroup) = getInstance().let { codec ->
         synchronized(codec) {
             codec.decode(messageGroup)
         }
     }
 
-    override fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = getInstance().let { codec ->
+    override fun decode(messageGroup: DemoMessageGroup, context: IReportingContext): DemoMessageGroup = getInstance().let { codec ->
         synchronized(codec) {
             codec.decode(messageGroup, context)
         }

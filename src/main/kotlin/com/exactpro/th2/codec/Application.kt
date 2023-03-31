@@ -20,9 +20,9 @@ import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
 import com.exactpro.th2.common.schema.message.storeEvent
 import mu.KotlinLogging
 
@@ -31,7 +31,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     private val context = ApplicationContext.create(configuration, commonFactory)
 
     private val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
-    private val messageRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
+    private val messageRouter: MessageRouter<DemoGroupBatch> = commonFactory.demoMessageBatchRouter
 
     private val rootEventId: EventID = commonFactory.rootEventId
 
@@ -71,20 +71,20 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     }
 
     private val generalDecoder: AutoCloseable = SyncDecoder(
-            commonFactory.messageRouterMessageGroupBatch,
-            commonFactory.eventBatchRouter,
-            DecodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
-            rootEventId
-        ).apply {
+        commonFactory.demoMessageBatchRouter,
+        commonFactory.eventBatchRouter,
+        DecodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
+        rootEventId
+    ).apply {
             start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
         }
 
     private val generalEncoder: AutoCloseable = SyncEncoder(
-            commonFactory.messageRouterMessageGroupBatch,
-            commonFactory.eventBatchRouter,
-            EncodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
-            rootEventId
-        ).apply {
+        commonFactory.demoMessageBatchRouter,
+        commonFactory.eventBatchRouter,
+        EncodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
+        rootEventId
+    ).apply {
             start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
         }
 

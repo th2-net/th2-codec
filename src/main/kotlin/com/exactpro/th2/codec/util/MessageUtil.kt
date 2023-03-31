@@ -19,19 +19,23 @@
 package com.exactpro.th2.codec.util
 
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
-import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
+import com.exactpro.th2.common.grpc.Direction.FIRST
+import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.grpc.MessageMetadata
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.grpc.RawMessageMetadata
-import com.exactpro.th2.common.message.message
-import com.exactpro.th2.common.message.plusAssign
-import com.exactpro.th2.common.message.toJson
-import com.exactpro.th2.common.value.toValue
+import com.exactpro.th2.common.message.toTimestamp
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.INCOMING
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoEventId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+
+private val mapper = ObjectMapper()
 
 val AnyMessage.parentEventId: EventID?
     get() = when {
@@ -46,31 +50,19 @@ val MessageGroup.parentEventId: EventID?
 /**
  * Returns parent event ids from each message.
  */
-val MessageGroup.allParentEventIds: Sequence<EventID>
-    get() = messagesList.asSequence()
-        .mapNotNull(AnyMessage::parentEventId)
+val DemoMessageGroup.allParentEventIds: Sequence<EventID>
+    get() = messages.asSequence()
+        .mapNotNull(DemoMessage<*>::eventId)
+        .map(DemoEventId::toProto)
 
-val MessageGroup.allRawProtocols
-    get() = messagesList.asSequence()
-        .filter(AnyMessage::hasRawMessage)
-        .map { it.rawMessage.metadata.protocol }
-        .toSet()
+val DemoMessageGroup.allRawProtocols: Set<String>
+    get() = messages.mapNotNullTo(HashSet()) { (it as? DemoRawMessage)?.protocol }
 
-val MessageGroup.allParsedProtocols
-    get() = messagesList.asSequence()
-        .filter(AnyMessage::hasMessage)
-        .map { it.message.metadata.protocol }
-        .toSet()
+val DemoMessageGroup.allParsedProtocols: Set<String>
+    get() = messages.mapNotNullTo(HashSet()) { (it as? DemoParsedMessage)?.protocol }
 
-
-val MessageGroup.messageIds: List<MessageID>
-    get() = messagesList.map { message ->
-        when (val kind = message.kindCase) {
-            MESSAGE -> message.message.metadata.id
-            RAW_MESSAGE -> message.rawMessage.metadata.id
-            else -> error("Unknown message kind: $kind")
-        }
-    }
+val DemoMessageGroup.messageIds: List<MessageID>
+    get() = messages.map { it.id.toProto() }
 
 fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
     incomingProtocols.none { it.isBlank() || it in this }  -> false
@@ -79,10 +71,10 @@ fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<Strin
 }
 
 @Deprecated("Please use the toErrorMessageGroup(exception: Throwable, protocols: List<String>) overload instead", ReplaceWith("this.toErrorMessageGroup(exception, listOf(protocol))"))
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup = this.toErrorMessageGroup(exception, listOf(protocol))
+fun DemoMessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): DemoMessageGroup = toErrorMessageGroup(exception, listOf(protocol))
 
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Collection<String>): MessageGroup {
-    val result = MessageGroup.newBuilder()
+fun DemoMessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Collection<String>): DemoMessageGroup {
+    val resultMessages = mutableListOf<DemoMessage<*>>()
 
     val content = buildString {
         appendLine("$codecProtocols codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
@@ -93,56 +85,57 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Colle
         }
     }
 
-    this.messagesList.forEach { message ->
-        when {
-            message.hasMessage() -> result.addMessages(message)
-            message.hasRawMessage() -> {
-                message.rawMessage.let { rawMessage ->
-                    if (rawMessage.metadata.protocol.run { isBlank() || this in codecProtocols }) {
-                        result += message().apply {
-                            if (rawMessage.hasParentEventId()) {
-                                parentEventId = rawMessage.parentEventId
-                            }
-                            metadata = rawMessage.toMessageMetadataBuilder(codecProtocols)
-                                .setMessageType(ERROR_TYPE_MESSAGE)
-                                .build()
-                            putFields(ERROR_CONTENT_FIELD, content.toValue())
+    messages.forEach { message ->
+        when (message) {
+            is DemoParsedMessage -> resultMessages += message
+            is DemoRawMessage -> {
+                if (message.protocol.run { isBlank() || this in codecProtocols }) {
+                    resultMessages += DemoParsedMessage().apply {
+                        id = message.id
+                        eventId = message.eventId
+
+                        metadata = message.metadata.toMutableMap().apply {
+                            this[ERROR_CONTENT_FIELD] = content
                         }
-                    } else {
-                        result.addMessages(message)
+
+                        protocol = when (codecProtocols.size) {
+                            1 -> codecProtocols.first()
+                            else -> codecProtocols.toString()
+                        }
+
+                        type = ERROR_TYPE_MESSAGE
                     }
+                } else {
+                    resultMessages += message
                 }
             }
-            else -> error("${message.kindCase} messages are not supported: ${message.toJson(true)}")
-        }
-    }
-    return result.build()
-}
 
-fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageMetadata.Builder {
-    val protocol = metadata.protocol.ifBlank {
-        when(protocols.size) {
-            1 -> protocols.first()
-            else -> protocols.toString()
+            else -> error("${message::class.simpleName} messages are not supported: $message")
         }
     }
 
-    return MessageMetadata.newBuilder()
-        .setId(metadata.id)
-        .setProtocol(protocol)
-        .putAllProperties(metadata.propertiesMap)
+    return DemoMessageGroup(resultMessages)
 }
 
-fun Message.toRawMetadataBuilder(protocols: Collection<String>): RawMessageMetadata.Builder {
-    val protocol = metadata.protocol.ifBlank {
-        when(protocols.size) {
-            1 -> protocols.first()
-            else -> protocols.toString()
-        }
+fun DemoEventId.toProto(): EventID = EventID.newBuilder().also {
+    it.id = id
+    it.bookName = book
+    it.scope = scope
+    it.startTimestamp = timestamp.toTimestamp()
+}.build()
+
+fun DemoMessageId.toProto(): MessageID = MessageID.newBuilder().also {
+    it.bookName = book
+    it.direction = if (direction == INCOMING) FIRST else SECOND
+    it.sequence = sequence
+    it.timestamp = timestamp.toTimestamp()
+
+    it.addAllSubsequence(subsequence.map(Long::toInt))
+
+    it.connectionIdBuilder.also { connectionId ->
+        connectionId.sessionGroup = sessionGroup
+        connectionId.sessionAlias = sessionAlias
     }
+}.build()
 
-    return RawMessageMetadata.newBuilder()
-        .setId(metadata.id)
-        .setProtocol(protocol)
-        .putAllProperties(metadata.propertiesMap)
-}
+fun DemoMessage<*>.toJson(): String = mapper.registerModule(JavaTimeModule()).writeValueAsString(this)

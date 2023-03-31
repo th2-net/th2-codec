@@ -55,7 +55,7 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:5.2.0-dev'
+    implementation 'com.exactpro.th2:common:5.2.0-separate-executor-4554229144-6986b77-SNAPSHOT'
     implementation 'com.exactpro.th2:grpc-common'
     implementation 'com.exactpro.th2:common-utils:1.0.0-book-and-page-4086360735-d23a5e0-SNAPSHOT'
 
@@ -63,6 +63,9 @@ dependencies {
 
     implementation 'com.fasterxml.jackson.core:jackson-core'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    implementation 'io.netty:netty-buffer'
 
     implementation('com.github.ajalt:clikt:2.8.0')
 

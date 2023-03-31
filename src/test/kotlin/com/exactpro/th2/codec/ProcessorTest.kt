@@ -20,68 +20,76 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_CONTENT_FIELD
 import com.exactpro.th2.codec.util.ERROR_EVENT_ID
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.common.grpc.*
-import com.exactpro.th2.common.message.hasField
-import com.exactpro.th2.common.message.messageType
-import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.codec.util.toProto
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import java.util.*
+import java.util.UUID
+import kotlin.test.assertIs
 
 class ProcessorTest {
 
     @Test
     fun `simple test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-        }.build()
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = ORIGINAL_PROTOCOL)
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoRawMessage(protocol = ORIGINAL_PROTOCOL)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
     fun `other protocol in raw message test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-            }.build())
-        }.build()
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
     }
 
 
     @Test
     fun `one parsed message in group test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
-            }.build())
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.getDefaultInstance()
-                this += Message.getDefaultInstance()
-            }.build())
-
-        }.build()
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = WRONG_PROTOCOL)
+                }),
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = ORIGINAL_PROTOCOL)
+                }),
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage()
+                    this += DemoParsedMessage()
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(3, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(3, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
@@ -89,80 +97,88 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = DecodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(secondOriginalProtocol)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += RawMessage.newBuilder().setProtocol(secondOriginalProtocol)
-            }.build())
-        }.build()
+        val processor = DecodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = ORIGINAL_PROTOCOL)
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoRawMessage(protocol = ORIGINAL_PROTOCOL)
+                }),
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = secondOriginalProtocol)
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoRawMessage(protocol = secondOriginalProtocol)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(2, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(2, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
     fun `simple test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += Message.newBuilder().apply {
-                    messageType = "test-type"
-                    metadataBuilder.protocol = WRONG_PROTOCOL
-                }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-        }.build()
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = ORIGINAL_PROTOCOL)
+                    this += DemoParsedMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoParsedMessage().apply {
+                        type = "test-type"
+                        protocol = WRONG_PROTOCOL
+                    }
+                    this += DemoRawMessage(protocol = ORIGINAL_PROTOCOL)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
     fun `other protocol in parsed message test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
-            }.build())
-        }.build()
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = WRONG_PROTOCOL)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
     fun `one raw message in group test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().setProtocol(WRONG_PROTOCOL)
-            }.build())
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.getDefaultInstance()
-                this += RawMessage.getDefaultInstance()
-            }.build())
-        }.build()
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage(protocol = ORIGINAL_PROTOCOL)
+                }),
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage(protocol = WRONG_PROTOCOL)
+                }),
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage()
+                    this += DemoRawMessage()
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(3, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(3, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
@@ -170,276 +186,255 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = EncodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += Message.newBuilder().apply {
-                    messageType = "test-type"
-                    metadataBuilder.protocol = WRONG_PROTOCOL
-                }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(secondOriginalProtocol)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += Message.newBuilder().apply {
-                    messageType = "test-type"
-                    metadataBuilder.protocol = WRONG_PROTOCOL
-                }
-                this += RawMessage.newBuilder().setProtocol(secondOriginalProtocol)
-            }.build())
-        }.build()
+        val processor = EncodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = ORIGINAL_PROTOCOL)
+                    this += DemoParsedMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoParsedMessage().apply {
+                        type = "test-type"
+                        protocol = WRONG_PROTOCOL
+                    }
+                    this += DemoRawMessage(protocol = ORIGINAL_PROTOCOL)
+                }),
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = secondOriginalProtocol)
+                    this += DemoParsedMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoParsedMessage().apply {
+                        type = "test-type"
+                        protocol = WRONG_PROTOCOL
+                    }
+                    this += DemoRawMessage(protocol = secondOriginalProtocol)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(2, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(2, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
     fun `error message on failed protocol check - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-                this += Message.newBuilder().setProtocol(WRONG_PROTOCOL)
-                this += Message.newBuilder()
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-        }.build()
+        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage(protocol = ORIGINAL_PROTOCOL)
+                    this += DemoParsedMessage(protocol = WRONG_PROTOCOL)
+                    this += DemoParsedMessage()
+                    this += DemoRawMessage(protocol = ORIGINAL_PROTOCOL)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(0, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(0, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
     fun `error message on thrown - encode`() {
-        val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += Message.newBuilder().apply {
-                    metadataBuilder.apply {
+        val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoParsedMessage().apply {
+
                         id = MESSAGE_ID
                         protocol = EventTest.ORIGINAL_PROTOCOL
+
                     }
-                }
-                this += Message.newBuilder().apply {
-                    metadataBuilder.apply {
+                    this += DemoParsedMessage().apply {
+
                         id = MESSAGE_ID
                         protocol = EventTest.WRONG_PROTOCOL
+
                     }
-                }
-                this += Message.newBuilder().apply {
-                    messageType = "test-type"
-                    metadataBuilder.apply {
+                    this += DemoParsedMessage().apply {
+                        type = "test-type"
+
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
+
                     }
-                }
-                this += RawMessage.newBuilder().setProtocol(ORIGINAL_PROTOCOL)
-            }.build())
-        }.build()
+                    this += DemoRawMessage(protocol = ORIGINAL_PROTOCOL)
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(0, result.groupsCount) {"Wrong batch size"}
+        Assertions.assertEquals(0, result.groups.size) { "Wrong batch size" }
     }
 
     @Test
     fun `error message on thrown - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += Message.newBuilder().apply {
-                    messageType = "test-type"
-                    metadataBuilder.protocol = WRONG_PROTOCOL
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+                    this += DemoParsedMessage().apply {
+                        type = "test-type"
+                        protocol = WRONG_PROTOCOL
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
+                    }
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-            }.build())
-        }.build()
-
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
-        Assertions.assertEquals(4, result.getGroups(0).messagesList.size) {"group of outgoing messages must be the same size"}
+        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(4, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
-        result.getGroups(0).messagesList[0].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
+        assertIs<DemoParsedMessage>(result.groups[0].messages[0]).let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
+            Assertions.assertTrue(ERROR_EVENT_ID in it.body)
+            Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
-        result.getGroups(0).messagesList[1].rawMessage.let {
-            Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
+        assertIs<DemoRawMessage>(result.groups[0].messages[1]).let {
+            Assertions.assertEquals(WRONG_PROTOCOL, it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
-        result.getGroups(0).messagesList[2].message.let {
-            Assertions.assertEquals( "test-type", it.messageType)
-            Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
-            Assertions.assertFalse(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertFalse(it.hasField(ERROR_CONTENT_FIELD))
+        assertIs<DemoParsedMessage>(result.groups[0].messages[2]).let {
+            Assertions.assertEquals("test-type", it.type)
+            Assertions.assertEquals(WRONG_PROTOCOL, it.protocol)
+            Assertions.assertFalse(ERROR_EVENT_ID in it.body)
+            Assertions.assertFalse(ERROR_CONTENT_FIELD in it.body)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
-        result.getGroups(0).messagesList[3].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
+        assertIs<DemoParsedMessage>(result.groups[0].messages[3]).let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
+            Assertions.assertTrue(ERROR_EVENT_ID in it.body)
+            Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
     }
 
     @Test
     fun `error message on failed protocol check - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += RawMessage.newBuilder().apply {
-                    metadataBuilder.apply {
+                    this += DemoRawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += RawMessage.newBuilder(RawMessage.getDefaultInstance()).apply {
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-            }.build())
-        }.build()
-
+                    this += DemoRawMessage(
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
+                    )
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
-        Assertions.assertEquals(3, result.getGroups(0).messagesList.size) {"group of outgoing messages must be the same size"}
+        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(3, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
-        result.getGroups(0).messagesList[0].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
+        assertIs<DemoParsedMessage>(result.groups[0].messages[0]).let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
+            Assertions.assertTrue(ERROR_EVENT_ID in it.body)
+            Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[1].hasRawMessage())
-        result.getGroups(0).messagesList[1].rawMessage.let {
-            Assertions.assertEquals(WRONG_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
-            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
+        assertIs<DemoRawMessage>(result.groups[0].messages[1]).let {
+            Assertions.assertEquals(WRONG_PROTOCOL, it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[2].hasMessage())
-        result.getGroups(0).messagesList[2].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.metadata.protocol)
-            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
+        assertIs<DemoParsedMessage>(result.groups[0].messages[2]).let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
+            Assertions.assertTrue(ERROR_EVENT_ID in it.body)
+            Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
-
     }
 
     @Test
     fun `multiple protocol test - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID) { }
-        val batch = MessageGroupBatch.newBuilder().apply {
-            addGroups(MessageGroup.newBuilder().apply {
-                this += RawMessage.newBuilder().apply {
-                    setProtocol("xml")
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += RawMessage.newBuilder().apply {
-                    setProtocol("json")
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += RawMessage.newBuilder().apply {
-                    setProtocol("http")
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-                this += RawMessage.newBuilder(RawMessage.getDefaultInstance()).apply {
-                    parentEventId = CODEC_EVENT_ID.toBuilder().setId(UUID.randomUUID().toString()).build()
-                }
-            }.build())
-        }.build()
+        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID.toProto()) { }
+        val batch = DemoGroupBatch().apply {
+            groups = mutableListOf(
+                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
+                    this += DemoRawMessage().apply {
+                        protocol = "xml"
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
+                    }
+                    this += DemoRawMessage().apply {
+                        protocol = "json"
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
+                    }
+                    this += DemoRawMessage().apply {
+                        protocol = "http"
+                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
+                    }
+                    this += DemoRawMessage(eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()))
+                })
+            )
+        }
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groupsCount) {"Wrong batch size"}
-        Assertions.assertEquals(4, result.getGroups(0).messagesList.size) {"group of outgoing messages must be the same size"}
+        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(4, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[0].hasMessage())
-        result.getGroups(0).messagesList[0].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals("xml", it.metadata.protocol)
+        assertIs<DemoParsedMessage>(result.groups[0].messages[0]).let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals("xml", it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[1].hasMessage())
-        result.getGroups(0).messagesList[1].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals("json", it.metadata.protocol)
+        assertIs<DemoParsedMessage>(result.groups[0].messages[1]).let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals("json", it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[2].hasRawMessage())
-        result.getGroups(0).messagesList[2].rawMessage.let {
-            Assertions.assertEquals("http", it.metadata.protocol)
+        assertIs<DemoRawMessage>(result.groups[0].messages[2]).let {
+            Assertions.assertEquals("http", it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[1].hasMessage())
-        result.getGroups(0).messagesList[1].message.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.messageType)
-            Assertions.assertEquals("json", it.metadata.protocol)
-            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
+        assertIs<DemoParsedMessage>(result.groups[0].messages[1]).let {
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            Assertions.assertEquals("json", it.protocol)
+            Assertions.assertTrue(ERROR_EVENT_ID in it.body)
+            Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[2].hasRawMessage())
-        result.getGroups(0).messagesList[2].rawMessage.let {
-            Assertions.assertEquals("http", it.metadata.protocol)
-            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_EVENT_ID) == null)
-            Assertions.assertTrue(it.descriptorForType.findFieldByName(ERROR_CONTENT_FIELD) == null)
+        assertIs<DemoRawMessage>(result.groups[0].messages[2]).let {
+            Assertions.assertEquals("http", it.protocol)
         }
 
-        Assertions.assertTrue(result.getGroups(0).messagesList[3].hasMessage())
-        result.getGroups(0).messagesList[3].message.let {
-            Assertions.assertEquals("[xml, json]", it.metadata.protocol)
-            Assertions.assertTrue(it.hasField(ERROR_EVENT_ID))
-            Assertions.assertTrue(it.hasField(ERROR_CONTENT_FIELD))
+        assertIs<DemoParsedMessage>(result.groups[0].messages[3]).let {
+            Assertions.assertEquals("[xml, json]", it.protocol)
+            Assertions.assertTrue(ERROR_EVENT_ID in it.body)
+            Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
-
     }
     companion object {
         const val ORIGINAL_PROTOCOL = "xml"
@@ -448,18 +443,18 @@ class ProcessorTest {
     }
 
     class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
-        override fun encode(messageGroup: MessageGroup): MessageGroup {
+        override fun encode(messageGroup: DemoMessageGroup): DemoMessageGroup {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
-            return MessageGroup.newBuilder().addMessages(AnyMessage.newBuilder().setRawMessage(RawMessage.getDefaultInstance()).build()).build()
+            return DemoMessageGroup(messages = mutableListOf(DemoRawMessage()))
         }
 
-        override fun decode(messageGroup: MessageGroup): MessageGroup {
+        override fun decode(messageGroup: DemoMessageGroup): DemoMessageGroup {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
-            return MessageGroup.newBuilder().addMessages(AnyMessage.newBuilder().setMessage(Message.getDefaultInstance()).build()).build()
+            return DemoMessageGroup(messages = mutableListOf(DemoParsedMessage()))
         }
     }
 }

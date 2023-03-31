@@ -13,26 +13,25 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.codec.util.toDebugString
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
 import mu.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.TimeoutException
 
 abstract class AbstractSyncCodec(
-    private val messageRouter: MessageRouter<MessageGroupBatch>,
+    private val messageRouter: MessageRouter<DemoGroupBatch>,
     private val eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor,
-    private val codecRootEvent: EventID
-) : AutoCloseable, MessageListener<MessageGroupBatch> {
+    private val codecRootEvent: EventID,
+) : AutoCloseable, MessageListener<DemoGroupBatch> {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
 
@@ -43,7 +42,9 @@ abstract class AbstractSyncCodec(
         } catch (exception: Exception) {
             when (exception) {
                 is IOException,
-                is TimeoutException -> throw DecodeException("could not start rabbit mq subscriber", exception)
+                is TimeoutException,
+                -> throw DecodeException("could not start rabbit mq subscriber", exception)
+
                 else -> throw DecodeException("could not start decoder", exception)
             }
         }
@@ -51,8 +52,8 @@ abstract class AbstractSyncCodec(
 
     override fun close() {}
 
-    override fun handle(deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch) {
-        var protoResult: MessageGroupBatch? = null
+    override fun handle(deliveryMetadata: DeliveryMetadata, message: DemoGroupBatch) {
+        var protoResult: DemoGroupBatch? = null
 
         try {
             protoResult = processor.process(message)
@@ -63,7 +64,7 @@ abstract class AbstractSyncCodec(
         } catch (exception: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
             createAndStoreErrorEvent(exception, parentEventId)
-            logger.error(exception) { "Failed to handle message: ${message.toDebugString()}" }
+            logger.error(exception) { "Failed to handle message: $message" }
         }
     }
 
@@ -85,6 +86,6 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    abstract fun getParentEventId(codecRootID: EventID, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): EventID
-    abstract fun checkResult(protoResult: MessageGroupBatch): Boolean
+    abstract fun getParentEventId(codecRootID: EventID, protoSource: DemoGroupBatch, protoResult: DemoGroupBatch?): EventID
+    abstract fun checkResult(protoResult: DemoGroupBatch): Boolean
 }

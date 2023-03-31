@@ -22,10 +22,10 @@ import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
-import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroup
-import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
 import mu.KotlinLogging
 import java.util.concurrent.CompletableFuture
 
@@ -41,39 +41,46 @@ class DecodeProcessor(
 
     private val logger = KotlinLogging.logger {}
 
-    override fun process(source: MessageGroupBatch): MessageGroupBatch {
-        val messageBatch: MessageGroupBatch.Builder = MessageGroupBatch.newBuilder()
+    override fun process(source: DemoGroupBatch): DemoGroupBatch {
+        val sourceGroups = source.groups
+        val resultGroups = mutableListOf<DemoMessageGroup>()
 
         if (async) {
-            val messageGroupFutures = Array<CompletableFuture<MessageGroup?>>(source.groupsCount) {
-                processMessageGroupAsync(source.getGroups(it))
+            val messageGroupFutures = Array(sourceGroups.size) {
+                processMessageGroupAsync(sourceGroups[it])
             }
 
             CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
-                messageGroupFutures.forEach { it.get()?.run(messageBatch::addGroups) }
+                messageGroupFutures.forEach { it.get()?.run(resultGroups::add) }
             }.get()
         } else {
-            source.groupsList.forEach { group ->
-                processMessageGroup(group)?.run(messageBatch::addGroups)
+            sourceGroups.forEach { group ->
+                processMessageGroup(group)?.run(resultGroups::add)
             }
         }
 
-        return messageBatch.build().apply {
-            if (source.groupsCount != groupsCount) {
-                onErrorEvent("Group count in the decoded batch ($groupsCount) is different from the input one (${source.groupsCount})")
-            }
+        if (sourceGroups.size != resultGroups.size) {
+            onErrorEvent("Group count in the decoded batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
         }
+
+        return DemoGroupBatch(
+            book = source.book,
+            sessionGroup = source.sessionGroup,
+            groups = resultGroups
+        )
     }
 
-    private fun processMessageGroupAsync(group: MessageGroup) = CompletableFuture.supplyAsync { processMessageGroup(group) }
+    private fun processMessageGroupAsync(group: DemoMessageGroup) = CompletableFuture.supplyAsync { processMessageGroup(group) }
 
-    private fun processMessageGroup(messageGroup: MessageGroup): MessageGroup? {
-        if (messageGroup.messagesCount == 0) {
+    private fun processMessageGroup(messageGroup: DemoMessageGroup): DemoMessageGroup? {
+        val messages = messageGroup.messages
+
+        if (messages.isEmpty()) {
             onErrorEvent("Cannot decode empty message group")
             return null
         }
 
-        if (messageGroup.messagesList.none(AnyMessage::hasRawMessage)) {
+        if (messages.none { it is DemoRawMessage }) {
             logger.debug { "Message group has no raw messages in it" }
             return messageGroup
         }
@@ -90,8 +97,8 @@ class DecodeProcessor(
 
             val decodedGroup = codec.decode(messageGroup, context)
 
-            if (decodedGroup.messagesCount < messageGroup.messagesCount) {
-                parentEventIds.onEachEvent("Decoded message group contains less messages (${decodedGroup.messagesCount}) than encoded one (${messageGroup.messagesCount})")
+            if (decodedGroup.messages.size < messages.size) {
+                parentEventIds.onEachEvent("Decoded message group contains less messages (${decodedGroup.messages.size}) than encoded one (${messages.size})")
             }
 
             return decodedGroup
