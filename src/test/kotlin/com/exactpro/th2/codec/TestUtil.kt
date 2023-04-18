@@ -16,24 +16,23 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.INCOMING
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoEventId
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import java.time.Instant
 
 const val BOOK_NAME = "test-book"
 
-val CODEC_EVENT_ID: DemoEventId = DemoEventId().apply {
+val CODEC_EVENT_ID: EventId = EventId().apply {
     book = BOOK_NAME
     scope = "test-scope"
     timestamp = Instant.now()
     id = "test-codec"
 }
 
-val MESSAGE_ID: DemoMessageId = DemoMessageId().apply {
+val MESSAGE_ID: MessageId = MessageId().apply {
     sessionAlias = "test-session-alias"
-    book = BOOK_NAME
-    direction = INCOMING
+    direction = Direction.INCOMING
     timestamp = Instant.now()
     sequence = 1
 }

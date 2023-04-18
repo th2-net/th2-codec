@@ -27,7 +27,7 @@ import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.isValid
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.utils.event.logId
 import mu.KotlinLogging
 
@@ -35,7 +35,7 @@ abstract class AbstractCodecProcessor(
     protected val codec: IPipelineCodec,
     private val codecEventID: EventID,
     private val onEvent: (event: ProtoEvent) -> Unit,
-) : MessageProcessor<DemoGroupBatch, DemoGroupBatch> {
+) : MessageProcessor<GroupBatch, GroupBatch> {
     private val logger = KotlinLogging.logger {}
 
     protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)

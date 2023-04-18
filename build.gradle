@@ -55,7 +55,7 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:5.2.0-separate-executor-4554229144-6986b77-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:5.2.0-separate-executor-+'
     implementation 'com.exactpro.th2:grpc-common'
     implementation 'com.exactpro.th2:common-utils:1.0.0-book-and-page-4086360735-d23a5e0-SNAPSHOT'
 

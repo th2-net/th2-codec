@@ -19,11 +19,7 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.codec.util.toProto
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import kotlin.test.assertIs
@@ -37,27 +33,27 @@ class DecodeProcessorTest {
         val wrongProtocol = "http"
 
         val processor = DecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID.toProto(), false) { }
-        val batch = DemoGroupBatch().apply {
+        val batch = GroupBatch().apply {
             groups = mutableListOf(
-                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
-                    this += DemoRawMessage().apply {
+                MessageGroup(messages = mutableListOf<Message<*>>().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = originalProtocol
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = wrongProtocol
                     }
-                    this += DemoParsedMessage().apply {
+                    this += ParsedMessage().apply {
                         type = "test-type"
                         id = MESSAGE_ID
                         protocol = originalProtocol
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = originalProtocol
                     }
-                    this += DemoRawMessage()
+                    this += RawMessage()
                 })
             )
         }
@@ -66,34 +62,34 @@ class DecodeProcessorTest {
 
         Assertions.assertEquals(5, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
 
-        val message0 = assertIs<DemoParsedMessage>(result.groups[0].messages[0])
+        val message0 = assertIs<ParsedMessage>(result.groups[0].messages[0])
 
         message0.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
         }
 
-        val message1 = assertIs<DemoRawMessage>(result.groups[0].messages[1])
+        val message1 = assertIs<RawMessage>(result.groups[0].messages[1])
 
         message1.let {
             Assertions.assertEquals(wrongProtocol, it.protocol)
         }
 
-        val message2 = assertIs<DemoParsedMessage>(result.groups[0].messages[2])
+        val message2 = assertIs<ParsedMessage>(result.groups[0].messages[2])
 
         message2.let {
             Assertions.assertEquals("test-type", it.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
         }
 
-        val message3 = assertIs<DemoParsedMessage>(result.groups[0].messages[3])
+        val message3 = assertIs<ParsedMessage>(result.groups[0].messages[3])
 
         message3.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
         }
 
-        val message4 = assertIs<DemoParsedMessage>(result.groups[0].messages[4])
+        val message4 = assertIs<ParsedMessage>(result.groups[0].messages[4])
 
         message4.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
@@ -103,12 +99,12 @@ class DecodeProcessorTest {
 }
 
 class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
-    override fun encode(messageGroup: DemoMessageGroup): DemoMessageGroup = DemoMessageGroup()
+    override fun encode(messageGroup: MessageGroup): MessageGroup = MessageGroup()
 
-    override fun decode(messageGroup: DemoMessageGroup): DemoMessageGroup {
+    override fun decode(messageGroup: MessageGroup): MessageGroup {
         if (throwEx) {
             throw NullPointerException("Simple null pointer exception")
         }
-        return DemoMessageGroup()
+        return MessageGroup()
     }
 }

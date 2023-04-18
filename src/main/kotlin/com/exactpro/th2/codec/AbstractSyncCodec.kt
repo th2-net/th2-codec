@@ -21,17 +21,17 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import mu.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.TimeoutException
 
 abstract class AbstractSyncCodec(
-    private val messageRouter: MessageRouter<DemoGroupBatch>,
+    private val messageRouter: MessageRouter<GroupBatch>,
     private val eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor,
     private val codecRootEvent: EventID,
-) : AutoCloseable, MessageListener<DemoGroupBatch> {
+) : AutoCloseable, MessageListener<GroupBatch> {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
 
@@ -52,8 +52,8 @@ abstract class AbstractSyncCodec(
 
     override fun close() {}
 
-    override fun handle(deliveryMetadata: DeliveryMetadata, message: DemoGroupBatch) {
-        var protoResult: DemoGroupBatch? = null
+    override fun handle(deliveryMetadata: DeliveryMetadata, message: GroupBatch) {
+        var protoResult: GroupBatch? = null
 
         try {
             protoResult = processor.process(message)
@@ -86,6 +86,6 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    abstract fun getParentEventId(codecRootID: EventID, protoSource: DemoGroupBatch, protoResult: DemoGroupBatch?): EventID
-    abstract fun checkResult(protoResult: DemoGroupBatch): Boolean
+    abstract fun getParentEventId(codecRootID: EventID, protoSource: GroupBatch, protoResult: GroupBatch?): EventID
+    abstract fun checkResult(protoResult: GroupBatch): Boolean
 }

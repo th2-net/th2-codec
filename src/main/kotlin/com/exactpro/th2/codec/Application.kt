@@ -22,7 +22,7 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.storeEvent
 import mu.KotlinLogging
 
@@ -31,7 +31,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     private val context = ApplicationContext.create(configuration, commonFactory)
 
     private val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
-    private val messageRouter: MessageRouter<DemoGroupBatch> = commonFactory.demoMessageBatchRouter
+    private val messageRouter: MessageRouter<GroupBatch> = commonFactory.transportGroupBatchRouter
 
     private val rootEventId: EventID = commonFactory.rootEventId
 
@@ -71,7 +71,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     }
 
     private val generalDecoder: AutoCloseable = SyncDecoder(
-        commonFactory.demoMessageBatchRouter,
+        commonFactory.transportGroupBatchRouter,
         commonFactory.eventBatchRouter,
         DecodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
         rootEventId
@@ -80,7 +80,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }
 
     private val generalEncoder: AutoCloseable = SyncEncoder(
-        commonFactory.demoMessageBatchRouter,
+        commonFactory.transportGroupBatchRouter,
         commonFactory.eventBatchRouter,
         EncodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
         rootEventId

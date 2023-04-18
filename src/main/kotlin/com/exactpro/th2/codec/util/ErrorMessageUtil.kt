@@ -17,32 +17,32 @@
 package com.exactpro.th2.codec.util
 
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 const val ERROR_EVENT_ID = "error_event_id"
 
-fun DemoRawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) = DemoParsedMessage().also {
+fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) = ParsedMessage().also {
     it.id = id
     it.eventId = eventId
     it.type = ERROR_TYPE_MESSAGE
     it.protocol = protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString()
     it.metadata = metadata.toMutableMap()
-    it.body = mapOf(ERROR_CONTENT_FIELD to errorMessage, ERROR_EVENT_ID to errorEventId.toString())
+    it.body = mutableMapOf(ERROR_CONTENT_FIELD to errorMessage, ERROR_EVENT_ID to errorEventId.toString())
 }
 
-fun DemoMessageGroup.toErrorGroup(
+fun MessageGroup.toErrorGroup(
     infoMessage: String,
     protocols: Collection<String>,
     throwable: Throwable,
     errorEventID: EventID,
-): DemoMessageGroup {
+): MessageGroup {
     val content = buildString {
         appendLine("Error: $infoMessage")
-        appendLine("For messages: [${messageIds.joinToString { it.toDebugString() }}] with protocols: $protocols")
+        appendLine("For messages: [${messageIds.joinToString(", ")}] with protocols: $protocols")
         appendLine("Due to the following errors: ")
 
         generateSequence(throwable, Throwable::cause).forEachIndexed { index, cause ->
@@ -51,12 +51,12 @@ fun DemoMessageGroup.toErrorGroup(
     }
 
     val messages = messages.mapTo(ArrayList()) { message ->
-        if (message is DemoRawMessage && message.protocol.run { isBlank() || this in protocols }) {
+        if (message is RawMessage && message.protocol.run { isBlank() || this in protocols }) {
             message.toErrorMessage(protocols, errorEventID, content)
         } else {
             message
         }
     }
 
-    return DemoMessageGroup(messages)
+    return MessageGroup(messages)
 }

@@ -19,11 +19,7 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.util.toProto
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.*
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -38,25 +34,25 @@ class EventTest {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
         val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = DemoGroupBatch().apply {
+        val batch = GroupBatch().apply {
             groups = mutableListOf(
-                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
-                    this += DemoParsedMessage().apply {
+                MessageGroup(messages = mutableListOf<Message<*>>().apply {
+                    this += ParsedMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
@@ -75,25 +71,25 @@ class EventTest {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
         val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = DemoGroupBatch().apply {
+        val batch = GroupBatch().apply {
             groups = mutableListOf(
-                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
-                    this += DemoParsedMessage().apply {
+                MessageGroup(messages = mutableListOf<Message<*>>().apply {
+                    this += ParsedMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
@@ -112,25 +108,25 @@ class EventTest {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
         val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = DemoGroupBatch().apply {
+        val batch = GroupBatch().apply {
             groups = mutableListOf(
-                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
-                    this += DemoParsedMessage().apply {
+                MessageGroup(messages = mutableListOf<Message<*>>().apply {
+                    this += ParsedMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
@@ -149,25 +145,25 @@ class EventTest {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
         val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = DemoGroupBatch().apply {
+        val batch = GroupBatch().apply {
             groups = mutableListOf(
-                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
-                    this += DemoParsedMessage().apply {
+                MessageGroup(messages = mutableListOf<Message<*>>().apply {
+                    this += ParsedMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
@@ -186,25 +182,25 @@ class EventTest {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
         val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
-        val batch = DemoGroupBatch().apply {
+        val batch = GroupBatch().apply {
             groups = mutableListOf(
-                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
-                    this += DemoParsedMessage().apply {
+                MessageGroup(messages = mutableListOf<Message<*>>().apply {
+                    this += ParsedMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
@@ -223,25 +219,25 @@ class EventTest {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
         val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
-        val batch = DemoGroupBatch().apply {
+        val batch = GroupBatch().apply {
             groups = mutableListOf(
-                DemoMessageGroup(messages = mutableListOf<DemoMessage<*>>().apply {
-                    this += DemoParsedMessage().apply {
+                MessageGroup(messages = mutableListOf<Message<*>>().apply {
+                    this += ParsedMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = WRONG_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
                     }
-                    this += DemoRawMessage().apply {
+                    this += RawMessage().apply {
                         id = MESSAGE_ID
                         protocol = ORIGINAL_PROTOCOL
                         eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
@@ -262,7 +258,7 @@ class EventTest {
     }
 
     class TestCodec(private val throwEx: Boolean, private val warningsCount: Int = 0) : IPipelineCodec {
-        override fun encode(messageGroup: DemoMessageGroup, context: IReportingContext): DemoMessageGroup {
+        override fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup {
             repeat(warningsCount) {
                 context.warning(WARN_MESSAGE)
             }
@@ -273,7 +269,7 @@ class EventTest {
             return messageGroup
         }
 
-        override fun decode(messageGroup: DemoMessageGroup, context: IReportingContext): DemoMessageGroup {
+        override fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup {
             repeat(warningsCount) {
                 context.warning(WARN_MESSAGE)
             }

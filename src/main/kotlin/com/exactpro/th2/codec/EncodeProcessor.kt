@@ -23,10 +23,10 @@ import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toJson
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessage
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import mu.KotlinLogging
 import java.util.concurrent.CompletableFuture
 
@@ -41,13 +41,13 @@ class EncodeProcessor(
     private val async = enabledVerticalScaling && Runtime.getRuntime().availableProcessors() > 1
     private val logger = KotlinLogging.logger {}
 
-    override fun process(source: DemoGroupBatch): DemoGroupBatch {
+    override fun process(source: GroupBatch): GroupBatch {
         val sourceGroups = source.groups
-        val resultGroups = mutableListOf<DemoMessageGroup>()
+        val resultGroups = mutableListOf<MessageGroup>()
 
         if (async) {
             val messageGroupFutures = Array(sourceGroups.size) {
-                processMessageGroupAsync(sourceGroups[it])
+                processMessageGroupAsync(source, sourceGroups[it])
             }
 
             CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
@@ -55,7 +55,7 @@ class EncodeProcessor(
             }.get()
         } else {
             sourceGroups.forEach { group ->
-                processMessageGroup(group)?.run(resultGroups::add)
+                processMessageGroup(source, group)?.run(resultGroups::add)
             }
         }
 
@@ -63,16 +63,18 @@ class EncodeProcessor(
             onEvent("Group count in the encoded batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
         }
 
-        return DemoGroupBatch(
+        return GroupBatch(
             book = source.book,
             sessionGroup = source.sessionGroup,
             groups = resultGroups
         )
     }
 
-    private fun processMessageGroupAsync(group: DemoMessageGroup): CompletableFuture<DemoMessageGroup?> = CompletableFuture.supplyAsync { processMessageGroup(group) }
+    private fun processMessageGroupAsync(source: GroupBatch, group: MessageGroup) = CompletableFuture.supplyAsync {
+        processMessageGroup(source, group)
+    }
 
-    private fun processMessageGroup(messageGroup: DemoMessageGroup): DemoMessageGroup? {
+    private fun processMessageGroup(groupBatch: GroupBatch, messageGroup: MessageGroup): MessageGroup? {
         val messages = messageGroup.messages
 
         if (messages.isEmpty()) {
@@ -80,7 +82,7 @@ class EncodeProcessor(
             return null
         }
 
-        if (messages.none { it is DemoParsedMessage }) {
+        if (messages.none { it is ParsedMessage }) {
             logger.debug { "Message group has no parsed messages in it" }
             return messageGroup
         }
@@ -103,11 +105,11 @@ class EncodeProcessor(
 
             return encodedGroup
         } catch (e: ValidateException) {
-            sendErrorEvents("Failed to encode: ${e.title}", parentEventIds, messageGroup, e, e.details)
+            sendErrorEvents("Failed to encode: ${e.title}", parentEventIds, groupBatch, messageGroup, e, e.details)
             return null
         } catch (throwable: Throwable) {
             // we should not use message IDs because during encoding there is no correct message ID created yet
-            sendErrorEvents("Failed to encode message group", parentEventIds, messageGroup, throwable, emptyList())
+            sendErrorEvents("Failed to encode message group", parentEventIds, groupBatch, messageGroup, throwable, emptyList())
             return null
         } finally {
             parentEventIds.onEachWarning(context, "encoding",
@@ -115,12 +117,16 @@ class EncodeProcessor(
         }
     }
 
-    private fun DemoMessageGroup.toReadableBody(): List<String> = messages.map(DemoMessage<*>::toJson)
+    private fun MessageGroup.toReadableBody(): List<String> = messages.map(Message<*>::toJson)
 
     private fun sendErrorEvents(
-        errorMsg: String, parentEventIds: Sequence<EventID>, msgGroup: DemoMessageGroup,
-        cause: Throwable, additionalBody: List<String>,
+        errorMsg: String,
+        parentEventIds: Sequence<EventID>,
+        groupBatch: GroupBatch,
+        msgGroup: MessageGroup,
+        cause: Throwable,
+        additionalBody: List<String>,
     ) {
-        parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds, cause, additionalBody + msgGroup.toReadableBody())
+        parentEventIds.onEachErrorEvent(errorMsg, msgGroup.messageIds(groupBatch), cause, additionalBody + msgGroup.toReadableBody())
     }
 }

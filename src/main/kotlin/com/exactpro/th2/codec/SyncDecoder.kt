@@ -16,10 +16,10 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 
 class SyncDecoder(
-    messageRouter: MessageRouter<DemoGroupBatch>,
+    messageRouter: MessageRouter<GroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
     codecRootID: EventID,
@@ -29,6 +29,6 @@ class SyncDecoder(
     processor,
     codecRootID
 ) {
-    override fun getParentEventId(codecRootID: EventID, protoSource: DemoGroupBatch, protoResult: DemoGroupBatch?): EventID = codecRootID
-    override fun checkResult(protoResult: DemoGroupBatch): Boolean = protoResult.groups.isNotEmpty()
+    override fun getParentEventId(codecRootID: EventID, protoSource: GroupBatch, protoResult: GroupBatch?): EventID = codecRootID
+    override fun checkResult(protoResult: GroupBatch): Boolean = protoResult.groups.isNotEmpty()
 }

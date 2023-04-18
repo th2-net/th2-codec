@@ -17,11 +17,11 @@ import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 
 class SyncEncoder(
-    messageRouter: MessageRouter<DemoGroupBatch>,
+    messageRouter: MessageRouter<GroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     processor: AbstractCodecProcessor,
     codecRootID: EventID,
@@ -33,16 +33,16 @@ class SyncEncoder(
 ) {
     override fun getParentEventId(
         codecRootID: EventID,
-        protoSource: DemoGroupBatch,
-        protoResult: DemoGroupBatch?,
+        protoSource: GroupBatch,
+        protoResult: GroupBatch?,
     ): EventID = protoSource.run {
         groups.getOrNull(0)
             ?.messages
-            ?.firstNotNullOf { it as? DemoParsedMessage }
+            ?.firstNotNullOf { it as? ParsedMessage }
             ?.eventId
             ?.toProto()
     } ?: codecRootID
 
-    override fun checkResult(protoResult: DemoGroupBatch): Boolean = protoResult.groups.isNotEmpty()
+    override fun checkResult(protoResult: GroupBatch): Boolean = protoResult.groups.isNotEmpty()
 }
 

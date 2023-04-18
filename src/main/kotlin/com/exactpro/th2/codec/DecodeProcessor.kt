@@ -23,9 +23,9 @@ import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoGroupBatch
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageGroup
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoRawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 import mu.KotlinLogging
 import java.util.concurrent.CompletableFuture
 
@@ -41,13 +41,13 @@ class DecodeProcessor(
 
     private val logger = KotlinLogging.logger {}
 
-    override fun process(source: DemoGroupBatch): DemoGroupBatch {
+    override fun process(source: GroupBatch): GroupBatch {
         val sourceGroups = source.groups
-        val resultGroups = mutableListOf<DemoMessageGroup>()
+        val resultGroups = mutableListOf<MessageGroup>()
 
         if (async) {
             val messageGroupFutures = Array(sourceGroups.size) {
-                processMessageGroupAsync(sourceGroups[it])
+                processMessageGroupAsync(source, sourceGroups[it])
             }
 
             CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
@@ -55,7 +55,7 @@ class DecodeProcessor(
             }.get()
         } else {
             sourceGroups.forEach { group ->
-                processMessageGroup(group)?.run(resultGroups::add)
+                processMessageGroup(source, group)?.run(resultGroups::add)
             }
         }
 
@@ -63,16 +63,19 @@ class DecodeProcessor(
             onErrorEvent("Group count in the decoded batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
         }
 
-        return DemoGroupBatch(
+        return GroupBatch(
             book = source.book,
             sessionGroup = source.sessionGroup,
             groups = resultGroups
         )
     }
 
-    private fun processMessageGroupAsync(group: DemoMessageGroup) = CompletableFuture.supplyAsync { processMessageGroup(group) }
+    private fun processMessageGroupAsync(groupBatch: GroupBatch, group: MessageGroup) = CompletableFuture.supplyAsync { processMessageGroup(
+        groupBatch,
+        group
+    ) }
 
-    private fun processMessageGroup(messageGroup: DemoMessageGroup): DemoMessageGroup? {
+    private fun processMessageGroup(groupBatch: GroupBatch, messageGroup: MessageGroup): MessageGroup? {
         val messages = messageGroup.messages
 
         if (messages.isEmpty()) {
@@ -80,7 +83,7 @@ class DecodeProcessor(
             return null
         }
 
-        if (messages.none { it is DemoRawMessage }) {
+        if (messages.none { it is RawMessage }) {
             logger.debug { "Message group has no raw messages in it" }
             return messageGroup
         }
@@ -105,15 +108,15 @@ class DecodeProcessor(
         } catch (e: ValidateException) {
             val header = "Failed to decode: ${e.title}"
 
-            val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, e)
+            val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds(groupBatch), e)
             return messageGroup.toErrorGroup(header, protocols, e, errorEventId)
         } catch (throwable: Throwable) {
             val header = "Failed to decode message group"
 
-            val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds, throwable)
+            val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.messageIds(groupBatch), throwable)
             return messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
         } finally {
-            parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds }
+            parentEventIds.onEachWarning(context, "decoding") { messageGroup.messageIds(groupBatch) }
         }
     }
 }
