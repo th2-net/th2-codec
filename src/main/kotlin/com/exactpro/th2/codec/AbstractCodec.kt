@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,26 +19,23 @@ import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
-import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import mu.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.TimeoutException
 
-abstract class AbstractSyncCodec(
-    private val messageRouter: MessageRouter<GroupBatch>,
+abstract class AbstractCodec<B>(
+    private val router: MessageRouter<B>,
     private val eventRouter: MessageRouter<EventBatch>,
-    private val processor: AbstractCodecProcessor,
     private val codecRootEvent: EventID,
-) : AutoCloseable, MessageListener<GroupBatch> {
+) : AutoCloseable {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
 
     fun start(sourceAttributes: String, targetAttributes: String) {
         try {
             this.targetAttributes = targetAttributes
-            messageRouter.subscribeAll(this, sourceAttributes)
+            router.subscribeAll(::handle, sourceAttributes)
         } catch (exception: Exception) {
             when (exception) {
                 is IOException,
@@ -52,19 +49,19 @@ abstract class AbstractSyncCodec(
 
     override fun close() {}
 
-    override fun handle(deliveryMetadata: DeliveryMetadata, message: GroupBatch) {
-        var protoResult: GroupBatch? = null
+    private fun handle(deliveryMetadata: DeliveryMetadata, batch: B) {
+        var result: B? = null
 
         try {
-            protoResult = processor.process(message)
+            result = process(batch)
 
-            if (checkResult(protoResult)) {
-                messageRouter.sendAll(protoResult, this.targetAttributes)
+            if (checkResult(result)) {
+                router.sendAll(result, this.targetAttributes)
             }
         } catch (exception: CodecException) {
-            val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
+            val parentEventId = getParentEventId(codecRootEvent, batch, result)
             createAndStoreErrorEvent(exception, parentEventId)
-            logger.error(exception) { "Failed to handle message: $message" }
+            logger.error(exception) { "Failed to handle message: $batch" }
         }
     }
 
@@ -86,6 +83,8 @@ abstract class AbstractSyncCodec(
         }
     }
 
-    abstract fun getParentEventId(codecRootID: EventID, protoSource: GroupBatch, protoResult: GroupBatch?): EventID
-    abstract fun checkResult(protoResult: GroupBatch): Boolean
+    protected abstract fun process(batch: B): B
+
+    abstract fun getParentEventId(codecRootID: EventID, source: B, result: B?): EventID
+    abstract fun checkResult(result: B): Boolean
 }

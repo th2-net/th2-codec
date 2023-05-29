@@ -18,11 +18,9 @@
 
 package com.exactpro.th2.codec.util
 
-import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.EventID as ProtoEventID
-import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.*
@@ -30,16 +28,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 
 private val mapper = ObjectMapper()
-
-val AnyMessage.parentEventId: ProtoEventID?
-    get() = when {
-        hasMessage() -> with(message) { if (hasParentEventId()) parentEventId else null }
-        hasRawMessage() -> with(rawMessage) { if (hasParentEventId()) parentEventId else null }
-        else -> error("Unsupported $kindCase kind")
-    }
-
-val ProtoMessageGroup.parentEventId: ProtoEventID?
-    get() = messagesList.firstNotNullOfOrNull(AnyMessage::parentEventId)
 
 /**
  * Returns parent event ids from each message.

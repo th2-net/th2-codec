@@ -13,13 +13,16 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
+import com.exactpro.th2.codec.configuration.TransportType
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
@@ -31,7 +34,8 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     private val context = ApplicationContext.create(configuration, commonFactory)
 
     private val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
-    private val messageRouter: MessageRouter<GroupBatch> = commonFactory.transportGroupBatchRouter
+    private val protoRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
+    private val transportRouter: MessageRouter<GroupBatch> = commonFactory.transportGroupBatchRouter
 
     private val rootEventId: EventID = commonFactory.rootEventId
 
@@ -53,57 +57,88 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }
     }
 
-    private val decoder: AutoCloseable = SyncDecoder(
-        messageRouter, eventRouter,
-        DecodeProcessor(context.codec, context.protocols, rootEventId, true, configuration.enableVerticalScaling, onEvent),
-        rootEventId
-    ).apply {
-        start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
-    }
-
-    private val encoder: AutoCloseable = SyncEncoder(
-        messageRouter,
-        eventRouter,
-        EncodeProcessor(context.codec, context.protocols, rootEventId, true, configuration.enableVerticalScaling, onEvent),
-        rootEventId
-    ).apply {
-        start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
-    }
-
-    private val generalDecoder: AutoCloseable = SyncDecoder(
-        commonFactory.transportGroupBatchRouter,
-        commonFactory.eventBatchRouter,
-        DecodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
-        rootEventId
-    ).apply {
-            start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
+    private val codecs: List<AutoCloseable> = mutableListOf<AutoCloseable>().apply {
+        configuration.transportLines.forEach { (prefix, line) ->
+            add(
+                when (line.type) {
+                    TransportType.PROTOBUF -> ::createProtoDecoder
+                    TransportType.TH2_TRANSPORT -> ::createTransportDecoder
+                }("${prefix}_decoder", "${prefix}_decoder_in", "${prefix}_decoder_out", line.useParentEventId)
+            )
+            add(
+                when (line.type) {
+                    TransportType.PROTOBUF -> ::createProtoEncoder
+                    TransportType.TH2_TRANSPORT -> ::createTransportEncoder
+                }("${prefix}_encoder", "${prefix}_encoder_in", "${prefix}_encoder_out", line.useParentEventId)
+            )
         }
-
-    private val generalEncoder: AutoCloseable = SyncEncoder(
-        commonFactory.transportGroupBatchRouter,
-        commonFactory.eventBatchRouter,
-        EncodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
-        rootEventId
-    ).apply {
-            start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
-        }
+    }
 
     init {
         K_LOGGER.info { "codec started" }
     }
 
+    private fun createProtoEncoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable = ProtoSyncEncoder(
+            protoRouter,
+            eventRouter,
+            EncodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            rootEventId
+        ).apply {
+            start(sourceAttributes, targetAttributes)
+        }.also { K_LOGGER.info { "Proto '$codecName' started" } }
+
+    private fun createProtoDecoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable = ProtoSyncDecoder(
+            protoRouter,
+            eventRouter,
+            DecodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            rootEventId
+        ).apply {
+            start(sourceAttributes, targetAttributes)
+        }.also { K_LOGGER.info { "Proto '$codecName' started" } }
+
+    private fun createTransportEncoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable = TransportSyncEncoder(
+            transportRouter,
+            eventRouter,
+            EncodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            rootEventId
+        ).apply {
+            start(sourceAttributes, targetAttributes)
+        }.also { K_LOGGER.info { "Transport '$codecName' started" } }
+
+    private fun createTransportDecoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable = TransportSyncDecoder(
+            transportRouter,
+            eventRouter,
+            DecodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            rootEventId
+        ).apply {
+            start(sourceAttributes, targetAttributes)
+        }.also { K_LOGGER.info { "Transport '$codecName' started" } }
+
     override fun close() {
-        runCatching(generalEncoder::close).onFailure {
-            K_LOGGER.error(it) { "General encoder closing failure" }
-        }
-        runCatching(generalDecoder::close).onFailure {
-            K_LOGGER.error(it) { "General decoder closing failure" }
-        }
-        runCatching(encoder::close).onFailure {
-            K_LOGGER.error(it) { "Encoder closing failure" }
-        }
-        runCatching(decoder::close).onFailure {
-            K_LOGGER.error(it) { "Decoder closing failure" }
+        codecs.forEach { codec ->
+            runCatching(codec::close).onFailure {
+                K_LOGGER.error(it) { "Codec closing failure" }
+            }
         }
 
         runCatching(context::close).onFailure {

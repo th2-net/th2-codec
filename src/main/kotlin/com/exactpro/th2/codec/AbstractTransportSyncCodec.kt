@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,17 +18,12 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 
-class SyncDecoder(
-    messageRouter: MessageRouter<GroupBatch>,
+abstract class AbstractTransportSyncCodec(
+    transportRouter: MessageRouter<GroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
-    processor: AbstractCodecProcessor,
-    codecRootID: EventID,
-) : AbstractSyncCodec(
-    messageRouter,
-    eventRouter,
-    processor,
-    codecRootID
-) {
-    override fun getParentEventId(codecRootID: EventID, protoSource: GroupBatch, protoResult: GroupBatch?): EventID = codecRootID
-    override fun checkResult(protoResult: GroupBatch): Boolean = protoResult.groups.isNotEmpty()
+    private val processor: AbstractCodecProcessor,
+    codecRootEvent: EventID,
+) : AbstractCodec<GroupBatch>(transportRouter, eventRouter, codecRootEvent) {
+    override fun process(batch: GroupBatch): GroupBatch = processor.process(batch)
+    override fun checkResult(result: GroupBatch): Boolean = result.groups.isNotEmpty()
 }
