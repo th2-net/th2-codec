@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,21 +24,22 @@ import com.exactpro.th2.common.message.set
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
-
 import com.exactpro.th2.common.grpc.RawMessage as ProtoRawMessage
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
+
 const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 const val ERROR_EVENT_ID = "error_event_id"
 
-fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) = ParsedMessage().also {
-    it.id = id
-    it.eventId = eventId
-    it.type = ERROR_TYPE_MESSAGE
-    it.protocol = protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString()
-    it.metadata = metadata.toMutableMap()
-    it.body = mutableMapOf(ERROR_CONTENT_FIELD to errorMessage, ERROR_EVENT_ID to errorEventId.toString())
-}
+fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) =
+    ParsedMessage(
+        id,
+        eventId,
+        ERROR_TYPE_MESSAGE,
+        metadata,
+        protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString(),
+        mapOf(ERROR_CONTENT_FIELD to errorMessage, ERROR_EVENT_ID to errorEventId.toString())
+    )
 
 fun MessageGroup.toErrorGroup(
     infoMessage: String,

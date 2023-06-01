@@ -22,17 +22,18 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import java.time.Instant
 
 const val BOOK_NAME = "test-book"
+const val SESSION_GROUP_NAME = "test-session-group"
 
-val CODEC_EVENT_ID: EventId = EventId().apply {
-    book = BOOK_NAME
-    scope = "test-scope"
-    timestamp = Instant.now()
-    id = "test-codec"
-}
+val CODEC_EVENT_ID: EventId = EventId(
+    "test-codec",
+    BOOK_NAME,
+    "test-scope",
+    Instant.now()
+)
 
-val MESSAGE_ID: MessageId = MessageId().apply {
-    sessionAlias = "test-session-alias"
-    direction = Direction.INCOMING
-    timestamp = Instant.now()
-    sequence = 1
-}
+val MESSAGE_ID: MessageId = MessageId(
+    "test-session-alias",
+    Direction.INCOMING,
+    1,
+    Instant.now()
+)

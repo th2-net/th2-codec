@@ -45,7 +45,7 @@ repositories {
             name 'Sonatype_releases'
             url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
-    configurations.all {
+    configurations.configureEach {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
@@ -55,9 +55,9 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:5.2.0-separate-executor-+'
+    implementation 'com.exactpro.th2:common:5.3.0-json-raw-body-5144283961-5ae02cd-SNAPSHOT'
     implementation 'com.exactpro.th2:grpc-common'
-    implementation 'com.exactpro.th2:common-utils:1.0.0-book-and-page-4086360735-d23a5e0-SNAPSHOT'
+    implementation 'com.exactpro.th2:common-utils:2.1.0-transport-protocol-5144338850-92237a3-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging'
 
@@ -104,7 +104,7 @@ test {
 }
 
 // conditionals for publications
-tasks.withType(PublishToMavenRepository) {
+tasks.withType(PublishToMavenRepository).configureEach {
     onlyIf {
         (repository == publishing.repositories.nexusRepository &&
             project.hasProperty('nexus_user') &&
@@ -115,13 +115,13 @@ tasks.withType(PublishToMavenRepository) {
             project.hasProperty('sonatypePassword'))
     }
 }
-tasks.withType(Sign) {
+tasks.withType(Sign).configureEach {
     onlyIf { project.hasProperty('signingKey') &&
         project.hasProperty('signingPassword')
     }
 }
 // disable running task 'initializeSonatypeStagingRepository' on a gitlab
-tasks.whenTaskAdded {task ->
+tasks.configureEach { task ->
     if(task.name.equals('initializeSonatypeStagingRepository') &&
         !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
     ) {

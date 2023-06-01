@@ -75,24 +75,19 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Colle
         when (message) {
             is ParsedMessage -> resultMessages += message
             is RawMessage -> {
-                if (message.protocol.run { isBlank() || this in codecProtocols }) {
-                    resultMessages += ParsedMessage().apply {
-                        id = message.id
-                        eventId = message.eventId
-
-                        metadata = message.metadata.toMutableMap().apply {
-                            this[ERROR_CONTENT_FIELD] = content
-                        }
-
-                        protocol = when (codecProtocols.size) {
+                resultMessages += if (message.protocol.run { isBlank() || this in codecProtocols }) {
+                    ParsedMessage(
+                        message.id,
+                        message.eventId,
+                        ERROR_TYPE_MESSAGE,
+                        message.metadata.toMutableMap().apply { this[ERROR_CONTENT_FIELD] = content },
+                        when (codecProtocols.size) {
                             1 -> codecProtocols.first()
                             else -> codecProtocols.toString()
-                        }
-
-                        type = ERROR_TYPE_MESSAGE
-                    }
+                        },
+                    )
                 } else {
-                    resultMessages += message
+                    message
                 }
             }
 

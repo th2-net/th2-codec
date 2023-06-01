@@ -33,30 +33,17 @@ class DecodeProcessorTest {
         val wrongProtocol = "http"
 
         val processor = DecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID.toProto(), false) { }
-        val batch = GroupBatch().apply {
-            groups = mutableListOf(
-                MessageGroup(messages = mutableListOf<Message<*>>().apply {
-                    this += RawMessage().apply {
-                        id = MESSAGE_ID
-                        protocol = originalProtocol
-                    }
-                    this += RawMessage().apply {
-                        id = MESSAGE_ID
-                        protocol = wrongProtocol
-                    }
-                    this += ParsedMessage().apply {
-                        type = "test-type"
-                        id = MESSAGE_ID
-                        protocol = originalProtocol
-                    }
-                    this += RawMessage().apply {
-                        id = MESSAGE_ID
-                        protocol = originalProtocol
-                    }
-                    this += RawMessage()
-                })
-            )
-        }
+        val batch = GroupBatch(
+            book = BOOK_NAME,
+            sessionGroup = SESSION_GROUP_NAME,
+            groups = mutableListOf(MessageGroup(listOf(
+                RawMessage(MESSAGE_ID, protocol = originalProtocol),
+                RawMessage(MESSAGE_ID, protocol = wrongProtocol),
+                ParsedMessage(MESSAGE_ID, type = MESSAGE_TYPE, protocol = originalProtocol),
+                RawMessage(MESSAGE_ID, protocol = originalProtocol),
+                RawMessage()
+            )))
+        )
 
         val result = processor.process(batch)
 
@@ -95,6 +82,10 @@ class DecodeProcessorTest {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
         }
+    }
+
+    companion object {
+        const val MESSAGE_TYPE = "test-type"
     }
 }
 
