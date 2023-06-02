@@ -20,30 +20,21 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
     id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
     id 'signing'
-    id "org.owasp.dependencycheck" version "8.1.2"
-}
-
-
-ext {
-    sharedDir          = file("${project.rootDir}/shared")
+    id "org.owasp.dependencycheck" version "8.2.1"
 }
 
 group 'com.exactpro.th2'
 version release_version
 
-dependencyLocking {
-    lockAllConfigurations()
-}
-
 repositories {
     mavenCentral()
     maven {
-            name 'Sonatype_snapshots'
-            url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+        name 'Sonatype_snapshots'
+        url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
     maven {
-            name 'Sonatype_releases'
-            url 'https://s01.oss.sonatype.org/content/repositories/releases/'
+        name 'Sonatype_releases'
+        url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
     configurations.configureEach {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
@@ -55,17 +46,14 @@ repositories {
 dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:5.3.0-json-raw-body-5144283961-5ae02cd-SNAPSHOT'
-    implementation 'com.exactpro.th2:grpc-common'
-    implementation 'com.exactpro.th2:common-utils:2.1.0-transport-protocol-5144338850-92237a3-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:5.3.0-json-raw-body-5153351130-002af9f-SNAPSHOT'
+    implementation 'com.exactpro.th2:common-utils:2.1.0-transport-protocol-5153730274-14792e9-SNAPSHOT'
 
-    implementation 'io.github.microutils:kotlin-logging'
+    implementation 'io.github.microutils:kotlin-logging:3.0.0' // The last version bases on kotlin 1.6.0
 
     implementation 'com.fasterxml.jackson.core:jackson-core'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
-
-    implementation 'io.netty:netty-buffer'
 
     implementation('com.github.ajalt:clikt:2.8.0')
 
@@ -107,23 +95,24 @@ test {
 tasks.withType(PublishToMavenRepository).configureEach {
     onlyIf {
         (repository == publishing.repositories.nexusRepository &&
-            project.hasProperty('nexus_user') &&
-            project.hasProperty('nexus_password') &&
-            project.hasProperty('nexus_url')) ||
-        (repository == publishing.repositories.sonatype &&
-            project.hasProperty('sonatypeUsername') &&
-            project.hasProperty('sonatypePassword'))
+                project.hasProperty('nexus_user') &&
+                project.hasProperty('nexus_password') &&
+                project.hasProperty('nexus_url')) ||
+                (repository == publishing.repositories.sonatype &&
+                        project.hasProperty('sonatypeUsername') &&
+                        project.hasProperty('sonatypePassword'))
     }
 }
 tasks.withType(Sign).configureEach {
-    onlyIf { project.hasProperty('signingKey') &&
-        project.hasProperty('signingPassword')
+    onlyIf {
+        project.hasProperty('signingKey') &&
+                project.hasProperty('signingPassword')
     }
 }
 // disable running task 'initializeSonatypeStagingRepository' on a gitlab
 tasks.configureEach { task ->
-    if(task.name.equals('initializeSonatypeStagingRepository') &&
-        !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
+    if (task.name.equals('initializeSonatypeStagingRepository') &&
+            !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
     ) {
         task.enabled = false
     }
@@ -134,29 +123,29 @@ publishing {
         mavenJava(MavenPublication) {
             from(components.java)
             pom {
-              name = rootProject.name
-              packaging = 'jar'
-              description = rootProject.description
-              url = vcs_url
-              scm {
+                name = rootProject.name
+                packaging = 'jar'
+                description = rootProject.description
                 url = vcs_url
-              }
-              licenses {
-                license {
-                  name = 'The Apache License, Version 2.0'
-                  url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                scm {
+                    url = vcs_url
                 }
-              }
-              developers {
-                developer {
-                  id = 'developer'
-                  name = 'developer'
-                  email = 'developer@exactpro.com'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
                 }
-              }
-              scm {
-                url = vcs_url
-              }
+                developers {
+                    developer {
+                        id = 'developer'
+                        name = 'developer'
+                        email = 'developer@exactpro.com'
+                    }
+                }
+                scm {
+                    url = vcs_url
+                }
             }
         }
     }
@@ -198,8 +187,8 @@ dependencyLocking {
 }
 
 dependencyCheck {
-    formats=['SARIF', 'JSON', 'HTML']
-    failBuildOnCVSS=5
+    formats = ['SARIF', 'JSON', 'HTML']
+    failBuildOnCVSS = 5
 
     analyzers {
         assemblyEnabled = false
