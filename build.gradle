@@ -42,27 +42,22 @@ repositories {
     }
 }
 
-
 dependencies {
     api platform('com.exactpro.th2:bom:4.2.0')
 
-    implementation 'com.exactpro.th2:common:5.3.0-json-raw-body-5153351130-002af9f-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:5.3.0-json-raw-body-5222603329-9383ec5-SNAPSHOT'
     implementation 'com.exactpro.th2:common-utils:2.1.0-transport-protocol-5153730274-14792e9-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:3.0.0' // The last version bases on kotlin 1.6.0
 
-    implementation 'com.fasterxml.jackson.core:jackson-core'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
     implementation('com.github.ajalt:clikt:2.8.0')
 
-    implementation 'com.google.protobuf:protobuf-java-util'
-
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.3'
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
-    testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
-    testImplementation 'org.mockito:mockito-inline:4.11.0'
+    testImplementation "org.mockito.kotlin:mockito-kotlin:4.1.0"
 }
 
 jar {

@@ -32,7 +32,7 @@ class DecodeProcessorTest {
         val originalProtocols = setOf(originalProtocol)
         val wrongProtocol = "http"
 
-        val processor = DecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID.toProto(), false) { }
+        val processor = TransportDecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID.toProto(), false) { }
         val batch = GroupBatch(
             book = BOOK_NAME,
             sessionGroup = SESSION_GROUP_NAME,

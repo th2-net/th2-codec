@@ -33,7 +33,7 @@ class EventTest {
     fun `simple test - decode`() {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
+        val processor = TransportDecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -71,7 +71,7 @@ class EventTest {
     fun `Throw test - decode`() {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
+        val processor = TransportDecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -109,7 +109,7 @@ class EventTest {
     fun `Throw test - decode with warnings`() {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
+        val processor = TransportDecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -147,7 +147,7 @@ class EventTest {
     fun `simple test - decode with warnings`() {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
+        val processor = TransportDecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -185,7 +185,7 @@ class EventTest {
     fun `simple test - decode general with warnings`() {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = DecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
+        val processor = TransportDecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -223,7 +223,7 @@ class EventTest {
     fun `Throw test - decode general with warnings`() {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = DecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
+        val processor = TransportDecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,

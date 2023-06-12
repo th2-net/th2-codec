@@ -25,33 +25,178 @@ import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.isValid
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.utils.event.logId
 import mu.KotlinLogging
+import java.util.concurrent.CompletableFuture
 
-abstract class AbstractCodecProcessor(
+abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     protected val codec: IPipelineCodec,
+    private val protocols: Set<String>,
     private val codecEventID: EventID,
-    private val onEvent: (event: ProtoEvent) -> Unit,
+    private val useParentEventId: Boolean = true,
+    enabledVerticalScaling: Boolean = false,
+    private val process: Process,
+    private val onEvent: (event: ProtoEvent) -> Unit
 ) {
-    private val logger = KotlinLogging.logger {}
+    private val async = enabledVerticalScaling && Runtime.getRuntime().availableProcessors() > 1
+
+    protected abstract val BATCH.batchItems: List<GROUP>
+    protected abstract val GROUP.groupItems: List<MESSAGE>
+    protected abstract val GROUP.size: Int
+    protected abstract val GROUP.rawProtocols: Set<String>
+    protected abstract val GROUP.parsedProtocols: Set<String>
+    protected abstract val GROUP.eventIds: Sequence<EventID>
+    protected abstract fun GROUP.ids(batch: BATCH): List<MessageID>
+    protected abstract fun GROUP.toReadableBody(): List<String>
+    protected abstract val MESSAGE.isRaw: Boolean
+    protected abstract val MESSAGE.isParsed: Boolean
+    protected abstract fun createBatch(sourceBatch: BATCH, groups: List<GROUP>): BATCH
+    protected abstract fun IPipelineCodec.genericDecode(group: GROUP, context: ReportingContext): GROUP
+    protected abstract fun IPipelineCodec.genericEncode(group: GROUP, context: ReportingContext): GROUP
+
+    enum class Process(
+        val inputMessageType: String,
+        val isInvalidResultSize: (inputGroupSize: Int, outputGroupSize: Int) -> Boolean,
+        val operationName: String
+    ) {
+        Decode(
+            inputMessageType = "raw",
+            isInvalidResultSize = { inputGroupSize, outputGroupSize -> inputGroupSize > outputGroupSize },
+            operationName = "less"
+        ),
+        Encode(
+            inputMessageType = "parsed",
+            isInvalidResultSize = { inputGroupSize, outputGroupSize -> inputGroupSize < outputGroupSize },
+            operationName = "more"
+        );
+
+        val actionName = name.lowercase()
+        val opposite: Process get() = when(this) {
+            Decode -> Encode
+            Encode -> Decode
+        }
+    }
+
+    private val GROUP.protocols: Set<String> get() = when(process) {
+        Process.Decode -> rawProtocols
+        Process.Encode -> parsedProtocols
+    }
+
+    private fun IPipelineCodec.recode(group: GROUP, context: ReportingContext): GROUP = when(process) {
+        Process.Decode -> genericDecode(group, context)
+        Process.Encode -> genericEncode(group, context)
+    }
+
+    private val MESSAGE.isInputMessage: Boolean get() = when(process) {
+        Process.Decode -> isRaw
+        Process.Encode -> isParsed
+    }
+
+    protected abstract val toErrorGroup: GROUP.(infoMessage: String, protocols: Collection<String>, throwable: Throwable, errorEventID: EventID) -> GROUP
 
     protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)
 
-    protected fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
+    private fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
 
-    abstract fun process(source: GroupBatch): GroupBatch
-    abstract fun process(source: MessageGroupBatch): MessageGroupBatch
+    fun process(source: BATCH): BATCH {
+        val sourceGroups = source.batchItems
+        val resultGroups = mutableListOf<GROUP>()
+
+        if (async) {
+            val messageGroupFutures = Array(sourceGroups.size) {
+                processMessageGroupAsync(source, sourceGroups[it])
+            }
+
+            CompletableFuture.allOf(*messageGroupFutures).whenComplete { _, _ ->
+                messageGroupFutures.forEach { it.get()?.run(resultGroups::add) }
+            }.get()
+        } else {
+            sourceGroups.forEach { group ->
+                processMessageGroup(source, group)?.run(resultGroups::add)
+            }
+        }
+
+        if (sourceGroups.size != resultGroups.size) {
+            onErrorEvent("Group count in the processed batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
+        }
+
+        return createBatch(source, resultGroups)
+    }
+
+    private fun processMessageGroupAsync(batch: BATCH, group: GROUP) = CompletableFuture.supplyAsync {
+        processMessageGroup(batch, group)
+    }
+
+    private fun processMessageGroup(batch: BATCH, messageGroup: GROUP): GROUP? {
+        if (messageGroup.size == 0) {
+            onErrorEvent("Cannot ${process.actionName} empty message group")
+            return null
+        }
+
+        if (messageGroup.groupItems.none { it.isInputMessage }) {
+            LOGGER.debug { "Message group has no ${process.inputMessageType} messages in it" }
+            return messageGroup
+        }
+
+        val parentEventIds: Sequence<EventID> = if (useParentEventId) messageGroup.eventIds else emptySequence()
+        val context = ReportingContext()
+
+        try {
+            val msgProtocols = messageGroup.protocols
+            if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                return messageGroup
+            }
+
+            val recodedGroup = codec.recode(messageGroup, context)
+
+            if (process.isInvalidResultSize(messageGroup.size, recodedGroup.size)) {
+                parentEventIds.onEachEvent("${process.name}d message group contains ${process.operationName} messages (${recodedGroup.size}) than ${process.opposite.actionName}d one (${messageGroup.size})")
+            }
+
+            return recodedGroup
+        } catch (e: ValidateException) {
+            val header = "Failed to ${process.actionName}: ${e.title}"
+
+            return when (process) {
+                Process.Decode -> {
+                    val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), e)
+                    messageGroup.toErrorGroup(header, protocols, e, errorEventId)
+                }
+                Process.Encode -> {
+                    parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), e, e.details + messageGroup.toReadableBody())
+                    null
+                }
+            }
+        } catch (throwable: Throwable) {
+            val header = "Failed to ${process.actionName} message group"
+            return when (process) {
+                Process.Decode -> {
+                    val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), throwable)
+                    messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
+                }
+                Process.Encode -> {
+                    // we should not use message IDs because during encoding there is no correct message ID created yet
+                    parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), throwable, messageGroup.toReadableBody())
+                    null
+                }
+            }
+        } finally {
+            when (process) {
+                Process.Decode -> parentEventIds.onEachWarning(context, "decoding") { messageGroup.ids(batch) }
+                Process.Encode -> parentEventIds.onEachWarning(context, "encoding", additionalBody = { messageGroup.toReadableBody() })
+            }
+        }
+    }
 
     private fun EventID.onEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList(),
     ) : EventID {
-        logger.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
+        LOGGER.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
         return this.publishEvent(message, messagesIds, body = body).id
     }
 
@@ -61,11 +206,11 @@ abstract class AbstractCodecProcessor(
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList()
     ): EventID {
-        logger.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
+        LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
         return publishEvent(message, messagesIds, FAILED, cause, additionalBody).id
     }
 
-    protected fun Sequence<EventID>.onEachEvent(
+    private fun Sequence<EventID>.onEachEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
@@ -76,7 +221,7 @@ abstract class AbstractCodecProcessor(
         }
     }
 
-    protected fun Sequence<EventID>.onEachErrorEvent(
+    private fun Sequence<EventID>.onEachErrorEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
@@ -87,7 +232,7 @@ abstract class AbstractCodecProcessor(
         return errorEventId
     }
 
-    protected fun Sequence<EventID>.onEachWarning(
+    private fun Sequence<EventID>.onEachWarning(
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
@@ -118,7 +263,7 @@ abstract class AbstractCodecProcessor(
         .also(onEvent)
         .id
 
-    protected fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
+    private fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
         incomingProtocols.none { it.isBlank() || it in this }  -> false
         incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
         else -> true
@@ -158,5 +303,9 @@ abstract class AbstractCodecProcessor(
         companion object {
             const val TYPE = "reference"
         }
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
     }
 }

@@ -23,7 +23,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 class TransportSyncEncoder(
     protoRouter: MessageRouter<GroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
-    processor: AbstractCodecProcessor,
+    processor: TransportEncodeProcessor,
     codecRootID: EventID,
 ) : AbstractTransportSyncCodec(
     protoRouter,

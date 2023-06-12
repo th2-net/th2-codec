@@ -38,7 +38,7 @@ fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: Event
         ERROR_TYPE_MESSAGE,
         metadata,
         protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString(),
-        mapOf(ERROR_CONTENT_FIELD to errorMessage, ERROR_EVENT_ID to errorEventId.toString())
+        hashMapOf(ERROR_CONTENT_FIELD to errorMessage, ERROR_EVENT_ID to errorEventId.toString())
     )
 
 fun MessageGroup.toErrorGroup(

@@ -21,7 +21,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 class TransportSyncDecoder(
     transportRouter: MessageRouter<GroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
-    processor: AbstractCodecProcessor,
+    processor: TransportDecodeProcessor,
     codecRootID: EventID,
 ) : AbstractTransportSyncCodec(
     transportRouter,

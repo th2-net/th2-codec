@@ -31,7 +31,7 @@ class ProcessorTest {
 
     @Test
     fun `simple test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -50,7 +50,7 @@ class ProcessorTest {
 
     @Test
     fun `other protocol in raw message test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -65,7 +65,7 @@ class ProcessorTest {
 
     @Test
     fun `one parsed message in group test - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -86,7 +86,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = DecodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportDecodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -113,7 +113,7 @@ class ProcessorTest {
 
     @Test
     fun `simple test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -132,7 +132,7 @@ class ProcessorTest {
 
     @Test
     fun `other protocol in parsed message test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -146,7 +146,7 @@ class ProcessorTest {
 
     @Test
     fun `one raw message in group test - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -168,7 +168,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = EncodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportEncodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -195,7 +195,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on failed protocol check - encode`() {
-        val processor = EncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -214,7 +214,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - encode`() {
-        val processor = EncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportEncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -233,7 +233,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on thrown - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportDecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -295,7 +295,7 @@ class ProcessorTest {
 
     @Test
     fun `error message on failed protocol check - decode`() {
-        val processor = DecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -340,7 +340,7 @@ class ProcessorTest {
 
     @Test
     fun `multiple protocol test - decode`() {
-        val processor = DecodeProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID.toProto()) { }
+        val processor = TransportDecodeProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID.toProto()) { }
         val batch = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP_NAME,
@@ -409,14 +409,14 @@ class ProcessorTest {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
-            return MessageGroup(messages = mutableListOf(RawMessage()))
+            return MessageGroup(listOf(RawMessage()))
         }
 
         override fun decode(messageGroup: MessageGroup): MessageGroup {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
-            return MessageGroup(messages = mutableListOf(ParsedMessage(type = MESSAGE_TYPE)))
+            return MessageGroup(listOf(ParsedMessage(type = MESSAGE_TYPE)))
         }
     }
 }

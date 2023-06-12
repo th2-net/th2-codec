@@ -1,4 +1,4 @@
-# Description (5.2.0)
+# Description (5.3.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -35,7 +35,7 @@ To implement a codec using this library you need to:
     }
     ```
 
-2. add dependency on `com.exactpro.th2:codec:5.2.0-dev` into `build.gradle`
+2. add dependency on `com.exactpro.th2:codec:5.3.0-dev` into `build.gradle`
 
 3. set main class to `com.exactpro.th2.codec.MainKt`
 
@@ -49,11 +49,18 @@ To implement a codec using this library you need to:
 4. implement the codec itself by implementing [`IPipelineCodec`](https://github.com/th2-net/th2-codec/blob/2707a2755038d49110f6f7eb3e3aeb6188ae0c99/src/main/kotlin/com/exactpro/th2/codec/api/IPipelineCodec.kt#L21) interface:
     ```kotlin
     interface IPipelineCodec : AutoCloseable {
-        fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup) method is not implemented")
+        fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup: MessageGroup) method is not implemented")
         fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
 
-        fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup) method is not implemented")
+        fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup: MessageGroup) method is not implemented")
         fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
+
+        fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = TODO("encode(messageGroup: ProtoMessageGroup) method is not implemented")
+        fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = encode(messageGroup)
+   
+        fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = TODO("decode(messageGroup: ProtoMessageGroup) method is not implemented")
+        fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = decode(messageGroup)
+
         override fun close() {}
     }
     ```
@@ -244,6 +251,10 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v5.3.0
+
+* TH2 transport protocol support
 
 ### v5.2.0
 

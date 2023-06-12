@@ -24,10 +24,10 @@ import mu.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.TimeoutException
 
-abstract class AbstractCodec<B>(
-    private val router: MessageRouter<B>,
+abstract class AbstractCodec<BATCH>(
+    private val router: MessageRouter<BATCH>,
     private val eventRouter: MessageRouter<EventBatch>,
-    private val codecRootEvent: EventID,
+    private val codecRootEvent: EventID
 ) : AutoCloseable {
     private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
@@ -49,8 +49,8 @@ abstract class AbstractCodec<B>(
 
     override fun close() {}
 
-    private fun handle(deliveryMetadata: DeliveryMetadata, batch: B) {
-        var result: B? = null
+    private fun handle(deliveryMetadata: DeliveryMetadata, batch: BATCH) {
+        var result: BATCH? = null
 
         try {
             result = process(batch)
@@ -83,8 +83,8 @@ abstract class AbstractCodec<B>(
         }
     }
 
-    protected abstract fun process(batch: B): B
+    protected abstract fun process(batch: BATCH): BATCH
 
-    abstract fun getParentEventId(codecRootID: EventID, source: B, result: B?): EventID
-    abstract fun checkResult(result: B): Boolean
+    abstract fun getParentEventId(codecRootID: EventID, source: BATCH, result: BATCH?): EventID
+    abstract fun checkResult(result: BATCH): Boolean
 }
