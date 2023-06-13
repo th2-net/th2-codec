@@ -87,7 +87,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     ): AutoCloseable = ProtoSyncEncoder(
             protoRouter,
             eventRouter,
-            ProtoEncoderProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            ProtoEncodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
             rootEventId
         ).apply {
             start(sourceAttributes, targetAttributes)
@@ -101,7 +101,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     ): AutoCloseable = ProtoSyncDecoder(
             protoRouter,
             eventRouter,
-            ProtoDecoderProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            ProtoDecodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
             rootEventId
         ).apply {
             start(sourceAttributes, targetAttributes)

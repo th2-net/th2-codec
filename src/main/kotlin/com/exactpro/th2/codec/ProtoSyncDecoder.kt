@@ -21,7 +21,7 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 class ProtoSyncDecoder(
     protoRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
-    processor: ProtoDecoderProcessor,
+    processor: ProtoDecodeProcessor,
     codecRootID: EventID,
 ) : AbstractProtoSyncCodec(
     protoRouter,

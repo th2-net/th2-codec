@@ -61,12 +61,12 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
         val isInvalidResultSize: (inputGroupSize: Int, outputGroupSize: Int) -> Boolean,
         val operationName: String
     ) {
-        Decode(
+        DECODE(
             inputMessageType = "raw",
             isInvalidResultSize = { inputGroupSize, outputGroupSize -> inputGroupSize > outputGroupSize },
             operationName = "less"
         ),
-        Encode(
+        ENCODE(
             inputMessageType = "parsed",
             isInvalidResultSize = { inputGroupSize, outputGroupSize -> inputGroupSize < outputGroupSize },
             operationName = "more"
@@ -74,24 +74,24 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
 
         val actionName = name.lowercase()
         val opposite: Process get() = when(this) {
-            Decode -> Encode
-            Encode -> Decode
+            DECODE -> ENCODE
+            ENCODE -> DECODE
         }
     }
 
     private val GROUP.protocols: Set<String> get() = when(process) {
-        Process.Decode -> rawProtocols
-        Process.Encode -> parsedProtocols
+        Process.DECODE -> rawProtocols
+        Process.ENCODE -> parsedProtocols
     }
 
     private fun IPipelineCodec.recode(group: GROUP, context: ReportingContext): GROUP = when(process) {
-        Process.Decode -> genericDecode(group, context)
-        Process.Encode -> genericEncode(group, context)
+        Process.DECODE -> genericDecode(group, context)
+        Process.ENCODE -> genericEncode(group, context)
     }
 
     private val MESSAGE.isInputMessage: Boolean get() = when(process) {
-        Process.Decode -> isRaw
-        Process.Encode -> isParsed
+        Process.DECODE -> isRaw
+        Process.ENCODE -> isParsed
     }
 
     protected abstract val toErrorGroup: GROUP.(infoMessage: String, protocols: Collection<String>, throwable: Throwable, errorEventID: EventID) -> GROUP
@@ -161,11 +161,11 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             val header = "Failed to ${process.actionName}: ${e.title}"
 
             return when (process) {
-                Process.Decode -> {
+                Process.DECODE -> {
                     val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), e)
                     messageGroup.toErrorGroup(header, protocols, e, errorEventId)
                 }
-                Process.Encode -> {
+                Process.ENCODE -> {
                     parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), e, e.details + messageGroup.toReadableBody())
                     null
                 }
@@ -173,11 +173,11 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
         } catch (throwable: Throwable) {
             val header = "Failed to ${process.actionName} message group"
             return when (process) {
-                Process.Decode -> {
+                Process.DECODE -> {
                     val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), throwable)
                     messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
                 }
-                Process.Encode -> {
+                Process.ENCODE -> {
                     // we should not use message IDs because during encoding there is no correct message ID created yet
                     parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), throwable, messageGroup.toReadableBody())
                     null
@@ -185,8 +185,8 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             }
         } finally {
             when (process) {
-                Process.Decode -> parentEventIds.onEachWarning(context, "decoding") { messageGroup.ids(batch) }
-                Process.Encode -> parentEventIds.onEachWarning(context, "encoding", additionalBody = { messageGroup.toReadableBody() })
+                Process.DECODE -> parentEventIds.onEachWarning(context, "decoding") { messageGroup.ids(batch) }
+                Process.ENCODE -> parentEventIds.onEachWarning(context, "encoding", additionalBody = { messageGroup.toReadableBody() })
             }
         }
     }

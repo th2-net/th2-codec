@@ -54,19 +54,19 @@ sealed class ProtoCodecProcessor (
     override fun IPipelineCodec.genericEncode(group: MessageGroup, context: ReportingContext): MessageGroup = codec.encode(group, context)
 }
 
-class ProtoDecoderProcessor(codec: IPipelineCodec,
-    protocols: Set<String>,
-    codecEventID: EventID,
-    useParentEventId: Boolean = true,
-    enabledVerticalScaling: Boolean = false,
-    onEvent: (event: ProtoEvent) -> Unit
-) : ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.Decode, onEvent)
+class ProtoDecodeProcessor(codec: IPipelineCodec,
+                           protocols: Set<String>,
+                           codecEventID: EventID,
+                           useParentEventId: Boolean = true,
+                           enabledVerticalScaling: Boolean = false,
+                           onEvent: (event: ProtoEvent) -> Unit
+) : ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.DECODE, onEvent)
 
-class ProtoEncoderProcessor(
+class ProtoEncodeProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
     codecEventID: EventID,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     onEvent: (event: ProtoEvent) -> Unit
-) : ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.Encode, onEvent)
+) : ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.ENCODE, onEvent)

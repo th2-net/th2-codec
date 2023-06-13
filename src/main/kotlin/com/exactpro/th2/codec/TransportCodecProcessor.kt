@@ -65,7 +65,7 @@ class TransportDecodeProcessor(
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     onEvent: (event: ProtoEvent) -> Unit
-) : TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.Decode, onEvent)
+) : TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.DECODE, onEvent)
 
 class TransportEncodeProcessor(
     codec: IPipelineCodec,
@@ -74,4 +74,4 @@ class TransportEncodeProcessor(
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     onEvent: (event: ProtoEvent) -> Unit
-) : TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.Encode, onEvent)
+) : TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.ENCODE, onEvent)
