@@ -33,7 +33,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
 import com.exactpro.th2.common.grpc.EventID as ProtoEventID
 
-sealed class TransportCodecProcessor(
+open class TransportCodecProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
     codecEventID: ProtoEventID,

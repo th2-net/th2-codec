@@ -21,270 +21,255 @@ import com.exactpro.th2.codec.util.ERROR_CONTENT_FIELD
 import com.exactpro.th2.codec.util.ERROR_EVENT_ID
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.codec.util.toProto
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.*
+import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
+import com.exactpro.th2.codec.AbstractCodecProcessor.Process.ENCODE
+import com.exactpro.th2.common.grpc.MessageMetadata
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
+import com.exactpro.th2.common.grpc.AnyMessage as ProtoAnyMessage
+import com.exactpro.th2.common.grpc.Message as ProtoMessage
+import com.exactpro.th2.common.grpc.RawMessage as ProtoRawMessage
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.util.UUID
-import kotlin.test.assertIs
 
 class ProcessorTest {
 
-    @Test
-    fun `simple test - decode`() {
-        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                ParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL),
-                RawMessage(protocol = WRONG_PROTOCOL),
-                RawMessage(protocol = WRONG_PROTOCOL),
-                RawMessage(protocol = ORIGINAL_PROTOCOL)
-            )))
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `simple test - decode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(1, result.groupsCount) { "Wrong batch size" }
     }
 
-    @Test
-    fun `other protocol in raw message test - decode`() {
-        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(RawMessage(protocol = WRONG_PROTOCOL))))
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `other protocol in raw message test - decode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(1, result.groupsCount) { "Wrong batch size" }
     }
 
-
-    @Test
-    fun `one parsed message in group test - decode`() {
-        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(
-                MessageGroup(listOf(ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL))),
-                MessageGroup(listOf(ParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL))),
-                MessageGroup(listOf(ParsedMessage(type = MESSAGE_TYPE), ParsedMessage(type = MESSAGE_TYPE)))
-            )
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `one parsed message in group test - decode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .startNewMessageGroup()
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
+            .startNewMessageGroup()
+            .addNewParsedMessage(type = MESSAGE_TYPE)
+            .addNewParsedMessage(type = MESSAGE_TYPE)
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(3, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(3, result.groupsCount) { "Wrong batch size" }
     }
 
-    @Test
-    fun `multiple protocols test - decode`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `multiple protocols test - decode`(protocol: Protocol) {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = TransportDecodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(
-                MessageGroup(listOf(
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL),
-                    RawMessage(protocol = WRONG_PROTOCOL),
-                    RawMessage(protocol = WRONG_PROTOCOL),
-                    RawMessage(protocol = ORIGINAL_PROTOCOL)
-                )),
-                MessageGroup(listOf(
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = secondOriginalProtocol),
-                    RawMessage(protocol = WRONG_PROTOCOL),
-                    RawMessage(protocol = WRONG_PROTOCOL),
-                    RawMessage(protocol = secondOriginalProtocol)
-                ))
-            )
-        )
+        val processor = UniversalCodecProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
+            .startNewMessageGroup()
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = secondOriginalProtocol)
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = secondOriginalProtocol)
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(2, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(2, result.groupsCount) { "Wrong batch size" }
     }
 
-    @Test
-    fun `simple test - encode`() {
-        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL),
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL, ),
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL),
-                    RawMessage(protocol = ORIGINAL_PROTOCOL)
-            )))
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `simple test - encode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = ENCODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL, )
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(1, result.groupsCount) { "Wrong batch size" }
     }
 
-    @Test
-    fun `other protocol in parsed message test - encode`() {
-        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL))))
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `other protocol in parsed message test - encode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = ENCODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(1, result.groupsCount) { "Wrong batch size" }
     }
 
-    @Test
-    fun `one raw message in group test - encode`() {
-        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(
-                MessageGroup(listOf(RawMessage(protocol = ORIGINAL_PROTOCOL))),
-                MessageGroup(listOf(RawMessage(protocol = WRONG_PROTOCOL))),
-                MessageGroup(listOf(RawMessage(), RawMessage()))
-            )
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `one raw message in group test - encode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = ENCODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
+            .startNewMessageGroup()
+            .addNewRawMessage(protocol = WRONG_PROTOCOL)
+            .startNewMessageGroup()
+            .addNewRawMessage()
+            .addNewRawMessage()
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(3, result.groups.size) { "Wrong batch size" }
+        Assertions.assertEquals(3, result.groupsCount) { "Wrong batch size" }
     }
 
-
-    @Test
-    fun `multiple protocols test - encode`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `multiple protocols test - encode`(protocol: Protocol) {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = TransportEncodeProcessor(TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(
-                MessageGroup(listOf(
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL),
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL),
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL),
-                    RawMessage(protocol = ORIGINAL_PROTOCOL)
-                )),
-                MessageGroup(listOf(
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = secondOriginalProtocol),
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL),
-                    ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL),
-                    RawMessage(protocol = secondOriginalProtocol)
-                ))
+        val processor = UniversalCodecProcessor (TestCodec(false), originalProtocols, CODEC_EVENT_ID.toProto(), process = ENCODE, protocol = protocol) {}
+
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
+            .startNewMessageGroup()
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = secondOriginalProtocol)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .addNewRawMessage(protocol = secondOriginalProtocol)
+            .build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(2, result.groupsCount) { "Wrong batch size" }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `error message on failed protocol check - encode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = ENCODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
+            .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
+            .addNewParsedMessage(type = MESSAGE_TYPE)
+            .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
+            .build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(0, result.groupsCount) { "Wrong batch size" }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `error message on thrown - encode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor (TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = ENCODE, protocol = protocol) {}
+
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(id = MESSAGE_ID, type = MESSAGE_TYPE, protocol = EventTest.ORIGINAL_PROTOCOL)
+            .addNewParsedMessage(id = MESSAGE_ID, type = MESSAGE_TYPE, protocol = EventTest.WRONG_PROTOCOL)
+            .addNewParsedMessage(id = MESSAGE_ID, type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
+            .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
+            .build()
+
+        val result = processor.process(batch)
+
+        Assertions.assertEquals(0, result.groupsCount) { "Wrong batch size" }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `error message on thrown - decode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor (TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
             )
-        )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewParsedMessage(
+                type = MESSAGE_TYPE,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(2, result.groups.size) { "Wrong batch size" }
-    }
+        Assertions.assertEquals(1, result.groupsCount) { "Wrong batch size" }
+        Assertions.assertEquals(4, result.groupCursor.messagesCount) { "group of outgoing messages must be the same size" }
 
-    @Test
-    fun `error message on failed protocol check - encode`() {
-        val processor = TransportEncodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                ParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL),
-                ParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL),
-                ParsedMessage(type = MESSAGE_TYPE),
-                RawMessage(protocol = ORIGINAL_PROTOCOL)
-            )))
-        )
-
-        val result = processor.process(batch)
-
-        Assertions.assertEquals(0, result.groups.size) { "Wrong batch size" }
-    }
-
-    @Test
-    fun `error message on thrown - encode`() {
-        val processor = TransportEncodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                    ParsedMessage(id = MESSAGE_ID, type = MESSAGE_TYPE, protocol = EventTest.ORIGINAL_PROTOCOL),
-                    ParsedMessage(id = MESSAGE_ID, type = MESSAGE_TYPE, protocol = EventTest.WRONG_PROTOCOL),
-                    ParsedMessage(id = MESSAGE_ID, type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL),
-                    RawMessage(protocol = ORIGINAL_PROTOCOL)
-            )))
-        )
-
-        val result = processor.process(batch)
-
-        Assertions.assertEquals(0, result.groups.size) { "Wrong batch size" }
-    }
-
-    @Test
-    fun `error message on thrown - decode`() {
-        val processor = TransportDecodeProcessor(TestCodec(true), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = ORIGINAL_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                ParsedMessage(
-                    type = MESSAGE_TYPE,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = ORIGINAL_PROTOCOL
-                )
-            )))
-        )
-
-        val result = processor.process(batch)
-
-        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
-        Assertions.assertEquals(4, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
-
-        assertIs<ParsedMessage>(result.groups[0].messages[0]).let {
+        result.groupCursor.messageCursor.asParsed.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
-            Assertions.assertTrue(ERROR_EVENT_ID in it.body)
-            Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
+            val parsedBody = it.body
+            Assertions.assertTrue(ERROR_EVENT_ID in parsedBody)
+            Assertions.assertTrue(ERROR_CONTENT_FIELD in parsedBody)
         }
 
-        assertIs<RawMessage>(result.groups[0].messages[1]).let {
+        result.groupCursor.currentMessageIndex = 1
+        result.groupCursor.messageCursor.asRaw.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.protocol)
         }
 
-        assertIs<ParsedMessage>(result.groups[0].messages[2]).let {
-            Assertions.assertEquals("test-type", it.type)
+        result.groupCursor.currentMessageIndex = 2
+        result.groupCursor.messageCursor.asParsed.let {
+            Assertions.assertEquals(MESSAGE_TYPE, it.type)
             Assertions.assertEquals(WRONG_PROTOCOL, it.protocol)
-            Assertions.assertFalse(ERROR_EVENT_ID in it.body)
-            Assertions.assertFalse(ERROR_CONTENT_FIELD in it.body)
+            val parsedBody = it.body
+            Assertions.assertFalse(ERROR_EVENT_ID in parsedBody)
+            Assertions.assertFalse(ERROR_CONTENT_FIELD in parsedBody)
         }
 
-        assertIs<ParsedMessage>(result.groups[0].messages[3]).let {
+        result.groupCursor.currentMessageIndex = 3
+        result.groupCursor.messageCursor.asParsed.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
             Assertions.assertTrue(ERROR_EVENT_ID in it.body)
@@ -292,45 +277,44 @@ class ProcessorTest {
         }
     }
 
-
-    @Test
-    fun `error message on failed protocol check - decode`() {
-        val processor = TransportDecodeProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                RawMessage(
-                    id = MESSAGE_ID,
-                    protocol = ORIGINAL_PROTOCOL,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    protocol = WRONG_PROTOCOL,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
-                ),
-                RawMessage(eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()))
-            )))
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `error message on failed protocol check - decode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                protocol = ORIGINAL_PROTOCOL,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                protocol = WRONG_PROTOCOL,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString())
+            )
+            .addNewRawMessage(eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()))
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
-        Assertions.assertEquals(3, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
+        Assertions.assertEquals(1, result.groupsCount) { "Wrong batch size" }
+        Assertions.assertEquals(3, result.groupCursor.messagesCount) { "group of outgoing messages must be the same size" }
 
-        assertIs<ParsedMessage>(result.groups[0].messages[0]).let {
+
+        result.groupCursor.messageCursor.asParsed.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
             Assertions.assertTrue(ERROR_EVENT_ID in it.body)
             Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
 
-        assertIs<RawMessage>(result.groups[0].messages[1]).let {
+        result.groupCursor.currentMessageIndex = 1
+        result.groupCursor.messageCursor.asRaw.let {
             Assertions.assertEquals(WRONG_PROTOCOL, it.protocol)
         }
 
-        assertIs<ParsedMessage>(result.groups[0].messages[2]).let {
+        result.groupCursor.currentMessageIndex = 2
+        result.groupCursor.messageCursor.asParsed.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals(ORIGINAL_PROTOCOL, it.protocol)
             Assertions.assertTrue(ERROR_EVENT_ID in it.body)
@@ -338,65 +322,60 @@ class ProcessorTest {
         }
     }
 
-    @Test
-    fun `multiple protocol test - decode`() {
-        val processor = TransportDecodeProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID.toProto()) { }
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                RawMessage(
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = "xml"
-                ),
-                RawMessage(
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = "json"
-                ),
-                RawMessage(
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = "http"
-                ),
-                RawMessage(eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()))
-            )))
-        )
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `multiple protocol test - decode`(protocol: Protocol) {
+        val processor = UniversalCodecProcessor(TestCodec(true), setOf("xml", "json"), CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewRawMessage(
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = "xml"
+            )
+            .addNewRawMessage(
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = "json"
+            )
+            .addNewRawMessage(
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = "http"
+            )
+            .addNewRawMessage(eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()))
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(1, result.groups.size) { "Wrong batch size" }
-        Assertions.assertEquals(4, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
+        Assertions.assertEquals(1, result.groupsCount) { "Wrong batch size" }
+        Assertions.assertEquals(
+            4,
+            result.groupCursor.messagesCount
+        ) { "group of outgoing messages must be the same size" }
 
-        assertIs<ParsedMessage>(result.groups[0].messages[0]).let {
+        result.groupCursor.messageCursor.asParsed.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals("xml", it.protocol)
         }
 
-        assertIs<ParsedMessage>(result.groups[0].messages[1]).let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
-            Assertions.assertEquals("json", it.protocol)
-        }
-
-        assertIs<RawMessage>(result.groups[0].messages[2]).let {
-            Assertions.assertEquals("http", it.protocol)
-        }
-
-        assertIs<ParsedMessage>(result.groups[0].messages[1]).let {
+        result.groupCursor.currentMessageIndex = 1
+        result.groupCursor.messageCursor.asParsed.let {
             Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
             Assertions.assertEquals("json", it.protocol)
             Assertions.assertTrue(ERROR_EVENT_ID in it.body)
             Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
 
-        assertIs<RawMessage>(result.groups[0].messages[2]).let {
+        result.groupCursor.currentMessageIndex = 2
+        result.groupCursor.messageCursor.asRaw.let {
             Assertions.assertEquals("http", it.protocol)
         }
 
-        assertIs<ParsedMessage>(result.groups[0].messages[3]).let {
+        result.groupCursor.currentMessageIndex = 3
+        result.groupCursor.messageCursor.asParsed.let {
             Assertions.assertEquals("[xml, json]", it.protocol)
             Assertions.assertTrue(ERROR_EVENT_ID in it.body)
             Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
     }
+
     companion object {
         const val ORIGINAL_PROTOCOL = "xml"
         const val WRONG_PROTOCOL = "http"
@@ -417,6 +396,32 @@ class ProcessorTest {
                 throw NullPointerException("Simple null pointer exception")
             }
             return MessageGroup(listOf(ParsedMessage(type = MESSAGE_TYPE)))
+        }
+
+        override fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup {
+            if (throwEx) {
+                throw NullPointerException("Simple null pointer exception")
+            }
+            return ProtoMessageGroup.newBuilder()
+                .addAllMessages(listOf(
+                    ProtoAnyMessage.newBuilder()
+                        .setRawMessage(ProtoRawMessage.getDefaultInstance())
+                        .build()))
+                .build()
+        }
+
+        override fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup {
+            if (throwEx) {
+                throw NullPointerException("Simple null pointer exception")
+            }
+            return ProtoMessageGroup.newBuilder()
+                .addAllMessages(listOf(
+                    ProtoAnyMessage.newBuilder()
+                        .setMessage(ProtoMessage.newBuilder().setMetadata(
+                            MessageMetadata.newBuilder().setMessageType(MESSAGE_TYPE)
+                        ))
+                        .build()))
+                .build()
         }
     }
 }

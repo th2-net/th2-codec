@@ -19,8 +19,11 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.util.toProto
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.*
-import org.junit.jupiter.api.Test
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
+import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
@@ -29,228 +32,210 @@ import java.util.UUID
 
 class EventTest {
 
-    @Test
-    fun `simple test - decode`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `simple test - decode`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = TransportDecodeProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf<Message<*>>(
-                ParsedMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    type = MESSAGE_TYPE,
-                    protocol = ORIGINAL_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = ORIGINAL_PROTOCOL
-                )
-            )))
-        )
+        val processor = UniversalCodecProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol, onEvent = onEvent)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                type = MESSAGE_TYPE,
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .build()
 
         processor.process(batch)
 
         verify(onEvent, times(0)).invoke(any())
     }
 
-    @Test
-    fun `Throw test - decode`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `Throw test - decode`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = TransportDecodeProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf<Message<*>>(
-                ParsedMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    type = MESSAGE_TYPE,
-                    protocol = ORIGINAL_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = ORIGINAL_PROTOCOL
-                )
-            )))
-        )
+        val processor = UniversalCodecProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol, onEvent = onEvent)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                type = MESSAGE_TYPE,
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .build()
 
         processor.process(batch)
 
         verify(onEvent, times(5) /* root event (1) and 1 for each EventID (4) = 5 */).invoke(any())
     }
 
-    @Test
-    fun `Throw test - decode with warnings`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `Throw test - decode with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = TransportDecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                ParsedMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    type = MESSAGE_TYPE,
-                    protocol = ORIGINAL_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = ORIGINAL_PROTOCOL
-                )
-            )))
-        )
+        val processor = UniversalCodecProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol, onEvent = onEvent)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                type = MESSAGE_TYPE,
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .build()
 
         processor.process(batch)
 
         verify(onEvent, times(15) /* root event (1) + 1 for each EventID (4) + 2 warnings for each EventID (8) + 2 root warnings (2) = 15 */).invoke(any())
     }
 
-    @Test
-    fun `simple test - decode with warnings`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `simple test - decode with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = TransportDecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), onEvent = onEvent)
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                    ParsedMessage(
-                        id = MESSAGE_ID,
-                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                        type = MESSAGE_TYPE,
-                        protocol = ORIGINAL_PROTOCOL
-                    ),
-                    RawMessage(
-                        id = MESSAGE_ID,
-                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                        protocol = WRONG_PROTOCOL
-                    ),
-                    RawMessage(
-                        id = MESSAGE_ID,
-                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                        protocol = WRONG_PROTOCOL
-                    ),
-                    RawMessage(
-                        id = MESSAGE_ID,
-                        eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                        protocol = ORIGINAL_PROTOCOL
-                    )
-                )))
-        )
+        val processor = UniversalCodecProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), process = DECODE, protocol = protocol, onEvent = onEvent)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                type = MESSAGE_TYPE,
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .build()
 
         processor.process(batch)
 
         verify(onEvent, times(10) /* 2 warnings for each EventID (8) + 2 root warnings (2) = 10 */).invoke(any())
     }
 
-    @Test
-    fun `simple test - decode general with warnings`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `simple test - decode general with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = TransportDecodeProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                ParsedMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    type = MESSAGE_TYPE,
-                    protocol = ORIGINAL_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = ORIGINAL_PROTOCOL
-                )
-            )))
-        )
+        val processor = UniversalCodecProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, process = DECODE, protocol = protocol, onEvent = onEvent)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                type = MESSAGE_TYPE,
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .build()
 
         processor.process(batch)
 
         verify(onEvent, times(2) /* 2 root warnings = 2 */).invoke(any())
     }
 
-    @Test
-    fun `Throw test - decode general with warnings`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `Throw test - decode general with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = TransportDecodeProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, onEvent = onEvent)
-        val batch = GroupBatch(
-            BOOK_NAME,
-            SESSION_GROUP_NAME,
-            listOf(MessageGroup(listOf(
-                ParsedMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    type = MESSAGE_TYPE,
-                    protocol = ORIGINAL_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = WRONG_PROTOCOL
-                ),
-                RawMessage(
-                    id = MESSAGE_ID,
-                    eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
-                    protocol = ORIGINAL_PROTOCOL
-                )
-            )))
-        )
+        val processor = UniversalCodecProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, CODEC_EVENT_ID.toProto(), false, process = DECODE, protocol = protocol, onEvent = onEvent)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewParsedMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                type = MESSAGE_TYPE,
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = WRONG_PROTOCOL
+            )
+            .addNewRawMessage(
+                id = MESSAGE_ID,
+                eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
+                protocol = ORIGINAL_PROTOCOL
+            )
+            .build()
 
         processor.process(batch)
 
@@ -286,5 +271,28 @@ class EventTest {
             }
             return messageGroup
         }
+
+        override fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup {
+            repeat(warningsCount) {
+                context.warning(WARN_MESSAGE)
+            }
+
+            if (throwEx) {
+                throw NullPointerException("Simple null pointer exception")
+            }
+            return messageGroup
+        }
+
+        override fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup {
+            repeat(warningsCount) {
+                context.warning(WARN_MESSAGE)
+            }
+
+            if (throwEx) {
+                throw NullPointerException("Simple null pointer exception")
+            }
+            return messageGroup
+        }
+
     }
 }

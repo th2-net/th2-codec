@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
@@ -37,3 +39,36 @@ val MESSAGE_ID: MessageId = MessageId(
     1,
     Instant.now()
 )
+
+enum class Protocol { PROTO, TRANSPORT }
+
+fun getNewBatchBuilder(protocol: Protocol, book: String, sessionGroup: String): IBatchBuilder = when(protocol) {
+    Protocol.PROTO -> ProtoBatchBuilder(book, sessionGroup)
+    Protocol.TRANSPORT -> TransportBatchBuilder(book, sessionGroup)
+}
+
+class UniversalCodecProcessor(
+    codec: IPipelineCodec,
+    protocols: Set<String>,
+    codecEventID: EventID,
+    useParentEventId: Boolean = true,
+    enabledVerticalScaling: Boolean = false,
+    private val protocol: Protocol,
+    process: AbstractCodecProcessor.Process,
+    onEvent: (event: ProtoEvent) -> Unit
+) {
+    private lateinit var protoProcessor: ProtoCodecProcessor
+    private lateinit var transportProcessor: TransportCodecProcessor
+
+    init {
+        when(protocol) {
+            Protocol.PROTO -> protoProcessor = ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, process, onEvent)
+            Protocol.TRANSPORT -> transportProcessor = TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, process, onEvent)
+        }
+    }
+
+    fun process(batchWrapper: IGroupBatch): IGroupBatch = when(protocol) {
+        Protocol.PROTO -> ProtoBatchWrapper(protoProcessor.process((batchWrapper as ProtoBatchWrapper).batch))
+        Protocol.TRANSPORT -> TransportBatchWrapper(transportProcessor.process((batchWrapper as TransportBatchWrapper).batch))
+    }
+}

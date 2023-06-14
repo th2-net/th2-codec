@@ -19,67 +19,58 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.codec.util.toProto
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.*
+import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
-import kotlin.test.assertIs
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
+import kotlin.test.assertTrue
 
 class DecodeProcessorTest {
 
-    @Test
-    fun `error message check`() {
+    @ParameterizedTest
+    @EnumSource(Protocol::class)
+    fun `error message check`(protocol: Protocol) {
         val originalProtocol = "xml"
         val originalProtocols = setOf(originalProtocol)
         val wrongProtocol = "http"
 
-        val processor = TransportDecodeProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID.toProto(), false) { }
-        val batch = GroupBatch(
-            book = BOOK_NAME,
-            sessionGroup = SESSION_GROUP_NAME,
-            groups = mutableListOf(MessageGroup(listOf(
-                RawMessage(MESSAGE_ID, protocol = originalProtocol),
-                RawMessage(MESSAGE_ID, protocol = wrongProtocol),
-                ParsedMessage(MESSAGE_ID, type = MESSAGE_TYPE, protocol = originalProtocol),
-                RawMessage(MESSAGE_ID, protocol = originalProtocol),
-                RawMessage()
-            )))
-        )
+        val processor = UniversalCodecProcessor(TestCodec(true), originalProtocols, CODEC_EVENT_ID.toProto(), false, process = DECODE, protocol = protocol) {}
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+            .addNewRawMessage(MESSAGE_ID, protocol = originalProtocol)
+            .addNewRawMessage(MESSAGE_ID, protocol = wrongProtocol)
+            .addNewParsedMessage(MESSAGE_ID, type = MESSAGE_TYPE, protocol = originalProtocol)
+            .addNewRawMessage(MESSAGE_ID, protocol = originalProtocol)
+            .addNewRawMessage()
+            .build()
 
         val result = processor.process(batch)
 
-        Assertions.assertEquals(5, result.groups[0].messages.size) { "group of outgoing messages must be the same size" }
+        Assertions.assertEquals(5, result.groupCursor.messagesCount) { "group of outgoing messages must be the same size" }
 
-        val message0 = assertIs<ParsedMessage>(result.groups[0].messages[0])
-
-        message0.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+        result.groupCursor.messageCursor.let {
+            assertTrue(it.isParsed)
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.asParsed.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
-        }
 
-        val message1 = assertIs<RawMessage>(result.groups[0].messages[1])
-
-        message1.let {
+            result.groupCursor.currentMessageIndex = 1
+            assertTrue(it.isRaw)
             Assertions.assertEquals(wrongProtocol, it.protocol)
-        }
 
-        val message2 = assertIs<ParsedMessage>(result.groups[0].messages[2])
-
-        message2.let {
-            Assertions.assertEquals("test-type", it.type)
+            result.groupCursor.currentMessageIndex = 2
+            assertTrue(it.isParsed)
+            Assertions.assertEquals(MESSAGE_TYPE, it.asParsed.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
-        }
 
-        val message3 = assertIs<ParsedMessage>(result.groups[0].messages[3])
-
-        message3.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            result.groupCursor.currentMessageIndex = 3
+            assertTrue(it.isParsed)
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.asParsed.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
-        }
 
-        val message4 = assertIs<ParsedMessage>(result.groups[0].messages[4])
-
-        message4.let {
-            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.type)
+            result.groupCursor.currentMessageIndex = 4
+            assertTrue(it.isParsed)
+            Assertions.assertEquals(ERROR_TYPE_MESSAGE, it.asParsed.type)
             Assertions.assertEquals(originalProtocol, it.protocol)
         }
     }
@@ -97,5 +88,14 @@ class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
             throw NullPointerException("Simple null pointer exception")
         }
         return MessageGroup()
+    }
+
+    override fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = ProtoMessageGroup.getDefaultInstance()
+
+    override fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup {
+        if (throwEx) {
+            throw NullPointerException("Simple null pointer exception")
+        }
+        return ProtoMessageGroup.getDefaultInstance()
     }
 }

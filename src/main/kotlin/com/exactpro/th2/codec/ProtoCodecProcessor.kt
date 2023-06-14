@@ -29,7 +29,7 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.EventID
 
-sealed class ProtoCodecProcessor (
+open class ProtoCodecProcessor (
     codec: IPipelineCodec,
     protocols: Set<String>,
     codecEventID: EventID,
