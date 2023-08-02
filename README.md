@@ -116,6 +116,120 @@ Codec has four types of connection: stream and general for encode and decode fun
 
 Codec never mixes messages from the _stream_ and the _general_ connections
 
+## Transport lines
+
+transportLines responsable for number of independnet ecoding / decoding lines. Each transport lines has options:
+* type - has enum [`PROTOBUF`, `TH2_TRANSPORT`] value. Codec creates suitable type of message processor accoding this option.
+NOTE: Support of each transport depends on childe codec implementation.
+* useParentEventId - In both options codec attaches event about encode/decode problem to codec root event. 
+  If useParentEventId property is true, codec also attaches event with link to main problem event to each parent event ids from processed messages.
+
+```yaml
+apiVersion: th2.exactpro.com/v2
+kind: Th2Box
+metadata:
+   name: codec
+spec:
+   customConfig:
+      transportLines:
+        "":
+          type: PROTOBUF
+          useParentEventId: false
+        general:
+           type: PROTOBUF
+           useParentEventId: true
+        transport:
+           type: TH2_TRANSPORT
+           useParentEventId: false
+        general_transport:
+           type: TH2_TRANSPORT
+           useParentEventId: true
+   pins:
+     mq:
+        subscribers:
+#          prefix "" 
+           - name: in_codec_decode
+             attributes:
+                - decoder_in
+                - subscribe
+           - name: in_codec_encode
+             attributes:
+                - encoder_in
+                - subscribe
+#          prefix "general" 
+           - name: in_codec_general_decode
+             attributes:
+                - general_decoder_in
+                - subscribe
+           - name: in_codec_general_encode
+             attributes:
+                - general_encoder_in
+                - subscribe
+#          prefix "transport" 
+           - name: in_codec_transport_decode
+             attributes:
+                - transport_decoder_in
+                - transport-group
+                - subscribe
+           - name: in_codec_transport_encode
+             attributes:
+                - transport_encoder_in
+                - transport-group
+                - subscribe
+#          prefix "general_transport" 
+           - name: in_codec_general_transport_decode
+             attributes:
+                - general_transport_decoder_in
+                - transport-group
+                - subscribe
+           - name: in_codec_general_transport_encode
+             attributes:
+                - general_transport_encoder_in
+                - transport-group
+                - subscribe
+        publishers:
+#          prefix ""
+           - name: out_codec_decode
+             attributes:
+                - decoder_out
+                - publish
+           - name: out_codec_encode
+             attributes:
+                - encoder_out
+                - publish
+#          prefix "general"
+           - name: out_codec_general_decode
+             attributes:
+                - general_decoder_out
+                - publish
+           - name: out_codec_general_encode
+             attributes:
+                - general_encoder_out
+                - publish
+#          prefix "transport"
+           - name: out_codec_transport_decode
+             attributes:
+                - transport_decoder_out
+                - transport-group
+                - publish
+           - name: out_codec_transport_encode
+             attributes:
+                - transport_encoder_out
+                - transport-group
+                - publish
+#          prefix "general_transport"
+           - name: out_codec_general_transport_decode
+             attributes:
+                - general_transport_decoder_out
+                - transport-group
+                - publish
+           - name: out_codec_general_transport_encode
+             attributes:
+                - general_transport_encoder_out
+                - transport-group
+                - publish
+```
+
 ## Codec settings
 
 Codec core has the following parameters:
@@ -129,12 +243,12 @@ of `IPipelineCodecFactory.create` method
 For example:
 
 ```yaml
-apiVersion: th2.exactpro.com/v1
+apiVersion: th2.exactpro.com/v2
 kind: Th2Box
 metadata:
   name: codec
 spec:
-  custom-config:
+  customConfig:
     enableVerticalScaling: false
     codecSettings:
       messageTypeDetection: BY_INNER_FIELD
@@ -168,47 +282,46 @@ It contains box configuration, pins' descriptions and other common parameters fo
 Here is an example of configuration for component based on th2-codec:
 
 ```yaml
-apiVersion: th2.exactpro.com/v1
+apiVersion: th2.exactpro.com/v2
 kind: Th2Box
 metadata:
   name: codec
 spec:
-  custom-config:
+  customConfig:
     enableVerticalScaling: false
     codecSettings:
       parameter1: value
       parameter2:
         - value1
         - value2
-  pins:
-    # encoder
-    - name: in_codec_encode
-      connection-type: mq
-      attributes: [ 'encoder_in', 'parsed', 'subscribe' ]
-    - name: out_codec_encode
-      connection-type: mq
-      attributes: [ 'encoder_out', 'raw', 'publish' ]
-    # decoder
-    - name: in_codec_decode
-      connection-type: mq
-      attributes: ['decoder_in', 'raw', 'subscribe']
-    - name: out_codec_decode
-      connection-type: mq
-      attributes: ['decoder_out', 'parsed', 'publish']
-    # encoder general (technical)
-    - name: in_codec_general_encode
-      connection-type: mq
-      attributes: ['general_encoder_in', 'parsed', 'subscribe']
-    - name: out_codec_general_encode
-      connection-type: mq
-      attributes: ['general_encoder_out', 'raw', 'publish']
-    # decoder general (technical)
-    - name: in_codec_general_decode
-      connection-type: mq
-      attributes: ['general_decoder_in', 'raw', 'subscribe']
-    - name: out_codec_general_decode
-      connection-type: mq
-      attributes: ['general_decoder_out', 'parsed', 'publish']
+    transportLines:
+       transport:
+          type: TH2_TRANSPORT
+          useParentEventId: true
+    pins:
+       mq:
+          subscribers:
+             - name: in_codec_transport_decode
+               attributes:
+                  - transport_decoder_in
+                  - transport-group
+                  - subscribe
+             - name: in_codec_transport_encode
+               attributes:
+                  - transport_encoder_in
+                  - transport-group
+                  - subscribe
+          publishers:
+             - name: out_codec_transport_decode
+               attributes:
+                  - transport_decoder_out
+                  - transport-group
+                  - publish
+             - name: out_codec_transport_encode
+               attributes:
+                  - transport_encoder_out
+                  - transport-group
+                  - publish
 ```
 
 ## Message routing
@@ -219,33 +332,39 @@ Let's consider some examples of routing in codec box.
 ### Split on 'publish' pins
 
 For example, you got a big source data stream, and you want to split them into some pins via session alias.
-You can declare multiple pins with attributes `['decoder_out', 'parsed', 'publish']` and filters instead of common pin or in addition to it.
+You can declare multiple pins with attributes `['transport_decoder_out', 'transport-group', 'publish']` and filters instead of common pin or in addition to it.
 Every decoded messages will be direct to all declared pins and will send to MQ only if it passes the filter.
 
 ```yaml
-apiVersion: th2.exactpro.com/v1
+apiVersion: th2.exactpro.com/v2
 kind: Th2Box
 metadata:
   name: codec
 spec:
-  pins:
-    # decoder
-    - name: out_codec_decode_first_session_alias
-      connection-type: mq
-      attributes: ['decoder_out', 'parsed', 'publish']
-      filters:
-        - metadata:
-            - field-name: session_alias
-              expected-value: first_session_alias
-              operation: EQUAL
-    - name: out_codec_decode_secon_session_alias
-      connection-type: mq
-      attributes: ['decoder_out', 'parsed', 'publish']
-      filters:
-        - metadata:
-            - field-name: session_alias
-              expected-value: second_session_alias
-              operation: EQUAL
+   pins:
+      mq:
+         publishers:
+            # decoder
+            - name: out_codec_transport_decode_first_session_alias
+              attributes:
+                 - transport_decoder_out
+                 - transport-group
+                 - publish
+              filters:
+                - metadata:
+                    - expectedValue: "first_session_alias_*"
+                      fieldName: session_alias
+                      operation: WILDCARD
+            - name: out_codec_transport_decode_second_session_alias
+              attributes:
+                 - transport_decoder_out
+                 - transport-group
+                 - publish
+              filters:
+                 - metadata:
+                      - expectedValue: "second_session_alias_*"
+                        fieldName: session_alias
+                        operation: WILDCARD
 ```
 
 The filtering can also be applied for pins with `subscribe` attribute.
@@ -254,7 +373,8 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ### v5.3.0
 
-* TH2 transport protocol support
+* th2 transport protocol support
+* added transport lines to declare serveral independnet encode/decode group 
 
 ### v5.2.0
 
