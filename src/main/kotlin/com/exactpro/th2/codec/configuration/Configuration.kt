@@ -37,8 +37,8 @@ class Configuration {
     var transportLines: Map<String, TransportLine> = mapOf(
         "" to TransportLine(PROTOBUF, false),
         "general" to TransportLine(PROTOBUF, true),
-        "tr" to TransportLine(TH2_TRANSPORT, false),
-        "general_tr" to TransportLine(TH2_TRANSPORT, true)
+        "transport" to TransportLine(TH2_TRANSPORT, false),
+        "general_transport" to TransportLine(TH2_TRANSPORT, true)
     )
 
     companion object {
