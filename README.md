@@ -151,19 +151,23 @@ spec:
            - name: in_codec_decode
              attributes:
                 - decoder_in
+                - raw
                 - subscribe
            - name: in_codec_encode
              attributes:
                 - encoder_in
+                - parsed
                 - subscribe
 #          prefix "general" 
            - name: in_codec_general_decode
              attributes:
                 - general_decoder_in
+                - raw
                 - subscribe
            - name: in_codec_general_encode
              attributes:
                 - general_encoder_in
+                - parsed
                 - subscribe
 #          prefix "transport" 
            - name: in_codec_transport_decode
@@ -192,19 +196,23 @@ spec:
            - name: out_codec_decode
              attributes:
                 - decoder_out
+                - parsed
                 - publish
            - name: out_codec_encode
              attributes:
                 - encoder_out
+                - raw
                 - publish
 #          prefix "general"
            - name: out_codec_general_decode
              attributes:
                 - general_decoder_out
+                - parsed
                 - publish
            - name: out_codec_general_encode
              attributes:
                 - general_encoder_out
+                - raw
                 - publish
 #          prefix "transport"
            - name: out_codec_transport_decode
@@ -257,7 +265,7 @@ spec:
       treatSimpleValuesAsStrings: false
 ```
 
-## Required pins
+## Default pins
 
 Pins are a part of the main th2 concept. They describe what are the inputs and outputs of a box.
 You can read more about them [here](https://github.com/th2-net/th2-documentation/wiki/infra:-Theory-of-Pins-and-Links#pins).
@@ -273,6 +281,15 @@ The first one is used to receive messages to decode/encode while the second one 
 + Pin for the stream decoding output: `decoder_out` `parsed` `publish`
 + Pin for the stream decoding input: `general_decoder_in` `raw` `subscribe`
 + Pin for the stream decoding output: `general_decoder_out` `parsed` `publish`
+  
++ Pin for the stream encoding input: `transport_encoder_in` `transport-group` `subscribe`
++ Pin for the stream encoding output: `transport_encoder_out` `transport-group` `publish`
++ Pin for the general encoding output: `transport_general_encoder_out` `transport-group` `publish`
++ Pin for the general encoding input: `transport_general_encoder_in` `transport-group` `subscribe`
++ Pin for the stream decoding input: `transport_decoder_in` `transport-group` `subscribe`
++ Pin for the stream decoding output: `transport_decoder_out` `transport-group` `publish`
++ Pin for the stream decoding input: `transport_general_decoder_in` `transport-group` `subscribe`
++ Pin for the stream decoding output: `transport_general_decoder_out` `transport-group` `publish`
 
 ### Configuration example
 
