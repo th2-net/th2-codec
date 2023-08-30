@@ -134,22 +134,23 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             onErrorEvent("Cannot ${process.actionName} empty message group")
             return null
         }
-
+/*
         if (messageGroup.groupItems.none { it.isInputMessage }) {
             LOGGER.debug { "Message group has no ${process.inputMessageType} messages in it" }
             return messageGroup
         }
-
+*/
         val parentEventIds: Sequence<EventID> = if (useParentEventId) messageGroup.eventIds else emptySequence()
         val context = ReportingContext()
 
         try {
             val msgProtocols = messageGroup.protocols
+ /*
             if (!protocols.checkAgainstProtocols(msgProtocols)) {
                 LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
                 return messageGroup
             }
-
+*/
             val recodedGroup = codec.recode(messageGroup, context)
 
             if (process.isInvalidResultSize(messageGroup.size, recodedGroup.size)) {

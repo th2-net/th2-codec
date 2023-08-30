@@ -180,7 +180,7 @@ class ProcessorTest {
 
         Assertions.assertEquals(2, result.groupsCount) { "Wrong batch size" }
     }
-
+/*
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `error message on failed protocol check - encode`(protocol: Protocol) {
@@ -196,7 +196,7 @@ class ProcessorTest {
 
         Assertions.assertEquals(0, result.groupsCount) { "Wrong batch size" }
     }
-
+*/
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `error message on thrown - encode`(protocol: Protocol) {
@@ -276,7 +276,7 @@ class ProcessorTest {
             Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
     }
-
+/*
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `error message on failed protocol check - decode`(protocol: Protocol) {
@@ -321,7 +321,7 @@ class ProcessorTest {
             Assertions.assertTrue(ERROR_CONTENT_FIELD in it.body)
         }
     }
-
+*/
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `multiple protocol test - decode`(protocol: Protocol) {
