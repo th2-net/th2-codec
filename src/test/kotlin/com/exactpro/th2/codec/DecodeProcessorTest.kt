@@ -20,6 +20,7 @@ import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
+import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import org.junit.jupiter.api.Assertions
@@ -81,18 +82,18 @@ class DecodeProcessorTest {
 }
 
 class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
-    override fun encode(messageGroup: MessageGroup): MessageGroup = MessageGroup()
+    override fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = MessageGroup()
 
-    override fun decode(messageGroup: MessageGroup): MessageGroup {
+    override fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup {
         if (throwEx) {
             throw NullPointerException("Simple null pointer exception")
         }
         return MessageGroup()
     }
 
-    override fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = ProtoMessageGroup.getDefaultInstance()
+    override fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = ProtoMessageGroup.getDefaultInstance()
 
-    override fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup {
+    override fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup {
         if (throwEx) {
             throw NullPointerException("Simple null pointer exception")
         }
