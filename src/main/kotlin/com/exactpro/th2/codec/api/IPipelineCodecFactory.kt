@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,6 @@ import java.io.InputStream
 
 interface IPipelineCodecFactory : AutoCloseable {
     val protocols: Set<String>
-        get() = setOf(protocol)
-    @Deprecated("Please migrate to the protocols property")
-    val protocol: String
     val settingsClass: Class<out IPipelineCodecSettings>
     fun init(dictionary: InputStream): Unit = TODO("init(dictionary) method is not implemented")
     fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)

@@ -23,6 +23,7 @@ import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.ENCODE
+import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
@@ -384,21 +385,21 @@ class ProcessorTest {
     }
 
     class TestCodec(private val throwEx: Boolean) : IPipelineCodec {
-        override fun encode(messageGroup: MessageGroup): MessageGroup {
+        override fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
             return MessageGroup(listOf(RawMessage()))
         }
 
-        override fun decode(messageGroup: MessageGroup): MessageGroup {
+        override fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
             return MessageGroup(listOf(ParsedMessage(type = MESSAGE_TYPE)))
         }
 
-        override fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup {
+        override fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }
@@ -410,7 +411,7 @@ class ProcessorTest {
                 .build()
         }
 
-        override fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup {
+        override fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup {
             if (throwEx) {
                 throw NullPointerException("Simple null pointer exception")
             }

@@ -20,17 +20,10 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGro
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 
 interface IPipelineCodec : AutoCloseable {
-    fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup: MessageGroup) method is not implemented")
-    fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
-
-    fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup: MessageGroup) method is not implemented")
-    fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
-
-    fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = TODO("encode(messageGroup: ProtoMessageGroup) method is not implemented")
-    fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = encode(messageGroup)
-
-    fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = TODO("decode(messageGroup: ProtoMessageGroup) method is not implemented")
-    fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = decode(messageGroup)
+    fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = TODO("encode(messageGroup: MessageGroup, context: IReportingContext) method is not implemented")
+    fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = TODO("decode(messageGroup: MessageGroup, context: IReportingContext) method is not implemented")
+    fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = TODO("encode(messageGroup: ProtoMessageGroup, context: IReportingContext) method is not implemented")
+    fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = TODO("decode(messageGroup: ProtoMessageGroup, context: IReportingContext) method is not implemented")
 
     override fun close() {}
 }

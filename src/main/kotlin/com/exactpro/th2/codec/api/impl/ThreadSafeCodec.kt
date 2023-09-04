@@ -32,21 +32,9 @@ class ThreadSafeCodec(
 ) : IPipelineCodec {
     private val instances = ConcurrentHashMap<Long, IPipelineCodec>()
 
-    override fun encode(messageGroup: MessageGroup) = getInstance().let { codec ->
-        synchronized(codec) {
-            codec.encode(messageGroup)
-        }
-    }
-
     override fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = getInstance().let { codec ->
         synchronized(codec) {
             codec.encode(messageGroup, context)
-        }
-    }
-
-    override fun decode(messageGroup: MessageGroup) = getInstance().let { codec ->
-        synchronized(codec) {
-            codec.decode(messageGroup)
         }
     }
 
@@ -56,16 +44,8 @@ class ThreadSafeCodec(
         }
     }
 
-    override fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = getInstance().let { codec ->
-        synchronized(codec) { codec.encode(messageGroup) }
-    }
-
     override fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = getInstance().let { codec ->
         synchronized(codec) { codec.encode(messageGroup, context) }
-    }
-
-    override fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = getInstance().let { codec ->
-        synchronized(codec) { codec.decode(messageGroup) }
     }
 
     override fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = getInstance().let { codec ->
