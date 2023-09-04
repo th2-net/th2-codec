@@ -21,10 +21,6 @@ import java.io.InputStream
 
 interface IPipelineCodecFactory : AutoCloseable {
     val protocols: Set<String>
-        get() = setOf(protocol)
-    @Deprecated("Please migrate to the protocols property", replaceWith = ReplaceWith("protocols"))
-    val protocol: String
-        get() = error("This property deprecated and should not be used")
     val settingsClass: Class<out IPipelineCodecSettings>
     fun init(dictionary: InputStream): Unit = TODO("init(dictionary) method is not implemented")
     fun init(pipelineCodecContext: IPipelineCodecContext): Unit = pipelineCodecContext[DictionaryType.MAIN].use(::init)
