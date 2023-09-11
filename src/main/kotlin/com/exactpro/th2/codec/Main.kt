@@ -18,7 +18,7 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import mu.KotlinLogging
-import java.util.*
+import java.util.Deque
 import java.util.concurrent.ConcurrentLinkedDeque
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
@@ -61,6 +61,3 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 }
-
-
-

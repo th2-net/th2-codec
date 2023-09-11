@@ -16,16 +16,17 @@ apply plugin: "com.exactpro.th2.artifacts-conventions"
 dependencies {
     api platform("com.exactpro.th2:bom:4.5.0")
 
-    implementation('com.exactpro.th2:common:5.4.0-dev') {
+    implementation("com.exactpro.th2:common:5.4.0-dev") {
         exclude group: 'com.exactpro.th2', module: 'cradle-core'
         exclude group: 'com.exactpro.th2', module: 'cradle-cassandra'
     }
     implementation "com.exactpro.th2:common-utils:2.2.0-dev"
 
-    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    implementation "com.exactpro.th2:grpc-codec:0.1.0-gradle-and-deps-updated-6122158079-76e30cb-SNAPSHOT"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
 
-    implementation('com.github.ajalt:clikt:2.8.0')
+    implementation("com.github.ajalt:clikt:2.8.0")
 
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit"
 }

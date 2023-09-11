@@ -1,14 +1,17 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * http://www.apache.org/licenses/LICENSE-2.0
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Copyright 2023 Exactpro (Exactpro Systems Limited)
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.codec
@@ -29,7 +32,6 @@ abstract class AbstractCodec<BATCH>(
     private val eventRouter: MessageRouter<EventBatch>,
     private val codecRootEvent: EventID
 ) : AutoCloseable {
-    private val logger = KotlinLogging.logger {}
     private var targetAttributes: String = ""
 
     fun start(sourceAttributes: String, targetAttributes: String) {
@@ -61,7 +63,22 @@ abstract class AbstractCodec<BATCH>(
         } catch (exception: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, batch, result)
             createAndStoreErrorEvent(exception, parentEventId)
-            logger.error(exception) { "Failed to handle message: $batch" }
+            LOGGER.error(exception) { "Failed to handle message: $batch" }
+        }
+    }
+
+    fun handleMessage(message: BATCH): BATCH {
+        var protoResult: BATCH? = null
+
+        try {
+            protoResult = process(message)
+            if (!checkResult(protoResult)) throw CodecException("checkResult failed")
+            return protoResult
+        } catch (e: CodecException) {
+            val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
+            createAndStoreErrorEvent(e, parentEventId)
+            LOGGER.error(e) { "Failed to handle message: ${message.toString()}" }
+            throw e
         }
     }
 
@@ -79,7 +96,7 @@ abstract class AbstractCodec<BATCH>(
                 ).build()
             )
         } catch (exception: Exception) {
-            logger.warn(exception) { "could not send codec error event" }
+            LOGGER.warn(exception) { "could not send codec error event" }
         }
     }
 
@@ -87,4 +104,8 @@ abstract class AbstractCodec<BATCH>(
 
     abstract fun getParentEventId(codecRootID: EventID, source: BATCH, result: BATCH?): EventID
     abstract fun checkResult(result: BATCH): Boolean
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
+    }
 }

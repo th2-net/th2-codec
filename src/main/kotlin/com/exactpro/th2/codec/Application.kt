@@ -19,15 +19,19 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.configuration.TransportType
+import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.storeEvent
+import io.grpc.Server
 import mu.KotlinLogging
+import java.util.concurrent.TimeUnit
 
 class Application(commonFactory: CommonFactory): AutoCloseable {
     private val configuration = Configuration.create(commonFactory)
@@ -36,9 +40,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     private val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
     private val protoRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
     private val transportRouter: MessageRouter<GroupBatch> = commonFactory.transportGroupBatchRouter
-
     private val rootEventId: EventID = commonFactory.rootEventId
-
     private val onEvent: (ProtoEvent) -> Unit = { event ->
         eventRouter.runCatching {
             sendAll(EventBatch.newBuilder().addEvents(event).build())
@@ -57,7 +59,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }
     }
 
-    private val codecs: List<AutoCloseable> = mutableListOf<AutoCloseable>().apply {
+    private val codecs: MutableList<AutoCloseable> = mutableListOf<AutoCloseable>().apply {
         configuration.transportLines.forEach { (prefix, line) ->
             val prefixFull = if (prefix.isNotEmpty()) prefix + '_' else ""
             add(
@@ -75,7 +77,24 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }
     }
 
+    private val grpcServer: Server
+
     init {
+        val grpcRouter: GrpcRouter = commonFactory.grpcRouter
+        val grpcDecoder = createProtoDecoder("grpc-decoder", "", "", true).apply { codecs += this }
+        val grpcEncoder = createProtoEncoder("grpc-encoder", "", "", true).apply { codecs += this }
+
+        val storeEventFunc: (Event, EventID?) -> Unit = { event, parentId ->
+            eventRouter.runCatching {
+                storeEvent(event, parentId ?: rootEventId)
+            }.onFailure {
+                K_LOGGER.error(it) { "Failed to store event: $event" }
+            }
+        }
+
+        val grpcService = GrpcCodecService(grpcRouter, grpcDecoder::handleMessage, grpcEncoder::handleMessage, storeEventFunc, configuration.isFirstCodecInPipeline)
+        grpcServer = grpcRouter.startServer(grpcService)
+        grpcServer.start()
         K_LOGGER.info { "codec started" }
     }
 
@@ -84,7 +103,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
-    ): AutoCloseable = ProtoSyncEncoder(
+    ): AbstractProtoSyncCodec = ProtoSyncEncoder(
             protoRouter,
             eventRouter,
             ProtoEncodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
@@ -98,7 +117,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
-    ): AutoCloseable = ProtoSyncDecoder(
+    ): AbstractProtoSyncCodec = ProtoSyncDecoder(
             protoRouter,
             eventRouter,
             ProtoDecodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
@@ -136,6 +155,10 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }.also { K_LOGGER.info { "Transport '$codecName' started" } }
 
     override fun close() {
+        if(!grpcServer.shutdown().awaitTermination(10, TimeUnit.SECONDS)) {
+            grpcServer.shutdownNow()
+        }
+
         codecs.forEach { codec ->
             runCatching(codec::close).onFailure {
                 K_LOGGER.error(it) { "Codec closing failure" }
