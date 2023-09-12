@@ -24,24 +24,21 @@ import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.toJson
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
-import com.exactpro.th2.common.grpc.EventID as ProtoEventID
 
 open class TransportCodecProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
-    codecEventID: ProtoEventID,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     process: Process,
-    onEvent: (event: ProtoEvent) -> Unit
-) : AbstractCodecProcessor<GroupBatch, MessageGroup, Message<*>>(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, process, onEvent) {
+    eventProcessor: EventProcessor
+) : AbstractCodecProcessor<GroupBatch, MessageGroup, Message<*>>(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor) {
     override val GroupBatch.batchItems: List<MessageGroup> get() = groups
     override val MessageGroup.size: Int get() = messages.size
     override val MessageGroup.groupItems: List<Message<*>> get() = messages
@@ -61,17 +58,15 @@ open class TransportCodecProcessor(
 class TransportDecodeProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
-    codecEventID: EventID,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
-    onEvent: (event: ProtoEvent) -> Unit
-) : TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.DECODE, onEvent)
+    eventProcessor: EventProcessor
+) : TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.DECODE, eventProcessor)
 
 class TransportEncodeProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
-    codecEventID: EventID,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
-    onEvent: (event: ProtoEvent) -> Unit
-) : TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.ENCODE, onEvent)
+    eventProcessor: EventProcessor
+) : TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.ENCODE, eventProcessor)

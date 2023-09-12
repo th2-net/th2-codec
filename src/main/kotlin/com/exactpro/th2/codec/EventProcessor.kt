@@ -18,160 +18,119 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.common.event.Event
-import com.exactpro.th2.common.event.Event.Status
-import com.exactpro.th2.common.event.Event.Status.PASSED
-import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.isValid
+import com.exactpro.th2.common.utils.event.logId
 import com.exactpro.th2.common.utils.message.logId
 import mu.KotlinLogging
 
-abstract class AbstractEventProcessor {
-    fun onEvent(message: String, messagesIds: List<MessageID> = emptyList(), body: List<String> = emptyList()): String {
+class EventProcessor(
+    private val codecEventID: EventID,
+    private val onEvent: (event: ProtoEvent) -> Unit
+) {
+    fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)
+    fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
+
+    private fun EventID.onEvent(
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        body: List<String> = emptyList(),
+    ) : EventID {
         LOGGER.warn { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
-        return storeEvent(message, messagesIds, body)
+        return this.publishEvent(message, messagesIds, body = body).id
     }
 
-    fun onErrorEvent(
+    private fun EventID.onErrorEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList()
-    ): String {
+    ): EventID {
         LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
-        return storeErrorEvent(message, messagesIds, cause, additionalBody)
+        return publishEvent(message, messagesIds, Event.Status.FAILED, cause, additionalBody).id
     }
 
     fun onEachEvent(
-        events: Set<EventID>,
+        parentEventIDs: Sequence<EventID>,
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
     ) {
-        val warnEvent = onEvent(message, messagesIds, body)
-        storeEachEvent(warnEvent, message, events)
+        val warnEvent = codecEventID.onEvent(message, messagesIds, body)
+        parentEventIDs.forEach {
+            it.addReferenceTo(warnEvent, message, Event.Status.PASSED)
+        }
     }
 
     fun onEachErrorEvent(
-        events: Set<EventID>,
+        parentEventIDs: Sequence<EventID>,
         message: String,
         messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
-        additionalBody: List<String> = emptyList()
-    ): String {
-        val errorEventId = onErrorEvent(message, messagesIds, cause, additionalBody)
-        storeEachErrorEvent(errorEventId, message, events)
+        additionalBody: List<String> = emptyList(),
+    ): EventID {
+        val errorEventId = codecEventID.onErrorEvent(message, messagesIds, cause, additionalBody)
+        parentEventIDs.forEach { it.addReferenceTo(errorEventId, message, Event.Status.FAILED) }
         return errorEventId
     }
 
     fun onEachWarning(
-        warnings: Set<EventID>,
+        parentEventIDs: Sequence<EventID>,
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
         messagesIds: () -> List<MessageID> = ::emptyList
-    ) = context.warnings.let {
-        if (it.isNotEmpty()) {
+    ) = context.warnings.let { warnings ->
+        if (warnings.isNotEmpty()) {
             val messages = messagesIds()
             val body = additionalBody()
-            it.forEach { warning ->
-                onEachEvent(warnings, "[WARNING] During $action: $warning", messages, body)
+            warnings.forEach { warning ->
+                onEachEvent(parentEventIDs, "[WARNING] During $action: $warning", messages, body)
             }
         }
     }
 
-    protected abstract fun storeEvent(message: String, messagesIds: List<MessageID>, body: List<String>): String
-    protected abstract fun storeErrorEvent(message: String, messagesIds: List<MessageID>, cause: Throwable?, additionalBody: List<String>): String
-    protected abstract fun storeEachEvent(warnEvent: String, message: String, events: Set<EventID>)
-    protected abstract fun storeEachErrorEvent(errorEventId: String, message: String, events: Set<EventID>)
+    private fun EventID.addReferenceTo(eventId: EventID, name: String, status: Event.Status): EventID = Event.start()
+        .endTimestamp()
+        .name(name)
+        .status(status)
+        .type(if (status != Event.Status.PASSED) "Error" else "Warn")
+        .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
+        .bodyData(ReferenceToEvent(eventId.logId))
+        .toProto(this)
+        .also(onEvent)
+        .id
 
-    companion object {
-        private val LOGGER = KotlinLogging.logger {}
-    }
-}
-
-class StoreEventProcessor(private val storeEventFunc: (Event, EventID?) -> Unit) : AbstractEventProcessor() {
-
-    override fun storeEvent(
-        message: String,
-        messagesIds: List<MessageID>,
-        body: List<String>
-    ): String {
-        val event = createEvent(message, messagesIds, body = body)
-        storeEventFunc(event, null)
-        return event.id
-    }
-
-    override fun storeErrorEvent(
-        message: String,
-        messagesIds: List<MessageID>,
-        cause: Throwable?,
-        additionalBody: List<String>
-    ): String {
-        val event = createEvent(message, messagesIds, FAILED, cause, additionalBody)
-        storeEventFunc(event, null)
-        return event.id
-    }
-
-    override fun storeEachEvent(
-        warnEvent: String,
-        message: String,
-        events: Set<EventID>
-    ) {
-        events.forEach {
-            it.addReferenceTo(warnEvent, message, PASSED)
-        }
-    }
-
-    override fun storeEachErrorEvent(
-        errorEventId: String,
-        message: String,
-        events: Set<EventID>
-    ) {
-        events.forEach {
-            it.addReferenceTo(errorEventId, message, FAILED)
-        }
-    }
-
-    private fun EventID?.addReferenceTo(eventId: String, name: String, status: Status): EventID {
-        Event.start()
-            .endTimestamp()
-            .name(name)
-            .status(status)
-            .type(if (status != PASSED) "Error" else "Warn")
-            .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-            .bodyData(ReferenceToEvent(eventId))
-            .also { event ->
-                storeEventFunc(event, this)
-            }.run {
-                return checkNotNull(EventUtils.toEventID(startTimestamp, "", "", id)) // TODO: bookName & scope
-            }
-    }
-
-    private fun createEvent(
+    private fun EventID.publishEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
-        status: Status = PASSED,
+        status: Event.Status = Event.Status.PASSED,
         cause: Throwable? = null,
         body: List<String> = emptyList(),
-    ) = Event.start().apply {
+    ): ProtoEvent = Event.start().apply {
         name(message)
-        type(if (status != PASSED || cause != null) "Error" else "Warn")
-        status(if (cause != null) FAILED else status)
-        messagesIds.forEach(::messageID)
+        type(if (status != Event.Status.PASSED || cause != null) "Error" else "Warn")
+        status(if (cause != null) Event.Status.FAILED else status)
+        messagesIds.forEach { messageId ->
+            if (messageId.isValid) {
+                messageID(messageId)
+            }
+        }
 
-        if (cause != null) {
-            this.exception(cause, true)
+        generateSequence(cause, Throwable::cause).forEach {
+            bodyData(EventUtils.createMessageBean(it.message))
         }
 
         if (body.isNotEmpty()) {
             bodyData(EventUtils.createMessageBean("Information:"))
             body.forEach { bodyData(EventUtils.createMessageBean(it)) }
         }
-    }
+    }.toProto(this).also(onEvent)
 
+    @Suppress("unused")
     private class ReferenceToEvent(val eventId: String) : IBodyData {
         val type: String
             get() = TYPE
@@ -179,5 +138,9 @@ class StoreEventProcessor(private val storeEventFunc: (Event, EventID?) -> Unit)
         companion object {
             const val TYPE = "reference"
         }
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
     }
 }

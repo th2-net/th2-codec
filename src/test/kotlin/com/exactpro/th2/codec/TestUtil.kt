@@ -17,7 +17,6 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
@@ -50,20 +49,19 @@ fun getNewBatchBuilder(protocol: Protocol, book: String, sessionGroup: String): 
 class UniversalCodecProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
-    codecEventID: EventID,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     private val protocol: Protocol,
     process: AbstractCodecProcessor.Process,
-    onEvent: (event: ProtoEvent) -> Unit
+    eventProcessor: EventProcessor
 ) {
     private lateinit var protoProcessor: ProtoCodecProcessor
     private lateinit var transportProcessor: TransportCodecProcessor
 
     init {
         when(protocol) {
-            Protocol.PROTO -> protoProcessor = ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, process, onEvent)
-            Protocol.TRANSPORT -> transportProcessor = TransportCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, process, onEvent)
+            Protocol.PROTO -> protoProcessor = ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor)
+            Protocol.TRANSPORT -> transportProcessor = TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor)
         }
     }
 

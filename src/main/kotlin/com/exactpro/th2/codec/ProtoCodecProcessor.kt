@@ -27,17 +27,15 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.grpc.EventID
 
 open class ProtoCodecProcessor (
     codec: IPipelineCodec,
     protocols: Set<String>,
-    codecEventID: EventID,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     process: Process,
-    onEvent: (event: ProtoEvent) -> Unit
-) : AbstractCodecProcessor<MessageGroupBatch, MessageGroup, AnyMessage>(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, process, onEvent) {
+    eventProcessor: EventProcessor
+) : AbstractCodecProcessor<MessageGroupBatch, MessageGroup, AnyMessage>(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor) {
     override val MessageGroupBatch.batchItems: List<MessageGroup> get() = groupsList
     override val MessageGroup.size: Int get() = messagesCount
     override val MessageGroup.groupItems: List<AnyMessage> get() = messagesList
@@ -54,19 +52,18 @@ open class ProtoCodecProcessor (
     override fun IPipelineCodec.genericEncode(group: MessageGroup, context: ReportingContext): MessageGroup = codec.encode(group, context)
 }
 
-class ProtoDecodeProcessor(codec: IPipelineCodec,
-                           protocols: Set<String>,
-                           codecEventID: EventID,
-                           useParentEventId: Boolean = true,
-                           enabledVerticalScaling: Boolean = false,
-                           onEvent: (event: ProtoEvent) -> Unit
-) : ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.DECODE, onEvent)
+class ProtoDecodeProcessor(
+    codec: IPipelineCodec,
+    protocols: Set<String>,
+    useParentEventId: Boolean = true,
+    enabledVerticalScaling: Boolean = false,
+    eventProcessor: EventProcessor
+) : ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.DECODE, eventProcessor)
 
 class ProtoEncodeProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
-    codecEventID: EventID,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
-    onEvent: (event: ProtoEvent) -> Unit
-) : ProtoCodecProcessor(codec, protocols, codecEventID, useParentEventId, enabledVerticalScaling, Process.ENCODE, onEvent)
+    eventProcessor: EventProcessor
+) : ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.ENCODE, eventProcessor)

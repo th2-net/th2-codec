@@ -18,27 +18,18 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
-import com.exactpro.th2.common.event.Event
-import com.exactpro.th2.common.event.Event.Status
-import com.exactpro.th2.common.event.Event.Status.FAILED
-import com.exactpro.th2.common.event.Event.Status.PASSED
-import com.exactpro.th2.common.event.EventUtils
-import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.message.isValid
-import com.exactpro.th2.common.utils.event.logId
 import mu.KotlinLogging
 import java.util.concurrent.CompletableFuture
 
 abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     protected val codec: IPipelineCodec,
     private val protocols: Set<String>,
-    private val codecEventID: EventID,
     private val useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     private val process: Process,
-    private val onEvent: (event: ProtoEvent) -> Unit
+    private val eventProcessor: EventProcessor
 ) {
     private val async = enabledVerticalScaling && Runtime.getRuntime().availableProcessors() > 1
 
@@ -96,10 +87,6 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
 
     protected abstract val toErrorGroup: GROUP.(infoMessage: String, protocols: Collection<String>, throwable: Throwable, errorEventID: EventID) -> GROUP
 
-    protected fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)
-
-    private fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
-
     fun process(source: BATCH): BATCH {
         val sourceGroups = source.batchItems
         val resultGroups = mutableListOf<GROUP>()
@@ -119,7 +106,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
         }
 
         if (sourceGroups.size != resultGroups.size) {
-            onErrorEvent("Group count in the processed batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
+            eventProcessor.onErrorEvent("Group count in the processed batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
         }
 
         return createBatch(source, resultGroups)
@@ -131,7 +118,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
 
     private fun processMessageGroup(batch: BATCH, messageGroup: GROUP): GROUP? {
         if (messageGroup.size == 0) {
-            onErrorEvent("Cannot ${process.actionName} empty message group")
+            eventProcessor.onErrorEvent("Cannot ${process.actionName} empty message group")
             return null
         }
 
@@ -153,7 +140,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             val recodedGroup = codec.recode(messageGroup, context)
 
             if (process.isInvalidResultSize(messageGroup.size, recodedGroup.size)) {
-                parentEventIds.onEachEvent("${process.name}d message group contains ${process.operationName} messages (${recodedGroup.size}) than ${process.opposite.actionName}d one (${messageGroup.size})")
+                eventProcessor.onEachEvent(parentEventIds, "${process.name}d message group contains ${process.operationName} messages (${recodedGroup.size}) than ${process.opposite.actionName}d one (${messageGroup.size})")
             }
 
             return recodedGroup
@@ -162,11 +149,11 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
 
             return when (process) {
                 Process.DECODE -> {
-                    val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), e)
+                    val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), e)
                     messageGroup.toErrorGroup(header, protocols, e, errorEventId)
                 }
                 Process.ENCODE -> {
-                    parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), e, e.details + messageGroup.toReadableBody())
+                    eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), e, e.details + messageGroup.toReadableBody())
                     null
                 }
             }
@@ -174,94 +161,22 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             val header = "Failed to ${process.actionName} message group"
             return when (process) {
                 Process.DECODE -> {
-                    val errorEventId = parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), throwable)
+                    val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), throwable)
                     messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
                 }
                 Process.ENCODE -> {
                     // we should not use message IDs because during encoding there is no correct message ID created yet
-                    parentEventIds.onEachErrorEvent(header, messageGroup.ids(batch), throwable, messageGroup.toReadableBody())
+                    eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), throwable, messageGroup.toReadableBody())
                     null
                 }
             }
         } finally {
             when (process) {
-                Process.DECODE -> parentEventIds.onEachWarning(context, "decoding") { messageGroup.ids(batch) }
-                Process.ENCODE -> parentEventIds.onEachWarning(context, "encoding", additionalBody = { messageGroup.toReadableBody() })
+                Process.DECODE -> eventProcessor.onEachWarning(parentEventIds, context, "decoding") { messageGroup.ids(batch) }
+                Process.ENCODE -> eventProcessor.onEachWarning(parentEventIds, context, "encoding", additionalBody = { messageGroup.toReadableBody() })
             }
         }
     }
-
-    private fun EventID.onEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList(),
-    ) : EventID {
-        LOGGER.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        return this.publishEvent(message, messagesIds, body = body).id
-    }
-
-    private fun EventID.onErrorEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null,
-        additionalBody: List<String> = emptyList()
-    ): EventID {
-        LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
-        return publishEvent(message, messagesIds, FAILED, cause, additionalBody).id
-    }
-
-    private fun Sequence<EventID>.onEachEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList()
-    ) {
-        val warnEvent = codecEventID.onEvent(message, messagesIds, body)
-        forEach {
-            it.addReferenceTo(warnEvent, message, PASSED)
-        }
-    }
-
-    private fun Sequence<EventID>.onEachErrorEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null,
-        additionalBody: List<String> = emptyList(),
-    ): EventID {
-        val errorEventId = codecEventID.onErrorEvent(message, messagesIds, cause, additionalBody)
-        forEach { it.addReferenceTo(errorEventId, message, FAILED) }
-        return errorEventId
-    }
-
-    private fun Sequence<EventID>.onEachWarning(
-        context: ReportingContext,
-        action: String,
-        additionalBody: () -> List<String> = ::emptyList,
-        messagesIds: () -> List<MessageID> = ::emptyList
-    ) = context.warnings.let { warnings ->
-        if (warnings.isNotEmpty()) {
-            val messages = messagesIds()
-            val body = additionalBody()
-            warnings.forEach { warning ->
-                this.onEachEvent("[WARNING] During $action: $warning", messages, body)
-            }
-        }
-    }
-
-    private fun List<MessageID>.joinToReadableString(): String =
-        joinToString(", ") {
-            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
-        }
-
-    private fun EventID.addReferenceTo(eventId: EventID, name: String, status: Status): EventID = Event.start()
-        .endTimestamp()
-        .name(name)
-        .status(status)
-        .type(if (status != PASSED) "Error" else "Warn")
-        .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-        .bodyData(ReferenceToEvent(eventId.logId))
-        .toProto(this)
-        .also(onEvent)
-        .id
 
     private fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
         incomingProtocols.none { it.isBlank() || containsIgnoreCase(it) } -> false
@@ -270,42 +185,6 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     }
 
     private fun Collection<String>.containsIgnoreCase(item: String) = any { item.equals(it, true) }
-
-    private fun EventID.publishEvent(
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        status: Status = PASSED,
-        cause: Throwable? = null,
-        body: List<String> = emptyList(),
-    ): ProtoEvent = Event.start().apply {
-        name(message)
-        type(if (status != PASSED || cause != null) "Error" else "Warn")
-        status(if (cause != null) FAILED else status)
-        messagesIds.forEach { messageId ->
-            if (messageId.isValid) {
-                messageID(messageId)
-            }
-        }
-
-        generateSequence(cause, Throwable::cause).forEach {
-            bodyData(EventUtils.createMessageBean(it.message))
-        }
-
-        if (body.isNotEmpty()) {
-            bodyData(EventUtils.createMessageBean("Information:"))
-            body.forEach { bodyData(EventUtils.createMessageBean(it)) }
-        }
-    }.toProto(this).also(onEvent)
-
-    @Suppress("unused")
-    private class ReferenceToEvent(val eventId: String) : IBodyData {
-        val type: String
-            get() = TYPE
-
-        companion object {
-            const val TYPE = "reference"
-        }
-    }
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}

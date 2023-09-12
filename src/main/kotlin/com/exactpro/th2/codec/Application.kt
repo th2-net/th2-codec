@@ -59,6 +59,8 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }
     }
 
+    private val eventProcessor = EventProcessor(rootEventId, onEvent)
+
     private val codecs: MutableList<AutoCloseable> = mutableListOf<AutoCloseable>().apply {
         configuration.transportLines.forEach { (prefix, line) ->
             val prefixFull = if (prefix.isNotEmpty()) prefix + '_' else ""
@@ -83,16 +85,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         val grpcRouter: GrpcRouter = commonFactory.grpcRouter
         val grpcDecoder = createProtoDecoder("grpc-decoder", "", "", true).apply { codecs += this }
         val grpcEncoder = createProtoEncoder("grpc-encoder", "", "", true).apply { codecs += this }
-
-        val storeEventFunc: (Event, EventID?) -> Unit = { event, parentId ->
-            eventRouter.runCatching {
-                storeEvent(event, parentId ?: rootEventId)
-            }.onFailure {
-                K_LOGGER.error(it) { "Failed to store event: $event" }
-            }
-        }
-
-        val grpcService = GrpcCodecService(grpcRouter, grpcDecoder::handleMessage, grpcEncoder::handleMessage, storeEventFunc, configuration.isFirstCodecInPipeline)
+        val grpcService = GrpcCodecService(grpcRouter, grpcDecoder::handleMessage, grpcEncoder::handleMessage, configuration.isFirstCodecInPipeline, eventProcessor)
         grpcServer = grpcRouter.startServer(grpcService)
         grpcServer.start()
         K_LOGGER.info { "codec started" }
@@ -106,7 +99,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     ): AbstractProtoSyncCodec = ProtoSyncEncoder(
             protoRouter,
             eventRouter,
-            ProtoEncodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            ProtoEncodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
         ).apply {
             start(sourceAttributes, targetAttributes)
@@ -120,7 +113,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     ): AbstractProtoSyncCodec = ProtoSyncDecoder(
             protoRouter,
             eventRouter,
-            ProtoDecodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            ProtoDecodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
         ).apply {
             start(sourceAttributes, targetAttributes)
@@ -134,7 +127,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     ): AutoCloseable = TransportSyncEncoder(
             transportRouter,
             eventRouter,
-            TransportEncodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            TransportEncodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
         ).apply {
             start(sourceAttributes, targetAttributes)
@@ -148,7 +141,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     ): AutoCloseable = TransportSyncDecoder(
             transportRouter,
             eventRouter,
-            TransportDecodeProcessor(context.codec, context.protocols, rootEventId, useParentEventId, configuration.enableVerticalScaling, onEvent),
+            TransportDecodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
         ).apply {
             start(sourceAttributes, targetAttributes)
