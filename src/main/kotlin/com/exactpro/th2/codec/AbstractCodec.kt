@@ -77,7 +77,6 @@ abstract class AbstractCodec<BATCH>(
         } catch (e: CodecException) {
             val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
             createAndStoreErrorEvent(e, parentEventId)
-            LOGGER.error(e) { "Failed to handle message: ${message.toString()}" }
             throw e
         }
     }

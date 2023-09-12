@@ -25,11 +25,12 @@ import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.utils.message.logId
 import mu.KotlinLogging
 
 abstract class AbstractEventProcessor {
     fun onEvent(message: String, messagesIds: List<MessageID> = emptyList(), body: List<String> = emptyList()): String {
-        LOGGER.warn { "$message. Messages: ${messagesIds.joinToReadableString()}" }
+        LOGGER.warn { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
         return storeEvent(message, messagesIds, body)
     }
 
@@ -39,7 +40,7 @@ abstract class AbstractEventProcessor {
         cause: Throwable? = null,
         additionalBody: List<String> = emptyList()
     ): String {
-        LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToReadableString()}" }
+        LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
         return storeErrorEvent(message, messagesIds, cause, additionalBody)
     }
 
@@ -86,35 +87,8 @@ abstract class AbstractEventProcessor {
     protected abstract fun storeEachEvent(warnEvent: String, message: String, events: Set<EventID>)
     protected abstract fun storeEachErrorEvent(errorEventId: String, message: String, events: Set<EventID>)
 
-    private fun List<MessageID>.joinToReadableString(): String =
-        joinToString(", ") {
-            "${it.connectionId.sessionAlias}:${it.direction}:${it.sequence}[.${it.subsequenceList.joinToString(".")}]"
-        }
-
     companion object {
         private val LOGGER = KotlinLogging.logger {}
-    }
-}
-
-class LogOnlyEventProcessor : AbstractEventProcessor() {
-    override fun storeEvent(
-        message: String,
-        messagesIds: List<MessageID>,
-        body: List<String>
-    ): String = DEFAULT_EVENT_ID
-
-    override fun storeErrorEvent(
-        message: String,
-        messagesIds: List<MessageID>,
-        cause: Throwable?,
-        additionalBody: List<String>
-    ) = DEFAULT_EVENT_ID
-
-    override fun storeEachEvent(warnEvent: String, message: String, events: Set<EventID>) {}
-    override fun storeEachErrorEvent(errorEventId: String, message: String, events: Set<EventID>) {}
-
-    companion object {
-        private const val DEFAULT_EVENT_ID = "0000"
     }
 }
 
@@ -172,7 +146,7 @@ class StoreEventProcessor(private val storeEventFunc: (Event, EventID?) -> Unit)
             .also { event ->
                 storeEventFunc(event, this)
             }.run {
-                return checkNotNull(EventUtils.toEventID(startTimestamp, "", "", id))
+                return checkNotNull(EventUtils.toEventID(startTimestamp, "", "", id)) // TODO: bookName & scope
             }
     }
 
@@ -188,8 +162,8 @@ class StoreEventProcessor(private val storeEventFunc: (Event, EventID?) -> Unit)
         status(if (cause != null) FAILED else status)
         messagesIds.forEach(::messageID)
 
-        generateSequence(cause, Throwable::cause).forEach {
-            bodyData(EventUtils.createMessageBean(it.message))
+        if (cause != null) {
+            this.exception(cause, true)
         }
 
         if (body.isNotEmpty()) {

@@ -156,6 +156,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
 
     override fun close() {
         if(!grpcServer.shutdown().awaitTermination(10, TimeUnit.SECONDS)) {
+            K_LOGGER.warn { "gRPC server failed to shutdown orderly. Server will be stopped forcefully." }
             grpcServer.shutdownNow()
         }
 

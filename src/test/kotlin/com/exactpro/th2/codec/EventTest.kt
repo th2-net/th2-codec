@@ -22,6 +22,8 @@ import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageID
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.mockito.kotlin.any
@@ -294,5 +296,27 @@ class EventTest {
             return messageGroup
         }
 
+    }
+}
+
+class LogOnlyEventProcessor : AbstractEventProcessor() {
+    override fun storeEvent(
+        message: String,
+        messagesIds: List<MessageID>,
+        body: List<String>
+    ): String = DEFAULT_EVENT_ID
+
+    override fun storeErrorEvent(
+        message: String,
+        messagesIds: List<MessageID>,
+        cause: Throwable?,
+        additionalBody: List<String>
+    ) = DEFAULT_EVENT_ID
+
+    override fun storeEachEvent(warnEvent: String, message: String, events: Set<EventID>) {}
+    override fun storeEachErrorEvent(errorEventId: String, message: String, events: Set<EventID>) {}
+
+    companion object {
+        private const val DEFAULT_EVENT_ID = "0000"
     }
 }

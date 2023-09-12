@@ -69,10 +69,10 @@ class GrpcCodecService(
                 responseObserver.onNext(parsed)
                 responseObserver.onCompleted()
             }
-        } catch (t: Throwable) {
-            val errorMessage = "'decode' rpc call exception: ${t.message}"
-            eventProcessor.onErrorEvent(errorMessage, batch.messageIds, t)
-            responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(t).asException())
+        } catch (e: Exception) {
+            val errorMessage = "'decode' rpc call exception: ${e.message}"
+            eventProcessor.onErrorEvent(errorMessage, batch.messageIds, e)
+            responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(e).asException())
         }
     }
 
