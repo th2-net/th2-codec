@@ -20,16 +20,10 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
 class ProtoSyncEncoder(
-    protoRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     processor: ProtoEncodeProcessor,
     codecRootID: EventID,
-) : AbstractProtoSyncCodec(
-    protoRouter,
-    eventRouter,
-    processor,
-    codecRootID
-) {
+) : AbstractProtoSyncCodec(eventRouter, processor, codecRootID) {
     override fun getParentEventId(
         codecRootID: EventID,
         source: MessageGroupBatch,

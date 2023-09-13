@@ -98,8 +98,7 @@ class GrpcCodecService(
             if (nextCodec != null && batch.anyMessage(AnyMessage::hasMessage)) {
                 nextCodec.encode(batch, mapOf("session_alias" to batch.sessionAlias), nextCodecObserver)
             } else {
-                nextCodecObserver.onNext(batch)
-                nextCodecObserver.onCompleted()
+                nextCodecObserver.onNext(batch) // onCompleted invoked in onNext method
             }
         } catch (e: Exception) {
             val errorMessage = "'encode' rpc call exception: ${e.message}"

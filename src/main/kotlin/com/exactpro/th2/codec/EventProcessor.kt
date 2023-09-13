@@ -23,8 +23,8 @@ import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.isValid
-import com.exactpro.th2.common.utils.event.logId
 import com.exactpro.th2.common.utils.message.logId
+import com.google.protobuf.util.Timestamps
 import mu.KotlinLogging
 
 class EventProcessor(
@@ -99,10 +99,12 @@ class EventProcessor(
         .status(status)
         .type(if (status != Event.Status.PASSED) "Error" else "Warn")
         .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-        .bodyData(ReferenceToEvent(eventId.logId))
+        .bodyData(ReferenceToEvent(eventId.idString))
         .toProto(this)
         .also(onEvent)
         .id
+
+    private val EventID.idString get() = "${bookName}:${scope}:${Timestamps.toString(startTimestamp)}:${id}"
 
     private fun EventID.publishEvent(
         message: String,
@@ -120,8 +122,8 @@ class EventProcessor(
             }
         }
 
-        generateSequence(cause, Throwable::cause).forEach {
-            bodyData(EventUtils.createMessageBean(it.message))
+        if (cause != null) {
+            exception(cause, true)
         }
 
         if (body.isNotEmpty()) {

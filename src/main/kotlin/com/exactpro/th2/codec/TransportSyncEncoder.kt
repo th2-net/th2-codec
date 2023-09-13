@@ -21,16 +21,10 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 
 class TransportSyncEncoder(
-    protoRouter: MessageRouter<GroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     processor: TransportEncodeProcessor,
     codecRootID: EventID,
-) : AbstractTransportSyncCodec(
-    protoRouter,
-    eventRouter,
-    processor,
-    codecRootID
-) {
+) : AbstractTransportSyncCodec(eventRouter, processor, codecRootID) {
     override fun getParentEventId(
         codecRootID: EventID,
         source: GroupBatch,

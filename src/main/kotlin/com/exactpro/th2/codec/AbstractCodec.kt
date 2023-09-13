@@ -21,61 +21,23 @@ import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageRouter
 import mu.KotlinLogging
-import java.io.IOException
-import java.util.concurrent.TimeoutException
 
+// TODO: merging AbstractCodec and AbstractCodecProcessor classes into one class should be considered
 abstract class AbstractCodec<BATCH>(
-    private val router: MessageRouter<BATCH>,
     private val eventRouter: MessageRouter<EventBatch>,
     private val codecRootEvent: EventID
-) : AutoCloseable {
-    private var targetAttributes: String = ""
-
-    fun start(sourceAttributes: String, targetAttributes: String) {
-        try {
-            this.targetAttributes = targetAttributes
-            router.subscribeAll(::handle, sourceAttributes)
-        } catch (exception: Exception) {
-            when (exception) {
-                is IOException,
-                is TimeoutException,
-                -> throw DecodeException("could not start rabbit mq subscriber", exception)
-
-                else -> throw DecodeException("could not start decoder", exception)
-            }
-        }
-    }
-
-    override fun close() {}
-
-    private fun handle(deliveryMetadata: DeliveryMetadata, batch: BATCH) {
+) {
+    fun handleBatch(batch: BATCH): BATCH {
         var result: BATCH? = null
 
         try {
             result = process(batch)
-
-            if (checkResult(result)) {
-                router.sendAll(result, this.targetAttributes)
-            }
-        } catch (exception: CodecException) {
-            val parentEventId = getParentEventId(codecRootEvent, batch, result)
-            createAndStoreErrorEvent(exception, parentEventId)
-            LOGGER.error(exception) { "Failed to handle message: $batch" }
-        }
-    }
-
-    fun handleMessage(message: BATCH): BATCH {
-        var protoResult: BATCH? = null
-
-        try {
-            protoResult = process(message)
-            if (!checkResult(protoResult)) throw CodecException("checkResult failed")
-            return protoResult
+            if (!checkResult(result)) throw CodecException("checkResult failed")
+            return result
         } catch (e: CodecException) {
-            val parentEventId = getParentEventId(codecRootEvent, message, protoResult)
+            val parentEventId = getParentEventId(codecRootEvent, batch, result)
             createAndStoreErrorEvent(e, parentEventId)
             throw e
         }

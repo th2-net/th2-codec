@@ -21,11 +21,10 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 
 abstract class AbstractTransportSyncCodec(
-    transportRouter: MessageRouter<GroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor<GroupBatch, MessageGroup, Message<*>>,
     codecRootEvent: EventID,
-) : AbstractCodec<GroupBatch>(transportRouter, eventRouter, codecRootEvent) {
+) : AbstractCodec<GroupBatch>(eventRouter, codecRootEvent) {
     override fun process(batch: GroupBatch): GroupBatch = processor.process(batch)
     override fun checkResult(result: GroupBatch): Boolean = result.groups.isNotEmpty()
 }

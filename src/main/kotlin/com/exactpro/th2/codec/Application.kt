@@ -20,6 +20,7 @@ import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.configuration.TransportType
 import com.exactpro.th2.codec.grpc.GrpcCodecService
+import com.exactpro.th2.codec.mq.MqListener
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
@@ -66,13 +67,13 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
             val prefixFull = if (prefix.isNotEmpty()) prefix + '_' else ""
             add(
                 when (line.type) {
-                    TransportType.PROTOBUF -> ::createProtoDecoder
+                    TransportType.PROTOBUF -> ::createMqProtoDecoder
                     TransportType.TH2_TRANSPORT -> ::createTransportDecoder
                 }("${prefixFull}decoder", "${prefixFull}decoder_in", "${prefixFull}decoder_out", line.useParentEventId)
             )
             add(
                 when (line.type) {
-                    TransportType.PROTOBUF -> ::createProtoEncoder
+                    TransportType.PROTOBUF -> ::createMqProtoEncoder
                     TransportType.TH2_TRANSPORT -> ::createTransportEncoder
                 }("${prefixFull}encoder", "${prefixFull}encoder_in", "${prefixFull}encoder_out", line.useParentEventId)
             )
@@ -83,69 +84,85 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
 
     init {
         val grpcRouter: GrpcRouter = commonFactory.grpcRouter
-        val grpcDecoder = createProtoDecoder("grpc-decoder", "", "", true).apply { codecs += this }
-        val grpcEncoder = createProtoEncoder("grpc-encoder", "", "", true).apply { codecs += this }
-        val grpcService = GrpcCodecService(grpcRouter, grpcDecoder::handleMessage, grpcEncoder::handleMessage, configuration.isFirstCodecInPipeline, eventProcessor)
+        val grpcDecoder = ProtoSyncDecoder(
+            eventRouter,
+            ProtoDecodeProcessor(context.codec, context.protocols, true, configuration.enableVerticalScaling, eventProcessor),
+            rootEventId
+        )
+        val grpcEncoder = ProtoSyncEncoder(
+            eventRouter,
+            ProtoEncodeProcessor(context.codec, context.protocols, true, configuration.enableVerticalScaling, eventProcessor),
+            rootEventId
+        )
+        val grpcService = GrpcCodecService(grpcRouter, grpcDecoder::handleBatch, grpcEncoder::handleBatch, configuration.isFirstCodecInPipeline, eventProcessor)
         grpcServer = grpcRouter.startServer(grpcService)
         grpcServer.start()
         K_LOGGER.info { "codec started" }
     }
 
-    private fun createProtoEncoder(
+    private fun createMqProtoEncoder(
         codecName: String,
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
-    ): AbstractProtoSyncCodec = ProtoSyncEncoder(
-            protoRouter,
+    ): AutoCloseable = MqListener(
+        protoRouter,
+        ProtoSyncEncoder(
             eventRouter,
             ProtoEncodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
-        ).apply {
-            start(sourceAttributes, targetAttributes)
-        }.also { K_LOGGER.info { "Proto '$codecName' started" } }
+        )::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Proto '$codecName' started" } }
 
-    private fun createProtoDecoder(
+    private fun createMqProtoDecoder(
         codecName: String,
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
-    ): AbstractProtoSyncCodec = ProtoSyncDecoder(
-            protoRouter,
+    ): AutoCloseable = MqListener(
+        protoRouter,
+        ProtoSyncDecoder(
             eventRouter,
             ProtoDecodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
-        ).apply {
-            start(sourceAttributes, targetAttributes)
-        }.also { K_LOGGER.info { "Proto '$codecName' started" } }
+        )::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Proto '$codecName' started" } }
 
     private fun createTransportEncoder(
         codecName: String,
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
-    ): AutoCloseable = TransportSyncEncoder(
-            transportRouter,
+    ): AutoCloseable = MqListener(
+        transportRouter,
+        TransportSyncEncoder(
             eventRouter,
             TransportEncodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
-        ).apply {
-            start(sourceAttributes, targetAttributes)
-        }.also { K_LOGGER.info { "Transport '$codecName' started" } }
+        )::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Transport '$codecName' started" } }
 
     private fun createTransportDecoder(
         codecName: String,
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
-    ): AutoCloseable = TransportSyncDecoder(
-            transportRouter,
+    ): AutoCloseable =  MqListener(
+        transportRouter,
+        TransportSyncDecoder(
             eventRouter,
             TransportDecodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
             rootEventId
-        ).apply {
-            start(sourceAttributes, targetAttributes)
-        }.also { K_LOGGER.info { "Transport '$codecName' started" } }
+        )::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Transport '$codecName' started" } }
 
     override fun close() {
         if(!grpcServer.shutdown().awaitTermination(10, TimeUnit.SECONDS)) {

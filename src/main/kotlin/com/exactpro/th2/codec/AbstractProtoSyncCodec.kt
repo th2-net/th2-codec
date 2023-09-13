@@ -21,11 +21,10 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
 abstract class AbstractProtoSyncCodec(
-    protoRouter: MessageRouter<MessageGroupBatch>,
     eventRouter: MessageRouter<EventBatch>,
     private val processor: AbstractCodecProcessor<MessageGroupBatch, MessageGroup, AnyMessage>,
     codecRootEvent: EventID,
-) : AbstractCodec<MessageGroupBatch>(protoRouter, eventRouter, codecRootEvent) {
+) : AbstractCodec<MessageGroupBatch>(eventRouter, codecRootEvent) {
     override fun process(batch: MessageGroupBatch): MessageGroupBatch = processor.process(batch)
     override fun checkResult(result: MessageGroupBatch): Boolean = result.groupsCount != 0
 }
