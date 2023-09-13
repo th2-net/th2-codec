@@ -22,7 +22,7 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 class ProtoSyncEncoder(
     eventRouter: MessageRouter<EventBatch>,
     processor: ProtoEncodeProcessor,
-    codecRootID: EventID,
+    codecRootID: EventID
 ) : AbstractProtoSyncCodec(eventRouter, processor, codecRootID) {
     override fun getParentEventId(
         codecRootID: EventID,

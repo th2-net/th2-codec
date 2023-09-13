@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.configuration.TransportType
@@ -68,13 +69,13 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
             add(
                 when (line.type) {
                     TransportType.PROTOBUF -> ::createMqProtoDecoder
-                    TransportType.TH2_TRANSPORT -> ::createTransportDecoder
+                    TransportType.TH2_TRANSPORT -> ::createMqTransportDecoder
                 }("${prefixFull}decoder", "${prefixFull}decoder_in", "${prefixFull}decoder_out", line.useParentEventId)
             )
             add(
                 when (line.type) {
                     TransportType.PROTOBUF -> ::createMqProtoEncoder
-                    TransportType.TH2_TRANSPORT -> ::createTransportEncoder
+                    TransportType.TH2_TRANSPORT -> ::createMqTransportEncoder
                 }("${prefixFull}encoder", "${prefixFull}encoder_in", "${prefixFull}encoder_out", line.useParentEventId)
             )
         }
@@ -84,21 +85,23 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
 
     init {
         val grpcRouter: GrpcRouter = commonFactory.grpcRouter
-        val grpcDecoder = ProtoSyncDecoder(
-            eventRouter,
-            ProtoDecodeProcessor(context.codec, context.protocols, true, configuration.enableVerticalScaling, eventProcessor),
-            rootEventId
-        )
-        val grpcEncoder = ProtoSyncEncoder(
-            eventRouter,
-            ProtoEncodeProcessor(context.codec, context.protocols, true, configuration.enableVerticalScaling, eventProcessor),
-            rootEventId
-        )
+        val grpcEncoder = createSyncCodec(::ProtoSyncEncoder, ::ProtoEncodeProcessor, true)
+        val grpcDecoder = createSyncCodec(::ProtoSyncDecoder, ::ProtoDecodeProcessor, true)
         val grpcService = GrpcCodecService(grpcRouter, grpcDecoder::handleBatch, grpcEncoder::handleBatch, configuration.isFirstCodecInPipeline, eventProcessor)
         grpcServer = grpcRouter.startServer(grpcService)
         grpcServer.start()
         K_LOGGER.info { "codec started" }
     }
+
+    private fun <CODEC : AbstractCodec<*>, PROCESSOR : AbstractCodecProcessor<*, *, *>> createSyncCodec(
+        codecConstructor: (MessageRouter<EventBatch>, PROCESSOR, EventID) -> CODEC,
+        processorConstructor: (IPipelineCodec, Set<String>, Boolean, Boolean, EventProcessor) -> PROCESSOR,
+        useParentEventId: Boolean
+    ) = codecConstructor(
+        eventRouter,
+        processorConstructor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
+        rootEventId
+    )
 
     private fun createMqProtoEncoder(
         codecName: String,
@@ -107,11 +110,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         useParentEventId: Boolean
     ): AutoCloseable = MqListener(
         protoRouter,
-        ProtoSyncEncoder(
-            eventRouter,
-            ProtoEncodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
-            rootEventId
-        )::handleBatch,
+        createSyncCodec(::ProtoSyncEncoder, ::ProtoEncodeProcessor, useParentEventId)::handleBatch,
         sourceAttributes,
         targetAttributes
     ).also { K_LOGGER.info { "Proto '$codecName' started" } }
@@ -123,43 +122,31 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         useParentEventId: Boolean
     ): AutoCloseable = MqListener(
         protoRouter,
-        ProtoSyncDecoder(
-            eventRouter,
-            ProtoDecodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
-            rootEventId
-        )::handleBatch,
+        createSyncCodec(::ProtoSyncDecoder, ::ProtoDecodeProcessor, useParentEventId)::handleBatch,
         sourceAttributes,
         targetAttributes
     ).also { K_LOGGER.info { "Proto '$codecName' started" } }
 
-    private fun createTransportEncoder(
+    private fun createMqTransportEncoder(
         codecName: String,
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
     ): AutoCloseable = MqListener(
         transportRouter,
-        TransportSyncEncoder(
-            eventRouter,
-            TransportEncodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
-            rootEventId
-        )::handleBatch,
+        createSyncCodec(::TransportSyncEncoder, ::TransportEncodeProcessor, useParentEventId)::handleBatch,
         sourceAttributes,
         targetAttributes
     ).also { K_LOGGER.info { "Transport '$codecName' started" } }
 
-    private fun createTransportDecoder(
+    private fun createMqTransportDecoder(
         codecName: String,
         sourceAttributes: String,
         targetAttributes: String,
         useParentEventId: Boolean
     ): AutoCloseable =  MqListener(
         transportRouter,
-        TransportSyncDecoder(
-            eventRouter,
-            TransportDecodeProcessor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
-            rootEventId
-        )::handleBatch,
+        createSyncCodec(::TransportSyncDecoder, ::TransportDecodeProcessor, useParentEventId)::handleBatch,
         sourceAttributes,
         targetAttributes
     ).also { K_LOGGER.info { "Transport '$codecName' started" } }
