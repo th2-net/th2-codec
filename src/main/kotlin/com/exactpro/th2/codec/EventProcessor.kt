@@ -24,8 +24,12 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.isValid
 import com.exactpro.th2.common.utils.message.logId
-import com.google.protobuf.util.Timestamps
+import com.exactpro.th2.common.utils.toInstant
+import com.google.protobuf.TimestampOrBuilder
 import mu.KotlinLogging
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 class EventProcessor(
     private val codecEventID: EventID,
@@ -99,12 +103,13 @@ class EventProcessor(
         .status(status)
         .type(if (status != Event.Status.PASSED) "Error" else "Warn")
         .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-        .bodyData(ReferenceToEvent(eventId.idString))
+        .bodyData(ReferenceToEvent(eventId.cradleString))
         .toProto(this)
         .also(onEvent)
         .id
 
-    private val EventID.idString get() = "${bookName}:${scope}:${Timestamps.toString(startTimestamp)}:${id}"
+    private val EventID.cradleString get() = "$bookName:$scope:${startTimestamp.cradleTimestampString}:$id"
+    private val TimestampOrBuilder.cradleTimestampString get() = CRADLE_DATE_TIME_FORMATTER.format(LocalDateTime.ofInstant(toInstant(), ZoneOffset.UTC))
 
     private fun EventID.publishEvent(
         message: String,
@@ -144,5 +149,8 @@ class EventProcessor(
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}
+        private val CRADLE_DATE_TIME_FORMATTER = DateTimeFormatter
+            .ofPattern("yyyyMMddHHmmssSSSSSSSSS")
+            .withZone(ZoneOffset.UTC)
     }
 }
