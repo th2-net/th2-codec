@@ -16,37 +16,59 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.message.toTimestamp
+import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.configuration.Configuration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import java.time.Instant
 
-fun Message.Builder.setProtocol(protocol: String) = apply {
-    metadataBuilder.protocol = protocol
-}
-
-fun RawMessage.Builder.setProtocol(protocol: String) = apply {
-    metadataBuilder.protocol = protocol
-}
-
 const val BOOK_NAME = "test-book"
+const val SESSION_GROUP_NAME = "test-session-group"
 
-val CODEC_EVENT_ID: EventID = EventID.newBuilder().apply {
-    bookName = BOOK_NAME
-    scope = "test-scope"
-    startTimestamp = Instant.now().toTimestamp()
-    id = "test-codec"
-}.build()
+val CODEC_EVENT_ID: EventId = EventId(
+    "test-codec",
+    BOOK_NAME,
+    "test-scope",
+    Instant.now()
+)
 
-val MESSAGE_ID: MessageID = MessageID.newBuilder().apply {
-    connectionIdBuilder.apply {
-        sessionAlias = "test-session-alias"
+val MESSAGE_ID: MessageId = MessageId(
+    "test-session-alias",
+    Direction.INCOMING,
+    1,
+    Instant.now()
+)
+
+enum class Protocol { PROTO, TRANSPORT }
+
+fun getNewBatchBuilder(protocol: Protocol, book: String, sessionGroup: String): IBatchBuilder = when(protocol) {
+    Protocol.PROTO -> ProtoBatchBuilder(book, sessionGroup)
+    Protocol.TRANSPORT -> TransportBatchBuilder(book, sessionGroup)
+}
+
+class UniversalCodecProcessor(
+    codec: IPipelineCodec,
+    protocols: Set<String>,
+    useParentEventId: Boolean = true,
+    enabledVerticalScaling: Boolean = false,
+    private val protocol: Protocol,
+    process: AbstractCodecProcessor.Process,
+    eventProcessor: EventProcessor,
+    config: Configuration
+) {
+    private lateinit var protoProcessor: ProtoCodecProcessor
+    private lateinit var transportProcessor: TransportCodecProcessor
+
+    init {
+        when(protocol) {
+            Protocol.PROTO -> protoProcessor = ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
+            Protocol.TRANSPORT -> transportProcessor = TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
+        }
     }
-    bookName = BOOK_NAME
-    direction = Direction.FIRST
-    timestamp = Instant.now().toTimestamp()
-    sequence = 1
-}.build()
+
+    fun process(batchWrapper: IGroupBatch): IGroupBatch = when(protocol) {
+        Protocol.PROTO -> ProtoBatchWrapper(protoProcessor.process((batchWrapper as ProtoBatchWrapper).batch))
+        Protocol.TRANSPORT -> TransportBatchWrapper(transportProcessor.process((batchWrapper as TransportBatchWrapper).batch))
+    }
+}

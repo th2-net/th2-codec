@@ -13,28 +13,36 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 package com.exactpro.th2.codec
 
+import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.configuration.ApplicationContext
 import com.exactpro.th2.codec.configuration.Configuration
+import com.exactpro.th2.codec.configuration.TransportType
+import com.exactpro.th2.codec.grpc.GrpcCodecService
+import com.exactpro.th2.codec.mq.MqListener
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.storeEvent
+import io.grpc.Server
 import mu.KotlinLogging
+import java.util.concurrent.TimeUnit
 
 class Application(commonFactory: CommonFactory): AutoCloseable {
     private val configuration = Configuration.create(commonFactory)
     private val context = ApplicationContext.create(configuration, commonFactory)
 
     private val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
-    private val messageRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
-
+    private val protoRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
+    private val transportRouter: MessageRouter<GroupBatch> = commonFactory.transportGroupBatchRouter
     private val rootEventId: EventID = commonFactory.rootEventId
-
     private val onEvent: (ProtoEvent) -> Unit = { event ->
         eventRouter.runCatching {
             sendAll(EventBatch.newBuilder().addEvents(event).build())
@@ -53,57 +61,106 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }
     }
 
-    private val decoder: AutoCloseable = SyncDecoder(
-        messageRouter, eventRouter,
-        DecodeProcessor(context.codec, context.protocols, rootEventId, true, configuration.enableVerticalScaling, onEvent),
-        rootEventId
-    ).apply {
-        start(Configuration.DECODER_INPUT_ATTRIBUTE, Configuration.DECODER_OUTPUT_ATTRIBUTE)
+    private val eventProcessor = EventProcessor(rootEventId, onEvent)
+
+    private val codecs: MutableList<AutoCloseable> = mutableListOf<AutoCloseable>().apply {
+        configuration.transportLines.forEach { (prefix, line) ->
+            val prefixFull = if (prefix.isNotEmpty()) prefix + '_' else ""
+            add(
+                when (line.type) {
+                    TransportType.PROTOBUF -> ::createMqProtoDecoder
+                    TransportType.TH2_TRANSPORT -> ::createMqTransportDecoder
+                }("${prefixFull}decoder", "${prefixFull}decoder_in", "${prefixFull}decoder_out", line.useParentEventId)
+            )
+            add(
+                when (line.type) {
+                    TransportType.PROTOBUF -> ::createMqProtoEncoder
+                    TransportType.TH2_TRANSPORT -> ::createMqTransportEncoder
+                }("${prefixFull}encoder", "${prefixFull}encoder_in", "${prefixFull}encoder_out", line.useParentEventId)
+            )
+        }
     }
 
-    private val encoder: AutoCloseable = SyncEncoder(
-        messageRouter,
-        eventRouter,
-        EncodeProcessor(context.codec, context.protocols, rootEventId, true, configuration.enableVerticalScaling, onEvent),
-        rootEventId
-    ).apply {
-        start(Configuration.ENCODER_INPUT_ATTRIBUTE, Configuration.ENCODER_OUTPUT_ATTRIBUTE)
-    }
-
-    private val generalDecoder: AutoCloseable = SyncDecoder(
-            commonFactory.messageRouterMessageGroupBatch,
-            commonFactory.eventBatchRouter,
-            DecodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
-            rootEventId
-        ).apply {
-            start(Configuration.GENERAL_DECODER_INPUT_ATTRIBUTE, Configuration.GENERAL_DECODER_OUTPUT_ATTRIBUTE)
-        }
-
-    private val generalEncoder: AutoCloseable = SyncEncoder(
-            commonFactory.messageRouterMessageGroupBatch,
-            commonFactory.eventBatchRouter,
-            EncodeProcessor(context.codec, context.protocols, rootEventId, false, configuration.enableVerticalScaling, onEvent),
-            rootEventId
-        ).apply {
-            start(Configuration.GENERAL_ENCODER_INPUT_ATTRIBUTE, Configuration.GENERAL_ENCODER_OUTPUT_ATTRIBUTE)
-        }
+    private val grpcServer: Server
 
     init {
+        val grpcRouter: GrpcRouter = commonFactory.grpcRouter
+        val grpcEncoder = createSyncCodec(::ProtoSyncEncoder, ::ProtoEncodeProcessor, true)
+        val grpcDecoder = createSyncCodec(::ProtoSyncDecoder, ::ProtoDecodeProcessor, true)
+        val grpcService = GrpcCodecService(grpcRouter, grpcDecoder::handleBatch, grpcEncoder::handleBatch, configuration.isFirstCodecInPipeline, eventProcessor)
+        grpcServer = grpcRouter.startServer(grpcService)
+        grpcServer.start()
         K_LOGGER.info { "codec started" }
     }
 
+    private fun <CODEC : AbstractCodec<*>, PROCESSOR : AbstractCodecProcessor<*, *, *>> createSyncCodec(
+        codecConstructor: (MessageRouter<EventBatch>, PROCESSOR, EventID) -> CODEC,
+        processorConstructor: (IPipelineCodec, Set<String>, Boolean, Boolean, EventProcessor, Configuration) -> PROCESSOR,
+        useParentEventId: Boolean
+    ) = codecConstructor(
+        eventRouter,
+        processorConstructor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor, configuration),
+        rootEventId
+    )
+
+    private fun createMqProtoEncoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable = MqListener(
+        protoRouter,
+        createSyncCodec(::ProtoSyncEncoder, ::ProtoEncodeProcessor, useParentEventId)::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Proto '$codecName' started" } }
+
+    private fun createMqProtoDecoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable = MqListener(
+        protoRouter,
+        createSyncCodec(::ProtoSyncDecoder, ::ProtoDecodeProcessor, useParentEventId)::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Proto '$codecName' started" } }
+
+    private fun createMqTransportEncoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable = MqListener(
+        transportRouter,
+        createSyncCodec(::TransportSyncEncoder, ::TransportEncodeProcessor, useParentEventId)::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Transport '$codecName' started" } }
+
+    private fun createMqTransportDecoder(
+        codecName: String,
+        sourceAttributes: String,
+        targetAttributes: String,
+        useParentEventId: Boolean
+    ): AutoCloseable =  MqListener(
+        transportRouter,
+        createSyncCodec(::TransportSyncDecoder, ::TransportDecodeProcessor, useParentEventId)::handleBatch,
+        sourceAttributes,
+        targetAttributes
+    ).also { K_LOGGER.info { "Transport '$codecName' started" } }
+
     override fun close() {
-        runCatching(generalEncoder::close).onFailure {
-            K_LOGGER.error(it) { "General encoder closing failure" }
+        if(!grpcServer.shutdown().awaitTermination(10, TimeUnit.SECONDS)) {
+            K_LOGGER.warn { "gRPC server failed to shutdown orderly. Server will be stopped forcefully." }
+            grpcServer.shutdownNow()
         }
-        runCatching(generalDecoder::close).onFailure {
-            K_LOGGER.error(it) { "General decoder closing failure" }
-        }
-        runCatching(encoder::close).onFailure {
-            K_LOGGER.error(it) { "Encoder closing failure" }
-        }
-        runCatching(decoder::close).onFailure {
-            K_LOGGER.error(it) { "Decoder closing failure" }
+
+        codecs.forEach { codec ->
+            runCatching(codec::close).onFailure {
+                K_LOGGER.error(it) { "Codec closing failure" }
+            }
         }
 
         runCatching(context::close).onFailure {

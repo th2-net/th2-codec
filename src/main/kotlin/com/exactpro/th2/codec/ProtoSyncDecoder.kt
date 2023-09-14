@@ -18,17 +18,11 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
 
-class SyncDecoder(
-    messageRouter: MessageRouter<MessageGroupBatch>,
+class ProtoSyncDecoder(
     eventRouter: MessageRouter<EventBatch>,
-    processor: AbstractCodecProcessor,
-    codecRootID: EventID
-) : AbstractSyncCodec(
-    messageRouter,
-    eventRouter,
-    processor,
-    codecRootID
-) {
-    override fun getParentEventId(codecRootID: EventID, protoSource: MessageGroupBatch, protoResult: MessageGroupBatch?): EventID = codecRootID
-    override fun checkResult(protoResult: MessageGroupBatch): Boolean = protoResult.groupsCount != 0
+    processor: ProtoDecodeProcessor,
+    codecRootID: EventID,
+) : AbstractProtoSyncCodec(eventRouter, processor, codecRootID) {
+    override fun getParentEventId(codecRootID: EventID, source: MessageGroupBatch, result: MessageGroupBatch?): EventID = codecRootID
+    override fun checkResult(result: MessageGroupBatch): Boolean = result.groupsCount != 0
 }

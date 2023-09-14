@@ -18,52 +18,49 @@
 
 package com.exactpro.th2.codec.util
 
-import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
+import com.exactpro.th2.common.grpc.AnyMessage as ProtoAnyMessage
+import com.exactpro.th2.common.grpc.Message as ProtoMessage
+import com.exactpro.th2.common.grpc.RawMessage as ProtoRawMessage
+import com.exactpro.th2.common.grpc.MessageMetadata as ProtoMessageMetadata
+import com.exactpro.th2.common.grpc.RawMessageMetadata as ProtoRawMessageMetadata
+import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
+import com.exactpro.th2.common.grpc.EventID as ProtoEventID
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageGroup
-import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.grpc.MessageMetadata
-import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.grpc.RawMessageMetadata
-import com.exactpro.th2.common.message.message
-import com.exactpro.th2.common.message.plusAssign
-import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.message.*
 import com.exactpro.th2.common.value.toValue
 
-val AnyMessage.parentEventId: EventID?
+val ProtoAnyMessage.parentEventId: ProtoEventID?
     get() = when {
         hasMessage() -> with(message) { if (hasParentEventId()) parentEventId else null }
         hasRawMessage() -> with(rawMessage) { if (hasParentEventId()) parentEventId else null }
         else -> error("Unsupported $kindCase kind")
     }
 
-val MessageGroup.parentEventId: EventID?
-    get() = messagesList.firstNotNullOfOrNull(AnyMessage::parentEventId)
+val ProtoMessageGroup.parentEventId: ProtoEventID?
+    get() = messagesList.firstNotNullOfOrNull(ProtoAnyMessage::parentEventId)
 
 /**
  * Returns parent event ids from each message.
  */
-val MessageGroup.allParentEventIds: Sequence<EventID>
+val ProtoMessageGroup.allParentEventIds: Sequence<ProtoEventID>
     get() = messagesList.asSequence()
-        .mapNotNull(AnyMessage::parentEventId)
+        .mapNotNull(ProtoAnyMessage::parentEventId)
 
-val MessageGroup.allRawProtocols
+val ProtoMessageGroup.allRawProtocols
     get() = messagesList.asSequence()
-        .filter(AnyMessage::hasRawMessage)
+        .filter(ProtoAnyMessage::hasRawMessage)
         .map { it.rawMessage.metadata.protocol }
         .toSet()
 
-val MessageGroup.allParsedProtocols
+val ProtoMessageGroup.allParsedProtocols
     get() = messagesList.asSequence()
-        .filter(AnyMessage::hasMessage)
+        .filter(ProtoAnyMessage::hasMessage)
         .map { it.message.metadata.protocol }
         .toSet()
 
-
-val MessageGroup.messageIds: List<MessageID>
+val ProtoMessageGroup.messageIds: List<ProtoMessageID>
     get() = messagesList.map { message ->
         when (val kind = message.kindCase) {
             MESSAGE -> message.message.metadata.id
@@ -72,17 +69,11 @@ val MessageGroup.messageIds: List<MessageID>
         }
     }
 
-fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
-    incomingProtocols.none { it.isBlank() || it in this }  -> false
-    incomingProtocols.any(String::isBlank) && incomingProtocols.any(String::isNotBlank) -> error("Mixed empty and non-empty protocols are present. Asserted protocols: $incomingProtocols")
-    else -> true
-}
-
 @Deprecated("Please use the toErrorMessageGroup(exception: Throwable, protocols: List<String>) overload instead", ReplaceWith("this.toErrorMessageGroup(exception, listOf(protocol))"))
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): MessageGroup = this.toErrorMessageGroup(exception, listOf(protocol))
+fun ProtoMessageGroup.toErrorMessageGroup(exception: Throwable, protocol: String): ProtoMessageGroup = this.toErrorMessageGroup(exception, listOf(protocol))
 
-fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Collection<String>): MessageGroup {
-    val result = MessageGroup.newBuilder()
+fun ProtoMessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Collection<String>): ProtoMessageGroup {
+    val result = ProtoMessageGroup.newBuilder()
 
     val content = buildString {
         appendLine("$codecProtocols codec has failed to decode one of the following messages: ${messageIds.joinToString(", ") { it.toDebugString() }}")
@@ -119,7 +110,7 @@ fun MessageGroup.toErrorMessageGroup(exception: Throwable, codecProtocols: Colle
     return result.build()
 }
 
-fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageMetadata.Builder {
+fun ProtoRawMessage.toMessageMetadataBuilder(protocols: Collection<String>): ProtoMessageMetadata.Builder {
     val protocol = metadata.protocol.ifBlank {
         when(protocols.size) {
             1 -> protocols.first()
@@ -127,13 +118,13 @@ fun RawMessage.toMessageMetadataBuilder(protocols: Collection<String>): MessageM
         }
     }
 
-    return MessageMetadata.newBuilder()
+    return ProtoMessageMetadata.newBuilder()
         .setId(metadata.id)
         .setProtocol(protocol)
         .putAllProperties(metadata.propertiesMap)
 }
 
-fun Message.toRawMetadataBuilder(protocols: Collection<String>): RawMessageMetadata.Builder {
+fun ProtoMessage.toRawMetadataBuilder(protocols: Collection<String>): ProtoRawMessageMetadata.Builder {
     val protocol = metadata.protocol.ifBlank {
         when(protocols.size) {
             1 -> protocols.first()
@@ -141,7 +132,7 @@ fun Message.toRawMetadataBuilder(protocols: Collection<String>): RawMessageMetad
         }
     }
 
-    return RawMessageMetadata.newBuilder()
+    return ProtoRawMessageMetadata.newBuilder()
         .setId(metadata.id)
         .setProtocol(protocol)
         .putAllProperties(metadata.propertiesMap)

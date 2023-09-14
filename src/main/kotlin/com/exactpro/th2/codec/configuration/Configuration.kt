@@ -13,6 +13,8 @@
 
 package com.exactpro.th2.codec.configuration
 
+import com.exactpro.th2.codec.configuration.TransportType.PROTOBUF
+import com.exactpro.th2.codec.configuration.TransportType.TH2_TRANSPORT
 import com.exactpro.th2.codec.api.IPipelineCodecFactory
 import com.exactpro.th2.codec.api.IPipelineCodecSettings
 import com.exactpro.th2.codec.util.load
@@ -20,7 +22,7 @@ import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 
 internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(JsonFactory()).apply {
@@ -32,18 +34,25 @@ internal val OBJECT_MAPPER: ObjectMapper = ObjectMapper(JsonFactory()).apply {
 class Configuration {
     var codecSettings: IPipelineCodecSettings? = null
     var enableVerticalScaling: Boolean = false
+    var transportLines: Map<String, TransportLine> = mapOf(
+        "" to TransportLine(PROTOBUF, false),
+        "general" to TransportLine(PROTOBUF, true),
+        "transport" to TransportLine(TH2_TRANSPORT, false),
+        "general_transport" to TransportLine(TH2_TRANSPORT, true)
+    )
+    var isFirstCodecInPipeline = false
+    var disableMessageTypeCheck = false
+    var disableProtocolCheck = false
 
     companion object {
-        const val DECODER_INPUT_ATTRIBUTE: String = "decoder_in"
-        const val DECODER_OUTPUT_ATTRIBUTE: String = "decoder_out"
-        const val ENCODER_INPUT_ATTRIBUTE: String = "encoder_in"
-        const val ENCODER_OUTPUT_ATTRIBUTE: String = "encoder_out"
-        const val GENERAL_DECODER_INPUT_ATTRIBUTE: String = "general_decoder_in"
-        const val GENERAL_DECODER_OUTPUT_ATTRIBUTE: String = "general_decoder_out"
-        const val GENERAL_ENCODER_INPUT_ATTRIBUTE: String = "general_encoder_in"
-        const val GENERAL_ENCODER_OUTPUT_ATTRIBUTE: String = "general_encoder_out"
-
         fun create(commonFactory: CommonFactory): Configuration =
             commonFactory.getCustomConfiguration(Configuration::class.java, OBJECT_MAPPER)
     }
 }
+
+enum class TransportType {
+    PROTOBUF,
+    TH2_TRANSPORT
+}
+
+class TransportLine(val type: TransportType, val useParentEventId: Boolean)
