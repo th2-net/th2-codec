@@ -95,11 +95,11 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
 
     private fun <CODEC : AbstractCodec<*>, PROCESSOR : AbstractCodecProcessor<*, *, *>> createSyncCodec(
         codecConstructor: (MessageRouter<EventBatch>, PROCESSOR, EventID) -> CODEC,
-        processorConstructor: (IPipelineCodec, Set<String>, Boolean, Boolean, EventProcessor) -> PROCESSOR,
+        processorConstructor: (IPipelineCodec, Set<String>, Boolean, Boolean, EventProcessor, Configuration) -> PROCESSOR,
         useParentEventId: Boolean
     ) = codecConstructor(
         eventRouter,
-        processorConstructor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor),
+        processorConstructor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor, configuration),
         rootEventId
     )
 

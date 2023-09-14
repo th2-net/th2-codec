@@ -18,6 +18,7 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
+import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
@@ -37,8 +38,9 @@ open class TransportCodecProcessor(
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     process: Process,
-    eventProcessor: EventProcessor
-) : AbstractCodecProcessor<GroupBatch, MessageGroup, Message<*>>(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor) {
+    eventProcessor: EventProcessor,
+    config: Configuration
+) : AbstractCodecProcessor<GroupBatch, MessageGroup, Message<*>>(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config) {
     override val GroupBatch.batchItems: List<MessageGroup> get() = groups
     override val MessageGroup.size: Int get() = messages.size
     override val MessageGroup.groupItems: List<Message<*>> get() = messages
@@ -60,13 +62,15 @@ class TransportDecodeProcessor(
     protocols: Set<String>,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
-    eventProcessor: EventProcessor
-) : TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.DECODE, eventProcessor)
+    eventProcessor: EventProcessor,
+    config: Configuration
+) : TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.DECODE, eventProcessor, config)
 
 class TransportEncodeProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
-    eventProcessor: EventProcessor
-) : TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.ENCODE, eventProcessor)
+    eventProcessor: EventProcessor,
+    config: Configuration
+) : TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.ENCODE, eventProcessor, config)

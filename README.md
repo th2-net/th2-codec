@@ -49,17 +49,10 @@ To implement a codec using this library you need to:
 4. implement the codec itself by implementing [`IPipelineCodec`](https://github.com/th2-net/th2-codec/blob/2707a2755038d49110f6f7eb3e3aeb6188ae0c99/src/main/kotlin/com/exactpro/th2/codec/api/IPipelineCodec.kt#L21) interface:
     ```kotlin
     interface IPipelineCodec : AutoCloseable {
-        fun encode(messageGroup: MessageGroup): MessageGroup = TODO("encode(messageGroup: MessageGroup) method is not implemented")
-        fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = encode(messageGroup)
-
-        fun decode(messageGroup: MessageGroup): MessageGroup = TODO("decode(messageGroup: MessageGroup) method is not implemented")
-        fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = decode(messageGroup)
-
-        fun encode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = TODO("encode(messageGroup: ProtoMessageGroup) method is not implemented")
-        fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = encode(messageGroup)
-   
-        fun decode(messageGroup: ProtoMessageGroup): ProtoMessageGroup = TODO("decode(messageGroup: ProtoMessageGroup) method is not implemented")
-        fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = decode(messageGroup)
+        fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = TODO("encode(messageGroup: MessageGroup, context: IReportingContext) method is not implemented")
+        fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup = TODO("decode(messageGroup: MessageGroup, context: IReportingContext) method is not implemented")
+        fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = TODO("encode(messageGroup: ProtoMessageGroup, context: IReportingContext) method is not implemented")
+        fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup = TODO("decode(messageGroup: ProtoMessageGroup, context: IReportingContext) method is not implemented")
 
         override fun close() {}
     }
@@ -107,20 +100,27 @@ If exception was thrown, all raw messages will be replaced with th2-codec-error 
 > **NOTE**: codec can replace raw message with a parsed message followed by several raw messages
 > (e.g. when a codec decodes only a transport layer it can produce a parsed message for the transport layer and several raw messages for its payload)
 
-# Configuration
+# MQ connections
 
-Codec has four types of connection: stream and general for encode and decode functions.
+Codec has eight types of connection: stream and general for encode and decode functions, using Protobuf or th2 transport protocol.
 
 * stream encode / decode connections works 24 / 7
 * general encode / decode connections works on demand
 
 Codec never mixes messages from the _stream_ and the _general_ connections
 
+# gRPC connections
+
+Codec provides [gRPC service](https://github.com/th2-net/th2-grpc-codec/blob/master/src/main/proto/th2_grpc_codec/codec.proto) and can be connected to the next codec in pipeline via `grpc-client` pin.
+First codec in pipeline should be marked by setting `custom-config` field `isFirstCodecInPipeline` to `true` (this switches on verification of pipeline output during encoding).
+
+Codec never mixes messages from the _MQ_ and the _gRPC_ connections
+
 ## Transport lines
 
-transportLines responsable for number of independnet ecoding / decoding lines. Each transport lines has options:
-* type - has enum [`PROTOBUF`, `TH2_TRANSPORT`] value. Codec creates suitable type of message processor accoding this option.
-NOTE: Support of each transport depends on childe codec implementation.
+transportLines responsible for number of independent encoding / decoding lines. Each transport lines has options:
+* type - has enum [`PROTOBUF`, `TH2_TRANSPORT`] value. Codec creates suitable type of message processor according this option.
+NOTE: Support of each transport depends on child codec implementation.
 * useParentEventId - In both options codec attaches event about encode/decode problem to codec root event. 
   If useParentEventId property is true, codec also attaches event with link to main problem event to each parent event ids from processed messages.
 
@@ -242,11 +242,17 @@ spec:
 
 Codec core has the following parameters:
 
-**enableVerticalScaling** - this setting allow to controll vertical scaling mode. Codec splits an incoming batch into message groups and process each of them via the ForkJoinPool.commonPool(). The default value is `false`.
-Please note this is experemntal feature.
-
-**codecSettings** - the implementaion codec settings. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
+**codecSettings** - the implementation codec settings. These settings will be loaded as an instance of `IPipelineCodecFactory.settingsClass` during start up and then passed to every invocation
 of `IPipelineCodecFactory.create` method
+
+**enableVerticalScaling** - this setting allow to control vertical scaling mode. Codec splits an incoming batch into message groups and process each of them via the ForkJoinPool.commonPool(). The default value is `false`.
+Please note this is experimental feature. Default value is `false`.
+
+**isFirstCodecInPipeline** - specifies that this codec is the first codec in gRPC pipeline. Default value is `false`.
+
+**disableMessageTypeCheck** - disable message type (`RawMessage`/`ParsedMessage`) check during processing. Normally codec does not try to encode `RawMessage` and don't try to decode `ParsedMessage`. Default value is `false`.
+
+**disableProtocolCheck** - disable protocol check during processing. Default value is `false`.
 
 For example:
 
@@ -258,6 +264,9 @@ metadata:
 spec:
   customConfig:
     enableVerticalScaling: false
+    isFirstCodecInPipeline: true
+    disableMessageTypeCheck: false
+    disableProtocolCheck: false
     codecSettings:
       messageTypeDetection: BY_INNER_FIELD
       messageTypeField: "messageType"
@@ -306,6 +315,9 @@ metadata:
 spec:
   customConfig:
     enableVerticalScaling: false
+    isFirstCodecInPipeline: true
+    disableMessageTypeCheck: false
+    disableProtocolCheck: false
     codecSettings:
       parameter1: value
       parameter2:
@@ -391,7 +403,8 @@ The filtering can also be applied for pins with `subscribe` attribute.
 ### v5.3.0
 
 * th2 transport protocol support
-* added transport lines to declare serveral independnet encode/decode group 
+* added transport lines to declare several independent encode/decode groups
+* gRPC connection support
 
 ### v5.2.0
 

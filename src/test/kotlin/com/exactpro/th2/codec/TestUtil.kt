@@ -17,6 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
+import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
@@ -53,15 +54,16 @@ class UniversalCodecProcessor(
     enabledVerticalScaling: Boolean = false,
     private val protocol: Protocol,
     process: AbstractCodecProcessor.Process,
-    eventProcessor: EventProcessor
+    eventProcessor: EventProcessor,
+    config: Configuration
 ) {
     private lateinit var protoProcessor: ProtoCodecProcessor
     private lateinit var transportProcessor: TransportCodecProcessor
 
     init {
         when(protocol) {
-            Protocol.PROTO -> protoProcessor = ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor)
-            Protocol.TRANSPORT -> transportProcessor = TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor)
+            Protocol.PROTO -> protoProcessor = ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
+            Protocol.TRANSPORT -> transportProcessor = TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
         }
     }
 

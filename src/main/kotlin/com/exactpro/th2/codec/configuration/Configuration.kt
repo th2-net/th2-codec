@@ -41,6 +41,8 @@ class Configuration {
         "general_transport" to TransportLine(TH2_TRANSPORT, true)
     )
     var isFirstCodecInPipeline = false
+    var disableMessageTypeCheck = false
+    var disableProtocolCheck = false
 
     companion object {
         fun create(commonFactory: CommonFactory): Configuration =

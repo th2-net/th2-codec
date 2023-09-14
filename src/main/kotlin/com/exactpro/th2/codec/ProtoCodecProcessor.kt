@@ -18,6 +18,7 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
+import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.util.allParentEventIds
 import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
@@ -34,8 +35,9 @@ open class ProtoCodecProcessor (
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     process: Process,
-    eventProcessor: EventProcessor
-) : AbstractCodecProcessor<MessageGroupBatch, MessageGroup, AnyMessage>(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor) {
+    eventProcessor: EventProcessor,
+    config: Configuration
+) : AbstractCodecProcessor<MessageGroupBatch, MessageGroup, AnyMessage>(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config) {
     override val MessageGroupBatch.batchItems: List<MessageGroup> get() = groupsList
     override val MessageGroup.size: Int get() = messagesCount
     override val MessageGroup.groupItems: List<AnyMessage> get() = messagesList
@@ -57,13 +59,15 @@ class ProtoDecodeProcessor(
     protocols: Set<String>,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
-    eventProcessor: EventProcessor
-) : ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.DECODE, eventProcessor)
+    eventProcessor: EventProcessor,
+    config: Configuration
+) : ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.DECODE, eventProcessor, config)
 
 class ProtoEncodeProcessor(
     codec: IPipelineCodec,
     protocols: Set<String>,
     useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
-    eventProcessor: EventProcessor
-) : ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.ENCODE, eventProcessor)
+    eventProcessor: EventProcessor,
+    config: Configuration
+) : ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, Process.ENCODE, eventProcessor, config)

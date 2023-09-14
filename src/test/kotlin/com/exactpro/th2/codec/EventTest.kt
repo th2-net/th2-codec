@@ -22,6 +22,7 @@ import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
+import com.exactpro.th2.codec.configuration.Configuration
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.mockito.kotlin.any
@@ -31,13 +32,14 @@ import org.mockito.kotlin.verify
 import java.util.UUID
 
 class EventTest {
+    val config = Configuration()
 
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `simple test - decode`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = UniversalCodecProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(
                 id = MESSAGE_ID,
@@ -72,7 +74,7 @@ class EventTest {
     fun `Throw test - decode`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = UniversalCodecProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent))
+        val processor = UniversalCodecProcessor(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent), config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(
                 id = MESSAGE_ID,
@@ -107,7 +109,7 @@ class EventTest {
     fun `Throw test - decode with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = UniversalCodecProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent))
+        val processor = UniversalCodecProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent), config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(
                 id = MESSAGE_ID,
@@ -142,7 +144,7 @@ class EventTest {
     fun `simple test - decode with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = UniversalCodecProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent))
+        val processor = UniversalCodecProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent), config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(
                 id = MESSAGE_ID,
@@ -177,7 +179,7 @@ class EventTest {
     fun `simple test - decode general with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = UniversalCodecProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent))
+        val processor = UniversalCodecProcessor(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent), config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(
                 id = MESSAGE_ID,
@@ -212,7 +214,7 @@ class EventTest {
     fun `Throw test - decode general with warnings`(protocol: Protocol) {
         val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = UniversalCodecProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent))
+        val processor = UniversalCodecProcessor(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto(), onEvent), config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(
                 id = MESSAGE_ID,

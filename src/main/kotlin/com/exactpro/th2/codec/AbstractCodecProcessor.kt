@@ -18,6 +18,7 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
+import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import mu.KotlinLogging
@@ -29,7 +30,8 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     private val useParentEventId: Boolean = true,
     enabledVerticalScaling: Boolean = false,
     private val process: Process,
-    private val eventProcessor: EventProcessor
+    private val eventProcessor: EventProcessor,
+    private val config: Configuration
 ) {
     private val async = enabledVerticalScaling && Runtime.getRuntime().availableProcessors() > 1
 
@@ -122,19 +124,23 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             return null
         }
 
-        if (messageGroup.groupItems.none { it.isInputMessage }) {
-            LOGGER.debug { "Message group has no ${process.inputMessageType} messages in it" }
-            return messageGroup
+        if (!config.disableMessageTypeCheck) {
+            if (messageGroup.groupItems.none { it.isInputMessage }) {
+                LOGGER.debug { "Message group has no ${process.inputMessageType} messages in it" }
+                return messageGroup
+            }
         }
 
         val parentEventIds: Sequence<EventID> = if (useParentEventId) messageGroup.eventIds else emptySequence()
         val context = ReportingContext()
 
         try {
-            val msgProtocols = messageGroup.protocols
-            if (!protocols.checkAgainstProtocols(msgProtocols)) {
-                LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
-                return messageGroup
+            if (!config.disableProtocolCheck) {
+                val msgProtocols = messageGroup.protocols
+                if (!protocols.checkAgainstProtocols(msgProtocols)) {
+                    LOGGER.debug { "Messages with $msgProtocols protocols instead of $protocols are presented" }
+                    return messageGroup
+                }
             }
 
             val recodedGroup = codec.recode(messageGroup, context)

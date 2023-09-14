@@ -21,6 +21,7 @@ import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
 import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
 import com.exactpro.th2.codec.api.IReportingContext
+import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import org.junit.jupiter.api.Assertions
@@ -44,7 +45,8 @@ class DecodeProcessorTest {
             false,
             protocol,
             DECODE,
-            EventProcessor(CODEC_EVENT_ID.toProto()) {}
+            EventProcessor(CODEC_EVENT_ID.toProto()) {},
+            Configuration()
         )
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewRawMessage(MESSAGE_ID, protocol = originalProtocol)

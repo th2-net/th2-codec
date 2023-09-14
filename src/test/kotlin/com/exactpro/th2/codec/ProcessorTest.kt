@@ -24,6 +24,7 @@ import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.ENCODE
 import com.exactpro.th2.codec.api.IReportingContext
+import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
@@ -38,11 +39,12 @@ import org.junit.jupiter.params.provider.EnumSource
 import java.util.UUID
 
 class ProcessorTest {
+    private val config = Configuration()
 
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `simple test - decode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
             .addNewRawMessage(protocol = WRONG_PROTOCOL)
@@ -58,7 +60,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `other protocol in raw message test - decode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewRawMessage(protocol = WRONG_PROTOCOL)
             .build()
@@ -71,7 +73,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `one parsed message in group test - decode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
             .startNewMessageGroup()
@@ -92,7 +94,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = UniversalCodecProcessor(TestCodec(false), originalProtocols, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor(TestCodec(false), originalProtocols, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
             .addNewRawMessage(protocol = WRONG_PROTOCOL)
@@ -113,7 +115,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `simple test - encode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor(TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL, )
@@ -129,7 +131,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `other protocol in parsed message test - encode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
             .build()
@@ -142,7 +144,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `one raw message in group test - encode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewRawMessage(protocol = ORIGINAL_PROTOCOL)
             .startNewMessageGroup()
@@ -163,7 +165,7 @@ class ProcessorTest {
         val secondOriginalProtocol = "json"
         val originalProtocols = setOf(ORIGINAL_PROTOCOL, secondOriginalProtocol)
 
-        val processor = UniversalCodecProcessor (TestCodec(false), originalProtocols, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor (TestCodec(false), originalProtocols, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
 
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
@@ -185,7 +187,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `error message on failed protocol check - encode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = ORIGINAL_PROTOCOL)
             .addNewParsedMessage(type = MESSAGE_TYPE, protocol = WRONG_PROTOCOL)
@@ -201,7 +203,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `error message on thrown - encode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor (TestCodec(true), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor (TestCodec(true), ORIGINAL_PROTOCOLS, process = ENCODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
 
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewParsedMessage(id = MESSAGE_ID, type = MESSAGE_TYPE, protocol = EventTest.ORIGINAL_PROTOCOL)
@@ -218,7 +220,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `error message on thrown - decode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor (TestCodec(true), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor (TestCodec(true), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewRawMessage(
                 id = MESSAGE_ID,
@@ -281,7 +283,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `error message on failed protocol check - decode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor (TestCodec(false), ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewRawMessage(
                 id = MESSAGE_ID,
@@ -326,7 +328,7 @@ class ProcessorTest {
     @ParameterizedTest
     @EnumSource(Protocol::class)
     fun `multiple protocol test - decode`(protocol: Protocol) {
-        val processor = UniversalCodecProcessor(TestCodec(true), setOf("xml", "json"), process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {})
+        val processor = UniversalCodecProcessor(TestCodec(true), setOf("xml", "json"), process = DECODE, protocol = protocol, eventProcessor = EventProcessor(CODEC_EVENT_ID.toProto()) {}, config = config)
         val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
             .addNewRawMessage(
                 eventId = CODEC_EVENT_ID.copy(id = UUID.randomUUID().toString()),
