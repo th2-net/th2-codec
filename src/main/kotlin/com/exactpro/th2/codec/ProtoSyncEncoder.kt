@@ -14,16 +14,14 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.schema.message.MessageRouter
 
 class ProtoSyncEncoder(
-    eventRouter: MessageRouter<EventBatch>,
+    eventProcessor: EventProcessor,
     processor: ProtoEncodeProcessor,
     codecRootID: EventID
-) : AbstractProtoSyncCodec(eventRouter, processor, codecRootID) {
+) : AbstractProtoSyncCodec(eventProcessor, processor, codecRootID) {
     override fun getParentEventId(
         codecRootID: EventID,
         source: MessageGroupBatch,

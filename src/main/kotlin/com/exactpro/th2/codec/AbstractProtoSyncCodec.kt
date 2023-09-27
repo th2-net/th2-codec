@@ -14,17 +14,15 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.schema.message.MessageRouter
 
 abstract class AbstractProtoSyncCodec(
-    eventRouter: MessageRouter<EventBatch>,
+    eventProcessor: EventProcessor,
     private val processor: AbstractCodecProcessor<MessageGroupBatch, MessageGroup, AnyMessage>,
     codecRootEvent: EventID,
-) : AbstractCodec<MessageGroupBatch>(eventRouter, codecRootEvent) {
+) : AbstractCodec<MessageGroupBatch>(eventProcessor, codecRootEvent) {
     override fun process(batch: MessageGroupBatch): MessageGroupBatch = processor.process(batch)
     override fun checkResult(result: MessageGroupBatch): Boolean = result.groupsCount != 0
 }

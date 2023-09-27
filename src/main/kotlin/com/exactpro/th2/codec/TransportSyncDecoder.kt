@@ -13,15 +13,13 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 
 class TransportSyncDecoder(
-    eventRouter: MessageRouter<EventBatch>,
+    eventProcessor: EventProcessor,
     processor: TransportDecodeProcessor,
     codecRootID: EventID,
-) : AbstractTransportSyncCodec(eventRouter, processor, codecRootID) {
+) : AbstractTransportSyncCodec(eventProcessor, processor, codecRootID) {
     override fun getParentEventId(codecRootID: EventID, source: GroupBatch, result: GroupBatch?): EventID = codecRootID
 }

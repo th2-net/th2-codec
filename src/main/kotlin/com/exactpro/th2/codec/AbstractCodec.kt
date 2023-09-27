@@ -19,14 +19,12 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.bean.Message
-import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.MessageRouter
 import mu.KotlinLogging
 
 // TODO: merging AbstractCodec and AbstractCodecProcessor classes into one class should be considered
 abstract class AbstractCodec<BATCH>(
-    private val eventRouter: MessageRouter<EventBatch>,
+    private val eventProcessor: EventProcessor,
     private val codecRootEvent: EventID
 ) {
     fun handleBatch(batch: BATCH): BATCH {
@@ -45,16 +43,16 @@ abstract class AbstractCodec<BATCH>(
 
     private fun createAndStoreErrorEvent(exception: CodecException, parentEventID: EventID) {
         try {
-            eventRouter.send(
-                EventBatch.newBuilder().addEvents(
-                    Event.start()
-                        .name("Codec error")
-                        .type("CodecError")
-                        .status(FAILED)
-                        .bodyData(Message().apply {
-                            data = exception.getAllMessages()
-                        }).toProto(parentEventID)
-                ).build()
+            eventProcessor.onEvent(
+                Event.start()
+                    .endTimestamp()
+                    .name("Codec error")
+                    .type("CodecError")
+                    .status(FAILED)
+                    .bodyData(Message().apply {
+                        data = exception.getAllMessages()
+                    }),
+                parentEventID,
             )
         } catch (exception: Exception) {
             LOGGER.warn(exception) { "could not send codec error event" }

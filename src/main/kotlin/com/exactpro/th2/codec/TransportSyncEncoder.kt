@@ -14,17 +14,15 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.util.toProto
-import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 
 class TransportSyncEncoder(
-    eventRouter: MessageRouter<EventBatch>,
+    eventProcessor: EventProcessor,
     processor: TransportEncodeProcessor,
     codecRootID: EventID,
-) : AbstractTransportSyncCodec(eventRouter, processor, codecRootID) {
+) : AbstractTransportSyncCodec(eventProcessor, processor, codecRootID) {
     override fun getParentEventId(
         codecRootID: EventID,
         source: GroupBatch,

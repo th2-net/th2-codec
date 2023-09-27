@@ -43,6 +43,7 @@ class Configuration {
     var isFirstCodecInPipeline = false
     var disableMessageTypeCheck = false
     var disableProtocolCheck = false
+    var eventPublication: EventPublicationConfig = EventPublicationConfig()
 
     companion object {
         fun create(commonFactory: CommonFactory): Configuration =
@@ -56,3 +57,13 @@ enum class TransportType {
 }
 
 class TransportLine(val type: TransportType, val useParentEventId: Boolean)
+
+data class EventPublicationConfig(
+    val flushTimeout: Long = 1000L,
+    val batchSize: Int = 100,
+) {
+    init {
+        require(flushTimeout >= 0) { "${::flushTimeout.name} must not be negative" }
+        require(batchSize > 0) { "${::batchSize.name} must be greater than zero" }
+    }
+}
