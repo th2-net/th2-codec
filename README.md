@@ -1,4 +1,4 @@
-# Description (5.3.0)
+# Description (5.4.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -254,6 +254,11 @@ Please note this is experimental feature. Default value is `false`.
 
 **disableProtocolCheck** - disable protocol check during processing. Default value is `false`.
 
+**eventPublication** - section to configure batching parameters (block is not required)
+
++ **flushTimeout** - maximum time in milliseconds to hold a batch before publication. _Default value is 1000_.
++ **batchSize** - maximum number of events in one batch. _Default value is 100_
+
 For example:
 
 ```yaml
@@ -267,6 +272,9 @@ spec:
     isFirstCodecInPipeline: true
     disableMessageTypeCheck: false
     disableProtocolCheck: false
+    eventPublication:
+       flushTimeout: 1000
+       batchSize: 100
     codecSettings:
       messageTypeDetection: BY_INNER_FIELD
       messageTypeField: "messageType"
@@ -399,6 +407,11 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v5.4.0
+
+* added event batching before publication
+* batching parameters can be configured in `eventPublication` section
 
 ### v5.3.0
 
