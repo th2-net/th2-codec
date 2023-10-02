@@ -13,18 +13,16 @@
 
 package com.exactpro.th2.codec
 
-import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 
 abstract class AbstractTransportSyncCodec(
-    eventRouter: MessageRouter<EventBatch>,
+    eventProcessor: EventProcessor,
     private val processor: AbstractCodecProcessor<GroupBatch, MessageGroup, Message<*>>,
     codecRootEvent: EventID,
-) : AbstractCodec<GroupBatch>(eventRouter, codecRootEvent) {
+) : AbstractCodec<GroupBatch>(eventProcessor, codecRootEvent) {
     override fun process(batch: GroupBatch): GroupBatch = processor.process(batch)
     override fun checkResult(result: GroupBatch): Boolean = result.groups.isNotEmpty()
 }

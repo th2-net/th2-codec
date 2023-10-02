@@ -22,46 +22,54 @@ import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.codec.configuration.TransportType
 import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.codec.mq.MqListener
-import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
-import com.exactpro.th2.common.schema.message.storeEvent
+import com.exactpro.th2.common.utils.event.EventBatcher
+import com.exactpro.th2.common.utils.shutdownGracefully
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.Server
 import mu.KotlinLogging
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 class Application(commonFactory: CommonFactory): AutoCloseable {
+    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+        ThreadFactoryBuilder()
+            .setNameFormat("event-batcher-%d")
+            .build()
+    )
     private val configuration = Configuration.create(commonFactory)
     private val context = ApplicationContext.create(configuration, commonFactory)
 
-    private val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
     private val protoRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
     private val transportRouter: MessageRouter<GroupBatch> = commonFactory.transportGroupBatchRouter
     private val rootEventId: EventID = commonFactory.rootEventId
-    private val onEvent: (ProtoEvent) -> Unit = { event ->
-        eventRouter.runCatching {
-            sendAll(EventBatch.newBuilder().addEvents(event).build())
-        }.onFailure {
-            K_LOGGER.error(it) { "Failed to store event: $event" }
-        }
-    }
-
-    private val onRootEvent: (Event, String?) -> Unit = { event, parentId ->
-        if (parentId == null) {
+    private val eventBatcher: EventBatcher = run {
+        val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
+        val eventPublication = configuration.eventPublication
+        EventBatcher(
+            maxFlushTime = eventPublication.flushTimeout,
+            maxBatchSizeInItems = eventPublication.batchSize,
+            // TODO: it should be simpler to get the max batch size
+            maxBatchSizeInBytes = commonFactory.cradleManager.storage.entitiesFactory.maxTestEventBatchSize.toLong(),
+            executor = executor,
+        ) { batch ->
             eventRouter.runCatching {
-                storeEvent(event, rootEventId)
+                sendAll(batch)
             }.onFailure {
-                K_LOGGER.error(it) { "Failed to store event: $event" }
+                K_LOGGER.error(it) { "Failed to store event batch: ${batch.toJson()}" }
             }
         }
     }
 
-    private val eventProcessor = EventProcessor(rootEventId, onEvent)
+    private val eventProcessor = EventProcessor(rootEventId, eventBatcher::onEvent)
 
     private val codecs: MutableList<AutoCloseable> = mutableListOf<AutoCloseable>().apply {
         configuration.transportLines.forEach { (prefix, line) ->
@@ -94,11 +102,11 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     }
 
     private fun <CODEC : AbstractCodec<*>, PROCESSOR : AbstractCodecProcessor<*, *, *>> createSyncCodec(
-        codecConstructor: (MessageRouter<EventBatch>, PROCESSOR, EventID) -> CODEC,
+        codecConstructor: (EventProcessor, PROCESSOR, EventID) -> CODEC,
         processorConstructor: (IPipelineCodec, Set<String>, Boolean, Boolean, EventProcessor, Configuration) -> PROCESSOR,
         useParentEventId: Boolean
     ) = codecConstructor(
-        eventRouter,
+        eventProcessor,
         processorConstructor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor, configuration),
         rootEventId
     )
@@ -161,6 +169,14 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
             runCatching(codec::close).onFailure {
                 K_LOGGER.error(it) { "Codec closing failure" }
             }
+        }
+
+        runCatching(eventBatcher::close).onFailure {
+            K_LOGGER.error(it) { "cannot close event batcher" }
+        }
+
+        runCatching { executor.shutdownGracefully(timeout = 10, unit = TimeUnit.SECONDS) }.onFailure {
+            K_LOGGER.error(it) { "cannot shutdown event batcher's executor service " }
         }
 
         runCatching(context::close).onFailure {

@@ -38,6 +38,11 @@ class EventProcessor(
     fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)
     fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
 
+    @JvmOverloads
+    fun onEvent(event: Event, parentEventId: EventID = codecEventID) {
+        onEvent(event.toProto(parentEventId))
+    }
+
     private fun EventID.onEvent(
         message: String,
         messagesIds: List<MessageID> = emptyList(),
