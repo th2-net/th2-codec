@@ -19,13 +19,12 @@ package com.exactpro.th2.codec.grpc
 import com.exactpro.th2.codec.CodecException
 import com.exactpro.th2.codec.EventProcessor
 import com.exactpro.th2.codec.util.messageIds
-import com.exactpro.th2.common.utils.message.sessionAlias
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
+import com.exactpro.th2.common.utils.message.sessionAlias
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
-import mu.KotlinLogging
 
 class GrpcCodecService(
     grpcRouter: GrpcRouter,
@@ -67,7 +66,7 @@ class GrpcCodecService(
             }
         } catch (e: Exception) {
             val errorMessage = "'decode' rpc call exception: ${e.message}"
-            eventProcessor.onErrorEvent(errorMessage, batch.messageIds, e)
+            eventProcessor.onErrorEvent(errorMessage, messagesIds = batch.messageIds, cause = e)
             responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(e).asException())
         }
     }
@@ -86,7 +85,7 @@ class GrpcCodecService(
                     responseObserver.onCompleted()
                 } catch (e: Exception) {
                     val errorMessage = "'encode' rpc call exception: ${e.message}"
-                    eventProcessor.onErrorEvent(errorMessage, batch.messageIds, e)
+                    eventProcessor.onErrorEvent(errorMessage, messagesIds = batch.messageIds, cause = e)
                     responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(e).asException())
                 }
             }
@@ -102,17 +101,13 @@ class GrpcCodecService(
             }
         } catch (e: Exception) {
             val errorMessage = "'encode' rpc call exception: ${e.message}"
-            eventProcessor.onErrorEvent(errorMessage, batch.messageIds, e)
+            eventProcessor.onErrorEvent(errorMessage, messagesIds = batch.messageIds, cause = e)
             responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(e).asException())
         }
     }
 
     private fun MessageGroupBatch.anyMessage(predicate: (AnyMessage) -> Boolean) =
         groupsList.any { it.messagesList.any(predicate) }
-
-    companion object {
-        private val LOGGER = KotlinLogging.logger {}
-    }
 }
 
 private val MessageGroupBatch.messageIds get() = groupsList.flatMap { it.messageIds }

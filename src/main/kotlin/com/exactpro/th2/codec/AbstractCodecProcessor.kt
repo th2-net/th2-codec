@@ -43,6 +43,10 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     protected abstract val GROUP.eventIds: Sequence<EventID>
     protected abstract fun GROUP.ids(batch: BATCH): List<MessageID>
     protected abstract fun GROUP.toReadableBody(): List<String>
+    protected abstract fun MESSAGE.id(batch: BATCH): MessageID
+    protected abstract fun MESSAGE.book(batch: BATCH): String
+    protected abstract val MESSAGE.eventBook: String?
+    protected abstract val MESSAGE.eventId: EventID?
     protected abstract val MESSAGE.isRaw: Boolean
     protected abstract val MESSAGE.isParsed: Boolean
     protected abstract fun createBatch(sourceBatch: BATCH, groups: List<GROUP>): BATCH
@@ -121,6 +125,23 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     private fun processMessageGroup(batch: BATCH, messageGroup: GROUP): GROUP? {
         if (messageGroup.size == 0) {
             eventProcessor.onErrorEvent("Cannot ${process.actionName} empty message group")
+            return null
+        }
+
+        var mismatchDetested = false
+        messageGroup.groupItems.forEach { message ->
+            val messageBook: String = message.book(batch)
+            val eventBook: String? = message.eventBook
+            if (eventBook?.equals(messageBook) == false) {
+                eventProcessor.onErrorEvent(
+                    "Book name mismatch in '$messageBook' message and '$eventBook' parent event ids",
+                    message.eventId,
+                    listOf(message.id(batch))
+                )
+                mismatchDetested = true
+            }
+        }
+        if (mismatchDetested) {
             return null
         }
 

@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.exactpro.th2.common.message.messageType
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.grpc.MessageGroupBatch as ProtoMessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import com.exactpro.th2.common.grpc.AnyMessage as ProtoAnyMessage
@@ -132,6 +133,7 @@ class TransportBatchWrapper(val batch: GroupBatch) : IGroupBatch {
             override val asParsed: IParsedMessage get() = if (isParsed) this else throw ClassCastException()
         }
     }
+    override fun toString(): String = batch.toString()
 }
 
 class ProtoBatchWrapper(val batch: ProtoMessageGroupBatch) : IGroupBatch {
@@ -178,6 +180,7 @@ class ProtoBatchWrapper(val batch: ProtoMessageGroupBatch) : IGroupBatch {
             override val asParsed: IParsedMessage get() = if (isParsed) this else throw ClassCastException()
         }
     }
+    override fun toString(): String = batch.toJson()
 }
 
 interface IBatchBuilder {

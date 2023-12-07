@@ -38,17 +38,17 @@ class DecodeProcessorTest {
         val originalProtocols = setOf(originalProtocol)
         val wrongProtocol = "http"
 
-        val processor = UniversalCodecProcessor(
+        val processor = UniversalCodec(
             TestCodec(true),
             originalProtocols,
-            false,
-            false,
-            protocol,
-            DECODE,
-            EventProcessor(CODEC_EVENT_ID.toProto()) {},
-            Configuration()
+            useParentEventId = false,
+            enabledVerticalScaling = false,
+            protocol = protocol,
+            process = DECODE,
+            eventProcessor = EventProcessor(CODEC_EVENT_ID_BOOK_A.toProto()) {},
+            config = Configuration()
         )
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
             .addNewRawMessage(MESSAGE_ID, protocol = originalProtocol)
             .addNewRawMessage(MESSAGE_ID, protocol = wrongProtocol)
             .addNewParsedMessage(MESSAGE_ID, type = MESSAGE_TYPE, protocol = originalProtocol)

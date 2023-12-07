@@ -16,8 +16,8 @@ apply plugin: "com.exactpro.th2.artifacts-conventions"
 dependencies {
     api platform("com.exactpro.th2:bom:4.5.0")
 
-    implementation("com.exactpro.th2:common:5.4.2-dev")
-    implementation "com.exactpro.th2:common-utils:2.2.0-dev"
+    implementation("com.exactpro.th2:common:5.7.2-TH2-5143-+")
+    implementation "com.exactpro.th2:common-utils:2.2.2-dev"
 
     implementation "com.exactpro.th2:grpc-codec:0.1.0"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"

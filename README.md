@@ -1,4 +1,4 @@
-# Description (5.4.0)
+# Description (5.4.1)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -407,6 +407,12 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v5.4.1
+
+* fixed problem when codec publishes event for book `A` with attached messages for book `B`
+* updated common: `5.7.2-dev`
+* updated common-utils: `2.2.2-dev`
 
 ### v5.4.0
 

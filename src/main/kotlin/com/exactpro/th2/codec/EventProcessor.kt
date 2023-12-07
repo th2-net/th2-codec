@@ -16,27 +16,31 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.isValid
 import com.exactpro.th2.common.utils.message.logId
+import com.exactpro.th2.common.utils.message.sessionAlias
 import com.exactpro.th2.common.utils.toInstant
 import com.google.protobuf.TimestampOrBuilder
 import mu.KotlinLogging
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 
 class EventProcessor(
-    private val codecEventID: EventID,
+    val codecEventID: EventID,
     private val onEvent: (event: ProtoEvent) -> Unit
 ) {
-    fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)
-    fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
+    fun onErrorEvent(
+        message: String,
+        eventId: EventID? = null,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null
+    ) = (eventId ?: codecEventID).onErrorEvent(message, messagesIds, cause)
 
     @JvmOverloads
     fun onEvent(event: Event, parentEventId: EventID = codecEventID) {
@@ -70,7 +74,7 @@ class EventProcessor(
     ) {
         val warnEvent = codecEventID.onEvent(message, messagesIds, body)
         parentEventIDs.forEach {
-            it.addReferenceTo(warnEvent, message, Event.Status.PASSED)
+            it.addReferenceTo(warnEvent, message, Event.Status.PASSED, messagesIds, additionalBody = body)
         }
     }
 
@@ -82,7 +86,9 @@ class EventProcessor(
         additionalBody: List<String> = emptyList(),
     ): EventID {
         val errorEventId = codecEventID.onErrorEvent(message, messagesIds, cause, additionalBody)
-        parentEventIDs.forEach { it.addReferenceTo(errorEventId, message, Event.Status.FAILED) }
+        parentEventIDs.forEach {
+            it.addReferenceTo(errorEventId, message, Event.Status.FAILED, messagesIds, cause, additionalBody)
+        }
         return errorEventId
     }
 
@@ -102,19 +108,24 @@ class EventProcessor(
         }
     }
 
-    private fun EventID.addReferenceTo(eventId: EventID, name: String, status: Event.Status): EventID = Event.start()
-        .endTimestamp()
-        .name(name)
-        .status(status)
-        .type(if (status != Event.Status.PASSED) "Error" else "Warn")
-        .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-        .bodyData(ReferenceToEvent(eventId.cradleString))
-        .toProto(this)
+    private fun EventID.addReferenceTo(
+        eventId: EventID,
+        name: String,
+        status: Event.Status,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null,
+        additionalBody: List<String> = emptyList(),
+    ): EventID = Event.start().apply {
+        endTimestamp()
+        name(name)
+        status(status)
+        type(if (status != Event.Status.PASSED) "Error" else "Warn")
+        bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
+        bodyData(ReferenceToEvent(eventId.cradleString))
+        fill(bookName, messagesIds, cause, additionalBody)
+    }.toProto(this)
         .also(onEvent)
         .id
-
-    private val EventID.cradleString get() = "$bookName:$scope:${startTimestamp.cradleTimestampString}:$id"
-    private val TimestampOrBuilder.cradleTimestampString get() = CRADLE_DATE_TIME_FORMATTER.format(LocalDateTime.ofInstant(toInstant(), ZoneOffset.UTC))
 
     private fun EventID.publishEvent(
         message: String,
@@ -126,9 +137,27 @@ class EventProcessor(
         name(message)
         type(if (status != Event.Status.PASSED || cause != null) "Error" else "Warn")
         status(if (cause != null) Event.Status.FAILED else status)
+        fill(bookName, messagesIds, cause, body)
+    }.toProto(this).also(onEvent)
+
+    private fun Event.fill(
+        book: String,
+        messagesIds: List<MessageID>,
+        cause: Throwable?,
+        body: List<String>
+    ) {
+        var addReferenceToMessages = false
         messagesIds.forEach { messageId ->
             if (messageId.isValid) {
-                messageID(messageId)
+                if (book == messageId.bookName) {
+                    messageID(messageId)
+                } else {
+                    if (!addReferenceToMessages) {
+                        addReferenceToMessages = true
+                        bodyData(EventUtils.createMessageBean("This event contains reference to messages from another book"))
+                    }
+                    bodyData(ReferenceToMessage(messageId.cradleString))
+                }
             }
         }
 
@@ -140,7 +169,7 @@ class EventProcessor(
             bodyData(EventUtils.createMessageBean("Information:"))
             body.forEach { bodyData(EventUtils.createMessageBean(it)) }
         }
-    }.toProto(this).also(onEvent)
+    }
 
     @Suppress("unused")
     private class ReferenceToEvent(val eventId: String) : IBodyData {
@@ -152,10 +181,22 @@ class EventProcessor(
         }
     }
 
+    @Suppress("unused")
+    private class ReferenceToMessage(val messageId: String) : IBodyData {
+        val type: String
+            get() = TYPE
+
+        companion object {
+            const val TYPE = "reference"
+        }
+    }
+
     companion object {
         private val LOGGER = KotlinLogging.logger {}
-        private val CRADLE_DATE_TIME_FORMATTER = DateTimeFormatter
-            .ofPattern("yyyyMMddHHmmssSSSSSSSSS")
-            .withZone(ZoneOffset.UTC)
+
+        private val TimestampOrBuilder.cradleString get() = TimeUtils.toIdTimestamp(toInstant())
+        private val Direction.cradleString get() = if (Direction.FIRST == this) "1" else "2"
+        internal val EventID.cradleString get() = "$bookName:$scope:${startTimestamp.cradleString}:$id"
+        internal val MessageID.cradleString get() = "$bookName:$sessionAlias:${direction.cradleString}:${timestamp.cradleString}:$sequence"
     }
 }

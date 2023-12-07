@@ -24,9 +24,10 @@ import mu.KotlinLogging
 
 // TODO: merging AbstractCodec and AbstractCodecProcessor classes into one class should be considered
 abstract class AbstractCodec<BATCH>(
-    private val eventProcessor: EventProcessor,
-    private val codecRootEvent: EventID
+    private val eventProcessor: EventProcessor
 ) {
+    private val codecRootEvent: EventID = eventProcessor.codecEventID
+
     fun handleBatch(batch: BATCH): BATCH {
         var result: BATCH? = null
 

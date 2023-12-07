@@ -102,13 +102,12 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     }
 
     private fun <CODEC : AbstractCodec<*>, PROCESSOR : AbstractCodecProcessor<*, *, *>> createSyncCodec(
-        codecConstructor: (EventProcessor, PROCESSOR, EventID) -> CODEC,
+        codecConstructor: (EventProcessor, PROCESSOR) -> CODEC,
         processorConstructor: (IPipelineCodec, Set<String>, Boolean, Boolean, EventProcessor, Configuration) -> PROCESSOR,
         useParentEventId: Boolean
     ) = codecConstructor(
         eventProcessor,
         processorConstructor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor, configuration),
-        rootEventId
     )
 
     private fun createMqProtoEncoder(

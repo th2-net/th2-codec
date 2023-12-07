@@ -23,13 +23,16 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import java.time.Instant
 
-const val BOOK_NAME = "test-book"
+const val BOOK_NAME_A = "test-book-a"
+const val BOOK_NAME_B = "test-book-b"
 const val SESSION_GROUP_NAME = "test-session-group"
+const val EVENT_ID = "test-codec"
+const val EVENT_SCOPE = "test-scope"
 
-val CODEC_EVENT_ID: EventId = EventId(
-    "test-codec",
-    BOOK_NAME,
-    "test-scope",
+val CODEC_EVENT_ID_BOOK_A: EventId = EventId(
+    EVENT_ID,
+    BOOK_NAME_A,
+    EVENT_SCOPE,
     Instant.now()
 )
 
@@ -47,7 +50,7 @@ fun getNewBatchBuilder(protocol: Protocol, book: String, sessionGroup: String): 
     Protocol.TRANSPORT -> TransportBatchBuilder(book, sessionGroup)
 }
 
-class UniversalCodecProcessor(
+class UniversalCodec(
     codec: IPipelineCodec,
     protocols: Set<String>,
     useParentEventId: Boolean = true,
@@ -60,15 +63,80 @@ class UniversalCodecProcessor(
     private lateinit var protoProcessor: ProtoCodecProcessor
     private lateinit var transportProcessor: TransportCodecProcessor
 
+    private lateinit var protoDecoder: ProtoSyncDecoder
+    private lateinit var protoEncoder: ProtoSyncEncoder
+
+    private lateinit var transportDecoder: TransportSyncDecoder
+    private lateinit var transportEncoder: TransportSyncEncoder
+
     init {
         when(protocol) {
-            Protocol.PROTO -> protoProcessor = ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
-            Protocol.TRANSPORT -> transportProcessor = TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
+            Protocol.PROTO -> {
+                protoProcessor = ProtoCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
+                protoDecoder = ProtoSyncDecoder(
+                    eventProcessor,
+                    ProtoDecodeProcessor(
+                        codec,
+                        protocols,
+                        useParentEventId,
+                        enabledVerticalScaling,
+                        eventProcessor,
+                        config
+                    )
+                )
+                protoEncoder = ProtoSyncEncoder(
+                    eventProcessor,
+                    ProtoEncodeProcessor(
+                        codec,
+                        protocols,
+                        useParentEventId,
+                        enabledVerticalScaling,
+                        eventProcessor,
+                        config
+                    )
+                )
+            }
+            Protocol.TRANSPORT -> {
+                transportProcessor = TransportCodecProcessor(codec, protocols, useParentEventId, enabledVerticalScaling, process, eventProcessor, config)
+                transportDecoder = TransportSyncDecoder(
+                    eventProcessor,
+                    TransportDecodeProcessor(
+                        codec,
+                        protocols,
+                        useParentEventId,
+                        enabledVerticalScaling,
+                        eventProcessor,
+                        config
+                    )
+                )
+                transportEncoder = TransportSyncEncoder(
+                    eventProcessor,
+                    TransportEncodeProcessor(
+                        codec,
+                        protocols,
+                        useParentEventId,
+                        enabledVerticalScaling,
+                        eventProcessor,
+                        config
+                    )
+                )
+
+            }
         }
     }
 
     fun process(batchWrapper: IGroupBatch): IGroupBatch = when(protocol) {
         Protocol.PROTO -> ProtoBatchWrapper(protoProcessor.process((batchWrapper as ProtoBatchWrapper).batch))
         Protocol.TRANSPORT -> TransportBatchWrapper(transportProcessor.process((batchWrapper as TransportBatchWrapper).batch))
+    }
+
+    fun encode(batchWrapper: IGroupBatch): IGroupBatch = when(protocol) {
+        Protocol.PROTO -> ProtoBatchWrapper(protoEncoder.handleBatch((batchWrapper as ProtoBatchWrapper).batch))
+        Protocol.TRANSPORT -> TransportBatchWrapper(transportEncoder.handleBatch((batchWrapper as TransportBatchWrapper).batch))
+    }
+
+    fun decode(batchWrapper: IGroupBatch): IGroupBatch = when(protocol) {
+        Protocol.PROTO -> ProtoBatchWrapper(protoDecoder.handleBatch((batchWrapper as ProtoBatchWrapper).batch))
+        Protocol.TRANSPORT -> TransportBatchWrapper(transportDecoder.handleBatch((batchWrapper as TransportBatchWrapper).batch))
     }
 }

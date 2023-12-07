@@ -25,6 +25,9 @@ import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.allParsedProtocols
 import com.exactpro.th2.codec.util.toJson
+import com.exactpro.th2.codec.util.toProto
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
@@ -50,6 +53,10 @@ open class TransportCodecProcessor(
     override val MessageGroup.parsedProtocols get() = allParsedProtocols
     override val MessageGroup.eventIds get() = allParentEventIds
     override fun MessageGroup.ids(batch: GroupBatch): List<ProtoMessageID> = messageIds(batch)
+    override fun Message<*>.id(batch: GroupBatch): MessageID = id.toProto(batch)
+    override fun Message<*>.book(batch: GroupBatch): String = batch.book
+    override val Message<*>.eventBook: String? get() = eventId?.book
+    override val Message<*>.eventId: EventID? get() = eventId?.toProto()
     override val toErrorGroup get() = MessageGroup::toErrorGroup
     override fun MessageGroup.toReadableBody(): List<String> = messages.map(Message<*>::toJson)
     override fun createBatch(sourceBatch: GroupBatch, groups: List<MessageGroup>) = GroupBatch(sourceBatch.book, sourceBatch.sessionGroup, groups)

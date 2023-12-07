@@ -24,9 +24,12 @@ import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.allParsedProtocols
+import com.exactpro.th2.codec.util.id
+import com.exactpro.th2.codec.util.parentEventId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 
 open class ProtoCodecProcessor (
@@ -47,6 +50,10 @@ open class ProtoCodecProcessor (
     override val MessageGroup.parsedProtocols get() = allParsedProtocols
     override val MessageGroup.eventIds get() = allParentEventIds
     override fun MessageGroup.ids(batch: MessageGroupBatch): List<MessageID> = messageIds
+    override fun AnyMessage.id(batch: MessageGroupBatch): MessageID = id
+    override fun AnyMessage.book(batch: MessageGroupBatch): String = id.bookName
+    override val AnyMessage.eventBook: String? get() = parentEventId?.bookName
+    override val AnyMessage.eventId: EventID? get() = parentEventId
     override val toErrorGroup get() = MessageGroup::toErrorGroup
     override fun MessageGroup.toReadableBody(): List<String> = messagesList.map(AnyMessage::toString)
     override fun createBatch(sourceBatch: MessageGroupBatch, groups: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(groups).build()
