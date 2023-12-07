@@ -26,6 +26,8 @@ import com.exactpro.th2.common.grpc.EventStatus
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.utils.message.transport.toProto
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.mockito.kotlin.any
@@ -36,6 +38,7 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import strikt.api.expectThat
 import strikt.assertions.all
+import strikt.assertions.allIndexed
 import strikt.assertions.contains
 import strikt.assertions.hasSize
 import strikt.assertions.isEmpty
@@ -50,423 +53,1027 @@ class EventTest {
     private val config = Configuration()
     private val rootEventIdA = CODEC_EVENT_ID_BOOK_A.toProto()
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `simple test - decode`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
-
-        val processor = UniversalCodec(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA) {}, config = config)
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
-            .addNewParsedMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                type = MESSAGE_TYPE,
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .build()
-
-        processor.process(batch)
-
-        verify(onEvent, never()).invoke(any())
+    interface Test {
+        fun `simple test`(protocol: Protocol)
+        fun `throw test`(protocol: Protocol)
+        fun `throw test - batch with book A vs codec with book A`(protocol: Protocol)
+        fun `throw test - batch with book B vs codec with book A`(protocol: Protocol)
+        fun `throw test - with warnings when useParentEventId = true`(protocol: Protocol)
+        fun `simple test - with warnings when useParentEventId = true`(protocol: Protocol)
+        fun `simple test - with warnings when useParentEventId = false`(protocol: Protocol)
+        fun `throw test - with warnings when useParentEventId = false`(protocol: Protocol)
     }
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `Throw test - decode`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
+    @Nested
+    inner class DecodeTest: Test {
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `simple test`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val processor = UniversalCodec(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(
-            rootEventIdA, onEvent), config = config)
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
-            .addNewParsedMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                type = MESSAGE_TYPE,
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .build()
+            val codec = UniversalCodec(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA) {}, config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
 
-        processor.process(batch)
+            val result = codec.decode(batch)
+            assertEquals(1, result.groupsCount)
 
-        val captor = argumentCaptor<ProtoEvent> { }
-        verify(onEvent, times(5) /* root event (1) and 1 for each EventID (4) = 5 */).invoke(captor.capture())
-        expectThat(captor.allValues) {
-            hasSize(5)
-            all {
-                get { id }.get { bookName }.isEqualTo(BOOK_NAME_A)
+            verify(onEvent, never()).invoke(any())
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(
+                rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            val result = codec.decode(batch)
+            assertEquals(1, result.groupsCount)
+
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(5)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                all {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                    }
+                }
             }
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - batch with book A vs codec with book A`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(
+                TestCodec(true),
+                ProcessorTest.ORIGINAL_PROTOCOLS,
+                process = DECODE,
+                protocol = protocol,
+                eventProcessor = EventProcessor(rootEventIdA, onEvent),
+                config = config
+            )
+
+            val msgId1 = MESSAGE_ID.copy(sequence = 1)
+            val msgId2 = MESSAGE_ID.copy(sequence = 2)
+            val msgId3 = MESSAGE_ID.copy(sequence = 3)
+
+            val eventId2A = EventId("$EVENT_ID-2", BOOK_NAME_A, "$EVENT_SCOPE-2", Instant.now())
+            val eventId3B = EventId("$EVENT_ID-3", BOOK_NAME_B, "$EVENT_SCOPE-3", Instant.now())
+
+            val batchA = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .startNewMessageGroup()
+                .addNewRawMessage(id = msgId1)
+                .addNewRawMessage(id = msgId2, eventId = eventId2A)
+
+                .startNewMessageGroup()
+                .addNewRawMessage(id = msgId3, eventId = eventId3B)
+                .build()
+
+            val batch = codec.decode(batchA)
+            assertEquals(1, batch.groupsCount, "batch: $batch")
+
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(4)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                allIndexed { index ->
+                    val id = captor.allValues[index].id
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(id.bookName)
+                        get { scope }.isEqualTo(id.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(id.bookName)
+                    }
+
+                    get { type }.isEqualTo("Error")
+                    get { status }.isEqualTo(EventStatus.FAILED)
+                }
+                withElementAt(0) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Failed to decode message group")
+                    get { attachedMessageIdsList }.hasSize(2)
+                        .contains(
+                            msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                            msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }.contains(
+                        "{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}"
+                    )
+                }
+                withElementAt(1) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId2A.book)
+                        get { scope }.isEqualTo(eventId2A.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId2A.toProto())
+                    get { name }.isEqualTo("Failed to decode message group")
+                    get { attachedMessageIdsList }.hasSize(2)
+                        .contains(
+                            msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                            msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }
+                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                        // For backward compatible, current event is fulfilled
+                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
+                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
+                }
+                withElementAt(2) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId3B.book)
+                        get { scope }.isEqualTo(eventId3B.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId3B.toProto())
+                    get { name }.isEqualTo(
+                        "Book name mismatch in '${batchA.book!!}' message and '${eventId3B.book}' parent event ids"
+                    )
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.contains(
+                        "{\"messageId\":\"${msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
+                    )
+                }
+                withElementAt(3) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Group count in the processed batch (1) is different from the input one (2)")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo("[]")
+                }
+            }
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - batch with book B vs codec with book A`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(
+                TestCodec(true),
+                ProcessorTest.ORIGINAL_PROTOCOLS,
+                process = DECODE,
+                protocol = protocol,
+                eventProcessor = EventProcessor(rootEventIdA, onEvent),
+                config = config
+            )
+
+            val msgId1 = MESSAGE_ID.copy(sequence = 1)
+            val msgId2 = MESSAGE_ID.copy(sequence = 2)
+            val msgId3 = MESSAGE_ID.copy(sequence = 3)
+
+            val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
+            val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())
+
+            val batchB = getNewBatchBuilder(protocol, BOOK_NAME_B, SESSION_GROUP_NAME)
+                .startNewMessageGroup()
+                .addNewRawMessage(id = msgId1)
+                .addNewRawMessage(id = msgId2, eventId = eventId2B)
+
+                .startNewMessageGroup()
+                .addNewRawMessage(id = msgId3, eventId = eventId3A)
+                .build()
+
+            val batch = codec.decode(batchB)
+            assertEquals(1, batch.groupsCount, "batch: $batch")
+
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(4)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                allIndexed { index ->
+                    val id = captor.allValues[index].id
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(id.bookName)
+                        get { scope }.isEqualTo(id.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(id.bookName)
+                    }
+
+                    get { type }.isEqualTo("Error")
+                    get { status }.isEqualTo(EventStatus.FAILED)
+                }
+                withElementAt(0) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Failed to decode message group")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }
+                        .contains("{\"messageId\":\"${msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
+                        .contains("{\"messageId\":\"${msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
+                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                }
+                withElementAt(1) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId2B.book)
+                        get { scope }.isEqualTo(eventId2B.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId2B.toProto())
+                    get { name }.isEqualTo("Failed to decode message group")
+                    get { attachedMessageIdsList }.hasSize(2)
+                        .contains(
+                            msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME),
+                            msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }
+                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                        // For backward compatible, current event is fulfilled
+                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
+                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
+                }
+                withElementAt(2) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId3A.book)
+                        get { scope }.isEqualTo(eventId3A.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId3A.toProto())
+                    get { name }.isEqualTo(
+                        "Book name mismatch in '${batchB.book!!}' message and '${eventId3A.book}' parent event ids"
+                    )
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.contains(
+                        "{\"messageId\":\"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
+                    )
+                }
+                withElementAt(3) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Group count in the processed batch (1) is different from the input one (2)")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo("[]")
+                }
+            }
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - with warnings when useParentEventId = true`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = true, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            val result = codec.decode(batch)
+            assertEquals(1, result.groupsCount)
+
+            verify(onEvent, times(15) /* root event (1) + 1 for each EventID (4) + 2 warnings for each EventID (8) + 2 root warnings (2) = 15 */).invoke(any())
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `simple test - with warnings when useParentEventId = true`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = true, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            val result = codec.decode(batch)
+            assertEquals(1, result.groupsCount)
+
+            verify(onEvent, times(10) /* 2 warnings for each EventID (8) + 2 root warnings (2) = 10 */).invoke(any())
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `simple test - with warnings when useParentEventId = false`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            val result = codec.decode(batch)
+            assertEquals(1, result.groupsCount)
+
+            verify(onEvent, times(2) /* 2 root warnings = 2 */).invoke(any())
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - with warnings when useParentEventId = false`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            val result = codec.decode(batch)
+            assertEquals(1, result.groupsCount)
+
+            verify(onEvent, times(3) /* 1 root error + 2 root warnings = 3 */).invoke(any())
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `Throw test - decode batch(book A) vs codec(book A)`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
+    @Nested
+    inner class EncodeTest: Test {
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `simple test`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        val codec = UniversalCodec(
-            TestCodec(true),
-            ProcessorTest.ORIGINAL_PROTOCOLS,
-            process = DECODE,
-            protocol = protocol,
-            eventProcessor = EventProcessor(rootEventIdA, onEvent),
-            config = config
-        )
-
-        val msgId1 = MESSAGE_ID.copy(sequence = 1)
-        val msgId2 = MESSAGE_ID.copy(sequence = 2)
-        val msgId3 = MESSAGE_ID.copy(sequence = 3)
-
-        val eventId2A = EventId("$EVENT_ID-2", BOOK_NAME_A, "$EVENT_SCOPE-2", Instant.now())
-        val eventId3B = EventId("$EVENT_ID-3", BOOK_NAME_B, "$EVENT_SCOPE-3", Instant.now())
-
-        val batchA = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
-            .startNewMessageGroup()
-            .addNewRawMessage(id = msgId1)
-            .addNewRawMessage(id = msgId2, eventId = eventId2A)
-
-            .startNewMessageGroup()
-            .addNewRawMessage(id = msgId3, eventId = eventId3B)
-            .build()
-
-        val batch = codec.decode(batchA)
-        assertEquals(1, batch.groupsCount, "batch: $batch")
-
-        val captor = argumentCaptor<ProtoEvent> { }
-        verify(onEvent, times(4)).invoke(captor.capture())
-        expectThat(captor.allValues) {
-            hasSize(4)
-            all {
-                get { type }.isEqualTo("Error")
-                get { status }.isEqualTo(EventStatus.FAILED)
-            }
-            withElementAt(0) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(rootEventIdA.bookName)
-                    get { scope }.isEqualTo(rootEventIdA.scope)
-                }
-                get { parentId }.isEqualTo(rootEventIdA)
-                get { name }.isEqualTo("Failed to decode message group")
-                get { attachedMessageIdsList }.hasSize(2)
-                    .contains(
-                        msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
-                        msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
-                    )
-                get { String(body.toByteArray()) }.contains(
-                    "{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}"
+            val codec = UniversalCodec(TestCodec(false), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA) {}, config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
                 )
-            }
-            withElementAt(1) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(eventId2A.book)
-                    get { scope }.isEqualTo(eventId2A.scope)
-                }
-                get { parentId }.isEqualTo(eventId2A.toProto())
-                get { name }.isEqualTo("Failed to decode message group")
-                get { attachedMessageIdsList }.hasSize(2)
-                    .contains(
-                        msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
-                        msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
-                    )
-                get { String(body.toByteArray()) }
-                    .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
-                    // For backward compatible, current event is fulfilled
-                    .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
-                    .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
-            }
-            withElementAt(2) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(eventId3B.book)
-                    get { scope }.isEqualTo(eventId3B.scope)
-                }
-                get { parentId }.isEqualTo(eventId3B.toProto())
-                get { name }.isEqualTo(
-                    "Book name mismatch in '${batchA.book!!}' message and '${eventId3B.book}' parent event ids"
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
                 )
-                get { attachedMessageIdsList }.isEmpty()
-                get { String(body.toByteArray()) }.contains(
-                    "{\"messageId\":\"${msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
                 )
-            }
-            withElementAt(3) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(rootEventIdA.bookName)
-                    get { scope }.isEqualTo(rootEventIdA.scope)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            val result = codec.encode(batch)
+            assertEquals(1, result.groupsCount)
+
+            verify(onEvent, never()).invoke(any())
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(TestCodec(true), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(
+                rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            assertThrows<CodecException> {
+                codec.encode(batch)
+            }.also { assertEquals("Result batch is empty", it.message) }
+
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(7)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                all {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                    }
                 }
-                get { parentId }.isEqualTo(rootEventIdA)
-                get { name }.isEqualTo("Group count in the processed batch (1) is different from the input one (2)")
-                get { attachedMessageIdsList }.isEmpty()
-                get { String(body.toByteArray()) }.isEqualTo("[]")
             }
         }
-    }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - batch with book A vs codec with book A`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `Throw test - decode batch(book B) vs codec(book A)`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
+            val codec = UniversalCodec(
+                TestCodec(true),
+                ProcessorTest.ORIGINAL_PROTOCOLS,
+                process = DECODE,
+                protocol = protocol,
+                eventProcessor = EventProcessor(rootEventIdA, onEvent),
+                config = config
+            )
 
-        val codec = UniversalCodec(
-            TestCodec(true),
-            ProcessorTest.ORIGINAL_PROTOCOLS,
-            process = DECODE,
-            protocol = protocol,
-            eventProcessor = EventProcessor(rootEventIdA, onEvent),
-            config = config
-        )
+            val msgId1 = MESSAGE_ID.copy(sequence = 1)
+            val msgId2 = MESSAGE_ID.copy(sequence = 2)
+            val msgId3 = MESSAGE_ID.copy(sequence = 3)
 
-        val msgId1 = MESSAGE_ID.copy(sequence = 1)
-        val msgId2 = MESSAGE_ID.copy(sequence = 2)
-        val msgId3 = MESSAGE_ID.copy(sequence = 3)
+            val eventId2A = EventId("$EVENT_ID-2", BOOK_NAME_A, "$EVENT_SCOPE-2", Instant.now())
+            val eventId3B = EventId("$EVENT_ID-3", BOOK_NAME_B, "$EVENT_SCOPE-3", Instant.now())
 
-        val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
-        val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())
+            val batchA = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .startNewMessageGroup()
+                .addNewParsedMessage(id = msgId1, type = MESSAGE_TYPE)
+                .addNewParsedMessage(id = msgId2, type = MESSAGE_TYPE, eventId = eventId2A)
 
-        val batchB = getNewBatchBuilder(protocol, BOOK_NAME_B, SESSION_GROUP_NAME)
-            .startNewMessageGroup()
-            .addNewRawMessage(id = msgId1)
-            .addNewRawMessage(id = msgId2, eventId = eventId2B)
+                .startNewMessageGroup()
+                .addNewParsedMessage(id = msgId3, type = MESSAGE_TYPE, eventId = eventId3B)
+                .build()
 
-            .startNewMessageGroup()
-            .addNewRawMessage(id = msgId3, eventId = eventId3A)
-            .build()
+            assertThrows<CodecException> {
+                codec.encode(batchA)
+            }.also { assertEquals("Result batch is empty", it.message) }
 
-        val batch = codec.decode(batchB)
-        assertEquals(1, batch.groupsCount, "batch: $batch")
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(5)).invoke(captor.capture())
+            println(captor.allValues)
+            expectThat(captor.allValues) {
+                allIndexed { index ->
+                    val id = captor.allValues[index].id
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(id.bookName)
+                        get { scope }.isEqualTo(id.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(id.bookName)
+                    }
 
-        val captor = argumentCaptor<ProtoEvent> { }
-        verify(onEvent, times(4)).invoke(captor.capture())
-        expectThat(captor.allValues) {
-            hasSize(4)
-            all {
-                get { type }.isEqualTo("Error")
-                get { status }.isEqualTo(EventStatus.FAILED)
-            }
-            withElementAt(0) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(rootEventIdA.bookName)
-                    get { scope }.isEqualTo(rootEventIdA.scope)
+                    get { status }.isEqualTo(EventStatus.FAILED)
                 }
-                get { parentId }.isEqualTo(rootEventIdA)
-                get { name }.isEqualTo("Failed to decode message group")
-                get { attachedMessageIdsList }.isEmpty()
-                get { String(body.toByteArray()) }
-                    .contains("{\"messageId\":\"${msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
-                    .contains("{\"messageId\":\"${msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
-                    .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
-            }
-            withElementAt(1) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(eventId2B.book)
-                    get { scope }.isEqualTo(eventId2B.scope)
-                }
-                get { parentId }.isEqualTo(eventId2B.toProto())
-                get { name }.isEqualTo("Failed to decode message group")
-                get { attachedMessageIdsList }.hasSize(2)
-                    .contains(
-                        msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME),
-                        msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME),
+                withElementAt(0) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Failed to encode message group")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.hasSize(2)
+                        .contains(
+                            msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                            msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }.contains(
+                        "{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}"
                     )
-                get { String(body.toByteArray()) }
-                    .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
-                    // For backward compatible, current event is fulfilled
-                    .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
-                    .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
-            }
-            withElementAt(2) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(eventId3A.book)
-                    get { scope }.isEqualTo(eventId3A.scope)
                 }
-                get { parentId }.isEqualTo(eventId3A.toProto())
-                get { name }.isEqualTo(
-                    "Book name mismatch in '${batchB.book!!}' message and '${eventId3A.book}' parent event ids"
-                )
-                get { attachedMessageIdsList }.isEmpty()
-                get { String(body.toByteArray()) }.contains(
-                    "{\"messageId\":\"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
-                )
-            }
-            withElementAt(3) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(rootEventIdA.bookName)
-                    get { scope }.isEqualTo(rootEventIdA.scope)
+                withElementAt(1) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId2A.book)
+                        get { scope }.isEqualTo(eventId2A.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId2A.toProto())
+                    get { name }.isEqualTo("Failed to encode message group")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.hasSize(2)
+                        .contains(
+                            msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                            msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }
+                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                        // For backward compatible, current event is fulfilled
+                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
+                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
                 }
-                get { parentId }.isEqualTo(rootEventIdA)
-                get { name }.isEqualTo("Group count in the processed batch (1) is different from the input one (2)")
-                get { attachedMessageIdsList }.isEmpty()
-                get { String(body.toByteArray()) }.isEqualTo("[]")
+                withElementAt(2) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId3B.book)
+                        get { scope }.isEqualTo(eventId3B.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId3B.toProto())
+                    get { name }.isEqualTo(
+                        "Book name mismatch in '${batchA.book!!}' message and '${eventId3B.book}' parent event ids"
+                    )
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.contains(
+                        "{\"messageId\":\"${msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
+                    )
+                }
+                withElementAt(3) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Group count in the processed batch (0) is different from the input one (2)")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo("[]")
+                }
+                withElementAt(4) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId2A.book)
+                        get { scope }.isEqualTo(eventId2A.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId2A.toProto())
+                    get { name }.isEqualTo("Codec error")
+                    get { type }.isEqualTo("CodecError")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        "[{\"data\":\"Result batch is empty.\",\"type\":\"message\"}]"
+                    )
+                }
             }
         }
-    }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - batch with book B vs codec with book A`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `Throw test - decode with warnings`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
+            val codec = UniversalCodec(
+                TestCodec(true),
+                ProcessorTest.ORIGINAL_PROTOCOLS,
+                process = DECODE,
+                protocol = protocol,
+                eventProcessor = EventProcessor(rootEventIdA, onEvent),
+                config = config
+            )
 
-        val processor = UniversalCodec(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
-            .addNewParsedMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                type = MESSAGE_TYPE,
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .build()
+            val msgId1 = MESSAGE_ID.copy(sequence = 1)
+            val msgId2 = MESSAGE_ID.copy(sequence = 2)
+            val msgId3 = MESSAGE_ID.copy(sequence = 3)
 
-        processor.process(batch)
+            val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
+            val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())
 
-        verify(onEvent, times(15) /* root event (1) + 1 for each EventID (4) + 2 warnings for each EventID (8) + 2 root warnings (2) = 15 */).invoke(any())
-    }
+            val batchB = getNewBatchBuilder(protocol, BOOK_NAME_B, SESSION_GROUP_NAME)
+                .startNewMessageGroup()
+                .addNewParsedMessage(id = msgId1, type = MESSAGE_TYPE)
+                .addNewParsedMessage(id = msgId2, type = MESSAGE_TYPE, eventId = eventId2B)
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `simple test - decode with warnings`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
+                .startNewMessageGroup()
+                .addNewParsedMessage(id = msgId3, type = MESSAGE_TYPE, eventId = eventId3A)
+                .build()
 
-        val processor = UniversalCodec(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
-            .addNewParsedMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                type = MESSAGE_TYPE,
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .build()
+            assertThrows<CodecException> {
+                codec.encode(batchB)
+            }.also { assertEquals("Result batch is empty", it.message) }
 
-        processor.process(batch)
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(5)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                allIndexed { index ->
+                    val id = captor.allValues[index].id
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(id.bookName)
+                        get { scope }.isEqualTo(id.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(id.bookName)
+                    }
 
-        verify(onEvent, times(10) /* 2 warnings for each EventID (8) + 2 root warnings (2) = 10 */).invoke(any())
-    }
+                    get { status }.isEqualTo(EventStatus.FAILED)
+                }
+                withElementAt(0) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Failed to encode message group")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }
+                        .contains("{\"messageId\":\"${msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
+                        .contains("{\"messageId\":\"${msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
+                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                }
+                withElementAt(1) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId2B.book)
+                        get { scope }.isEqualTo(eventId2B.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId2B.toProto())
+                    get { name }.isEqualTo("Failed to encode message group")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.hasSize(2)
+                        .contains(
+                            msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME),
+                            msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }
+                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                        // For backward compatible, current event is fulfilled
+                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
+                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
+                }
+                withElementAt(2) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId3A.book)
+                        get { scope }.isEqualTo(eventId3A.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId3A.toProto())
+                    get { name }.isEqualTo(
+                        "Book name mismatch in '${batchB.book!!}' message and '${eventId3A.book}' parent event ids"
+                    )
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.contains(
+                        "{\"messageId\":\"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
+                    )
+                }
+                withElementAt(3) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Group count in the processed batch (0) is different from the input one (2)")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo("[]")
+                }
+                withElementAt(4) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId2B.book)
+                        get { scope }.isEqualTo(eventId2B.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId2B.toProto())
+                    get { name }.isEqualTo("Codec error")
+                    get { type }.isEqualTo("CodecError")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        "[{\"data\":\"Result batch is empty.\",\"type\":\"message\"}]"
+                    )
+                }
+            }
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - with warnings when useParentEventId = true`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `simple test - decode general with warnings`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
+            val codec = UniversalCodec(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = true, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
 
-        val processor = UniversalCodec(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
-            .addNewParsedMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                type = MESSAGE_TYPE,
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .build()
+            assertThrows<CodecException> {
+                codec.encode(batch)
+            }.also { assertEquals("Result batch is empty", it.message) }
 
-        processor.process(batch)
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(17)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                all {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                    }
+                }
+            }
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `simple test - with warnings when useParentEventId = true`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        verify(onEvent, times(2) /* 2 root warnings = 2 */).invoke(any())
-    }
+            val codec = UniversalCodec(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = true, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
 
-    @ParameterizedTest
-    @EnumSource(Protocol::class)
-    fun `Throw test - decode general with warnings`(protocol: Protocol) {
-        val onEvent = mock<(ProtoEvent) -> Unit>()
+            val result = codec.encode(batch)
+            assertEquals(1, result.groupsCount)
 
-        val processor = UniversalCodec(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS, false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
-            .addNewParsedMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                type = MESSAGE_TYPE,
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = WRONG_PROTOCOL
-            )
-            .addNewRawMessage(
-                id = MESSAGE_ID,
-                eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
-                protocol = ORIGINAL_PROTOCOL
-            )
-            .build()
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(10)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                all {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                    }
+                }
+            }
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `simple test - with warnings when useParentEventId = false`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
 
-        processor.process(batch)
+            val codec = UniversalCodec(TestCodec(false, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
 
-        verify(onEvent, times(3) /* 1 root error + 2 root warnings = 3 */).invoke(any())
+            val result = codec.encode(batch)
+            assertEquals(1, result.groupsCount)
+
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(2)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                all {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                    }
+                }
+            }
+        }
+        @ParameterizedTest
+        @EnumSource(Protocol::class)
+        override fun `throw test - with warnings when useParentEventId = false`(protocol: Protocol) {
+            val onEvent = mock<(ProtoEvent) -> Unit>()
+
+            val codec = UniversalCodec(TestCodec(true, 2), ProcessorTest.ORIGINAL_PROTOCOLS,
+                useParentEventId = false, process = DECODE, protocol = protocol, eventProcessor = EventProcessor(rootEventIdA, onEvent), config = config)
+            val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
+                .addNewRawMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = WRONG_PROTOCOL
+                )
+                .addNewParsedMessage(
+                    id = MESSAGE_ID,
+                    eventId = CODEC_EVENT_ID_BOOK_A.copy(id = UUID.randomUUID().toString()),
+                    type = MESSAGE_TYPE,
+                    protocol = ORIGINAL_PROTOCOL
+                )
+                .build()
+
+            assertThrows<CodecException> {
+                codec.encode(batch)
+            }.also { assertEquals("Result batch is empty", it.message) }
+
+            val captor = argumentCaptor<ProtoEvent> { }
+            verify(onEvent, times(5)).invoke(captor.capture())
+            expectThat(captor.allValues) {
+                all {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { attachedMessageIdsList }.all {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                    }
+                }
+            }
+        }
     }
 
     companion object {

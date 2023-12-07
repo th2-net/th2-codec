@@ -33,9 +33,10 @@ abstract class AbstractCodec<BATCH>(
 
         try {
             result = process(batch)
-            if (!checkResult(result)) throw CodecException("checkResult failed")
+            if (isEmpty(result)) throw CodecException("Result batch is empty")
             return result
         } catch (e: CodecException) {
+            // FIXME: publish for each parent events (current: decoder publishes for root, encoder publishes for first parent event)
             val parentEventId = getParentEventId(codecRootEvent, batch, result)
             createAndStoreErrorEvent(e, parentEventId)
             throw e
@@ -63,7 +64,7 @@ abstract class AbstractCodec<BATCH>(
     protected abstract fun process(batch: BATCH): BATCH
 
     abstract fun getParentEventId(codecRootID: EventID, source: BATCH, result: BATCH?): EventID
-    abstract fun checkResult(result: BATCH): Boolean
+    abstract fun isEmpty(result: BATCH): Boolean
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}

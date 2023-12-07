@@ -32,6 +32,7 @@ class TransportSyncEncoder(
     ): EventID = source.run {
         groups.getOrNull(0)
             ?.messages
+            ?.filter { it.eventId != null }
             ?.firstNotNullOf { it as? ParsedMessage }
             ?.eventId
             ?.toProto()

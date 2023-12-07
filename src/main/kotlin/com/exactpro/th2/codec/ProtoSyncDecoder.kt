@@ -24,5 +24,5 @@ class ProtoSyncDecoder(
     processor: ProtoDecodeProcessor,
 ) : AbstractProtoSyncCodec(eventProcessor, processor) {
     override fun getParentEventId(codecRootID: EventID, source: MessageGroupBatch, result: MessageGroupBatch?): EventID = codecRootID
-    override fun checkResult(result: MessageGroupBatch): Boolean = result.groupsCount != 0
+    override fun isEmpty(result: MessageGroupBatch): Boolean = result.groupsCount == 0
 }

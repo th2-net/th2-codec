@@ -25,5 +25,5 @@ abstract class AbstractTransportSyncCodec(
     private val processor: AbstractCodecProcessor<GroupBatch, MessageGroup, Message<*>>,
 ) : AbstractCodec<GroupBatch>(eventProcessor) {
     override fun process(batch: GroupBatch): GroupBatch = processor.process(batch)
-    override fun checkResult(result: GroupBatch): Boolean = result.groups.isNotEmpty()
+    override fun isEmpty(result: GroupBatch): Boolean = result.groups.isEmpty()
 }

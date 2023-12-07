@@ -31,7 +31,7 @@ class ProtoSyncEncoder(
     ): EventID = source.run {
         groupsList.getOrNull(0)
             ?.messagesList
-            ?.find { it.kindCase == AnyMessage.KindCase.MESSAGE }
+            ?.find { it.kindCase == AnyMessage.KindCase.MESSAGE && it.message.hasParentEventId() }
             ?.message
             ?.parentEventId
     } ?: codecRootID
