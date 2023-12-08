@@ -31,6 +31,7 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toJson
 
 open class ProtoCodecProcessor (
     codec: IPipelineCodec,
@@ -55,7 +56,7 @@ open class ProtoCodecProcessor (
     override val AnyMessage.eventBook: String? get() = parentEventId?.bookName
     override val AnyMessage.eventId: EventID? get() = parentEventId
     override val toErrorGroup get() = MessageGroup::toErrorGroup
-    override fun MessageGroup.toReadableBody(): List<String> = messagesList.map(AnyMessage::toString)
+    override fun MessageGroup.toReadableBody(): List<String> = messagesList.map(AnyMessage::toJson)
     override fun createBatch(sourceBatch: MessageGroupBatch, groups: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(groups).build()
     override fun IPipelineCodec.genericDecode(group: MessageGroup, context: ReportingContext): MessageGroup = codec.decode(group, context)
     override fun IPipelineCodec.genericEncode(group: MessageGroup, context: ReportingContext): MessageGroup = codec.encode(group, context)

@@ -128,23 +128,6 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             return null
         }
 
-        var mismatchDetested = false
-        messageGroup.groupItems.forEach { message ->
-            val messageBook: String = message.book(batch)
-            val eventBook: String? = message.eventBook
-            if (eventBook?.equals(messageBook) == false) {
-                eventProcessor.onErrorEvent(
-                    "Book name mismatch in '$messageBook' message and '$eventBook' parent event ids",
-                    message.eventId,
-                    listOf(message.id(batch))
-                )
-                mismatchDetested = true
-            }
-        }
-        if (mismatchDetested) {
-            return null
-        }
-
         if (!config.disableMessageTypeCheck) {
             if (messageGroup.groupItems.none { it.isInputMessage }) {
                 LOGGER.debug { "Message group has no ${process.inputMessageType} messages in it" }

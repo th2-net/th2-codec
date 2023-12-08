@@ -411,6 +411,8 @@ The filtering can also be applied for pins with `subscribe` attribute.
 ### v5.4.1
 
 * fixed problem when codec publishes event for book `A` with attached messages for book `B`
+* readably format of protobuf parsed message has been changed to JSON. 
+  codec add source parsed message into body when an error happens during encode. 
 * updated common: `5.7.2-dev`
 * updated common-utils: `2.2.2-dev`
 

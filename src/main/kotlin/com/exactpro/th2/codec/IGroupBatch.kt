@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
@@ -50,6 +51,7 @@ interface IGroupBatch {
     val groupsCount: Int
     var currentGroupIndex: Int
     val groupCursor: IGroupCursor
+    fun getMessage(groupIndex: Int, messageIndex: Int): Any
 }
 
 interface IGroupCursor {
@@ -133,6 +135,7 @@ class TransportBatchWrapper(val batch: GroupBatch) : IGroupBatch {
             override val asParsed: IParsedMessage get() = if (isParsed) this else throw ClassCastException()
         }
     }
+    override fun getMessage(groupIndex: Int, messageIndex: Int): Message<*> = batch.groups[groupIndex].messages[messageIndex]
     override fun toString(): String = batch.toString()
 }
 
@@ -180,6 +183,8 @@ class ProtoBatchWrapper(val batch: ProtoMessageGroupBatch) : IGroupBatch {
             override val asParsed: IParsedMessage get() = if (isParsed) this else throw ClassCastException()
         }
     }
+    override fun getMessage(groupIndex: Int, messageIndex: Int): AnyMessage =
+        batch.getGroups(groupIndex).getMessages(messageIndex)
     override fun toString(): String = batch.toJson()
 }
 

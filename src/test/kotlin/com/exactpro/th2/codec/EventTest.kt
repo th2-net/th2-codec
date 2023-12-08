@@ -21,9 +21,13 @@ import com.exactpro.th2.codec.EventProcessor.Companion.cradleString
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.configuration.Configuration
+import com.exactpro.th2.codec.util.toJson
 import com.exactpro.th2.codec.util.toProto
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventStatus
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.utils.message.transport.toProto
 import org.junit.jupiter.api.Nested
@@ -184,7 +188,7 @@ class EventTest {
                 .build()
 
             val batch = codec.decode(batchA)
-            assertEquals(1, batch.groupsCount, "batch: $batch")
+            assertEquals(2, batch.groupsCount, "batch: $batch")
 
             val captor = argumentCaptor<ProtoEvent> { }
             verify(onEvent, times(4)).invoke(captor.capture())
@@ -214,8 +218,12 @@ class EventTest {
                             msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
                             msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
                         )
-                    get { String(body.toByteArray()) }.contains(
-                        "{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}"
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
                 withElementAt(1) {
@@ -230,35 +238,54 @@ class EventTest {
                             msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
                             msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
                         )
-                    get { String(body.toByteArray()) }
-                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
-                        // For backward compatible, current event is fulfilled
-                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
-                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[0].id.cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"),"")
+                        )
                 }
                 withElementAt(2) {
-                    get { id }.apply {
-                        get { bookName }.isEqualTo(eventId3B.book)
-                        get { scope }.isEqualTo(eventId3B.scope)
-                    }
-                    get { parentId }.isEqualTo(eventId3B.toProto())
-                    get { name }.isEqualTo(
-                        "Book name mismatch in '${batchA.book!!}' message and '${eventId3B.book}' parent event ids"
-                    )
-                    get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }.contains(
-                        "{\"messageId\":\"${msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
-                    )
-                }
-                withElementAt(3) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(rootEventIdA.bookName)
                         get { scope }.isEqualTo(rootEventIdA.scope)
                     }
                     get { parentId }.isEqualTo(rootEventIdA)
-                    get { name }.isEqualTo("Group count in the processed batch (1) is different from the input one (2)")
+                    get { name }.isEqualTo("Failed to decode message group")
+                    get { attachedMessageIdsList }.hasSize(1)
+                        .contains(
+                            msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"),"")
+                    )
+                }
+                withElementAt(3) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId3B.book)
+                        get { scope }.isEqualTo(eventId3B.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId3B.toProto())
+                    get { name }.isEqualTo("Failed to decode message group")
                     get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }.isEqualTo("[]")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[2].id.cradleString}","type":"reference"},
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
                 }
             }
         }
@@ -293,7 +320,7 @@ class EventTest {
                 .build()
 
             val batch = codec.decode(batchB)
-            assertEquals(1, batch.groupsCount, "batch: $batch")
+            assertEquals(2, batch.groupsCount, "batch: $batch")
 
             val captor = argumentCaptor<ProtoEvent> { }
             verify(onEvent, times(4)).invoke(captor.capture())
@@ -319,10 +346,16 @@ class EventTest {
                     get { parentId }.isEqualTo(rootEventIdA)
                     get { name }.isEqualTo("Failed to decode message group")
                     get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }
-                        .contains("{\"messageId\":\"${msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
-                        .contains("{\"messageId\":\"${msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
-                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"messageId":"${msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
                 }
                 withElementAt(1) {
                     get { id }.apply {
@@ -336,35 +369,53 @@ class EventTest {
                             msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME),
                             msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME),
                         )
-                    get { String(body.toByteArray()) }
-                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
-                        // For backward compatible, current event is fulfilled
-                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
-                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[0].id.cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
                 }
                 withElementAt(2) {
-                    get { id }.apply {
-                        get { bookName }.isEqualTo(eventId3A.book)
-                        get { scope }.isEqualTo(eventId3A.scope)
-                    }
-                    get { parentId }.isEqualTo(eventId3A.toProto())
-                    get { name }.isEqualTo(
-                        "Book name mismatch in '${batchB.book!!}' message and '${eventId3A.book}' parent event ids"
-                    )
-                    get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }.contains(
-                        "{\"messageId\":\"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
-                    )
-                }
-                withElementAt(3) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(rootEventIdA.bookName)
                         get { scope }.isEqualTo(rootEventIdA.scope)
                     }
                     get { parentId }.isEqualTo(rootEventIdA)
-                    get { name }.isEqualTo("Group count in the processed batch (1) is different from the input one (2)")
+                    get { name }.isEqualTo("Failed to decode message group")
                     get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }.isEqualTo("[]")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"),"")
+                    )
+                }
+                withElementAt(3) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(eventId3A.book)
+                        get { scope }.isEqualTo(eventId3A.scope)
+                    }
+                    get { parentId }.isEqualTo(eventId3A.toProto())
+                    get { name }.isEqualTo("Failed to decode message group")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[2].id.cradleString}","type":"reference"},
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
                 }
             }
         }
@@ -643,7 +694,7 @@ class EventTest {
             }.also { assertEquals("Result batch is empty", it.message) }
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(5)).invoke(captor.capture())
+            verify(onEvent, times(6)).invoke(captor.capture())
             println(captor.allValues)
             expectThat(captor.allValues) {
                 allIndexed { index ->
@@ -671,8 +722,15 @@ class EventTest {
                             msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
                             msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
                         )
-                    get { String(body.toByteArray()) }.contains(
-                        "{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}"
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchA.getMessage(0, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"},
+                            {"data":"${batchA.getMessage(0, 1).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
                 withElementAt(1) {
@@ -688,28 +746,65 @@ class EventTest {
                             msgId1.toProto(batchA.book!!, SESSION_GROUP_NAME),
                             msgId2.toProto(batchA.book!!, SESSION_GROUP_NAME),
                         )
-                    get { String(body.toByteArray()) }
-                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
-                        // For backward compatible, current event is fulfilled
-                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
-                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[0].id.cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchA.getMessage(0, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"},
+                            {"data":"${batchA.getMessage(0, 1).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
                 }
                 withElementAt(2) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Failed to encode message group")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }
+                        .contains(
+                            msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME),
+                        )
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchA.getMessage(1, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
+                }
+                withElementAt(3) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(eventId3B.book)
                         get { scope }.isEqualTo(eventId3B.scope)
                     }
                     get { parentId }.isEqualTo(eventId3B.toProto())
-                    get { name }.isEqualTo(
-                        "Book name mismatch in '${batchA.book!!}' message and '${eventId3B.book}' parent event ids"
-                    )
+                    get { name }.isEqualTo("Failed to encode message group")
                     get { type }.isEqualTo("Error")
                     get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }.contains(
-                        "{\"messageId\":\"${msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[2].id.cradleString}","type":"reference"},
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchA.getMessage(1, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
-                withElementAt(3) {
+                withElementAt(4) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(rootEventIdA.bookName)
                         get { scope }.isEqualTo(rootEventIdA.scope)
@@ -720,7 +815,7 @@ class EventTest {
                     get { attachedMessageIdsList }.isEmpty()
                     get { String(body.toByteArray()) }.isEqualTo("[]")
                 }
-                withElementAt(4) {
+                withElementAt(5) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(eventId2A.book)
                         get { scope }.isEqualTo(eventId2A.scope)
@@ -729,9 +824,8 @@ class EventTest {
                     get { name }.isEqualTo("Codec error")
                     get { type }.isEqualTo("CodecError")
                     get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }.isEqualTo(
-                        "[{\"data\":\"Result batch is empty.\",\"type\":\"message\"}]"
-                    )
+                    get { String(body.toByteArray()) }
+                        .isEqualTo("[{\"data\":\"Result batch is empty.\",\"type\":\"message\"}]")
                 }
             }
         }
@@ -756,7 +850,7 @@ class EventTest {
             val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
             val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())
 
-            val batchB = getNewBatchBuilder(protocol, BOOK_NAME_B, SESSION_GROUP_NAME)
+            val batchB: IGroupBatch = getNewBatchBuilder(protocol, BOOK_NAME_B, SESSION_GROUP_NAME)
                 .startNewMessageGroup()
                 .addNewParsedMessage(id = msgId1, type = MESSAGE_TYPE)
                 .addNewParsedMessage(id = msgId2, type = MESSAGE_TYPE, eventId = eventId2B)
@@ -770,7 +864,7 @@ class EventTest {
             }.also { assertEquals("Result batch is empty", it.message) }
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(5)).invoke(captor.capture())
+            verify(onEvent, times(6)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 allIndexed { index ->
                     val id = captor.allValues[index].id
@@ -793,10 +887,19 @@ class EventTest {
                     get { name }.isEqualTo("Failed to encode message group")
                     get { type }.isEqualTo("Error")
                     get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }
-                        .contains("{\"messageId\":\"${msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
-                        .contains("{\"messageId\":\"${msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}")
-                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"messageId":"${msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchB.getMessage(0, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"},
+                            {"data":"${batchB.getMessage(0, 1).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
                 }
                 withElementAt(1) {
                     get { id }.apply {
@@ -811,28 +914,64 @@ class EventTest {
                             msgId1.toProto(batchB.book!!, SESSION_GROUP_NAME),
                             msgId2.toProto(batchB.book!!, SESSION_GROUP_NAME),
                         )
-                    get { String(body.toByteArray()) }
-                        .contains("{\"data\":\"java.lang.NullPointerException: Simple null pointer exception\",\"type\":\"message\"}")
-                        // For backward compatible, current event is fulfilled
-                        .contains("{\"data\":\"This event contains reference to the codec event\",\"type\":\"message\"}")
-                        .contains("{\"eventId\":\"${captor.allValues[0].id.cradleString}\",\"type\":\"reference\"}")
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[0].id.cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchB.getMessage(0, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"},
+                            {"data":"${batchB.getMessage(0, 1).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
                 }
                 withElementAt(2) {
+                    get { id }.apply {
+                        get { bookName }.isEqualTo(rootEventIdA.bookName)
+                        get { scope }.isEqualTo(rootEventIdA.scope)
+                    }
+                    get { parentId }.isEqualTo(rootEventIdA)
+                    get { name }.isEqualTo("Failed to encode message group")
+                    get { type }.isEqualTo("Error")
+                    get { attachedMessageIdsList }.isEmpty()
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchB.getMessage(1, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
+                    )
+                }
+                withElementAt(3) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(eventId3A.book)
                         get { scope }.isEqualTo(eventId3A.scope)
                     }
                     get { parentId }.isEqualTo(eventId3A.toProto())
-                    get { name }.isEqualTo(
-                        "Book name mismatch in '${batchB.book!!}' message and '${eventId3A.book}' parent event ids"
-                    )
+                    get { name }.isEqualTo("Failed to encode message group")
                     get { type }.isEqualTo("Error")
                     get { attachedMessageIdsList }.isEmpty()
-                    get { String(body.toByteArray()) }.contains(
-                        "{\"messageId\":\"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}\",\"type\":\"reference\"}"
+                    get { String(body.toByteArray()) }.isEqualTo(
+                        """
+                            [
+                            {"data":"This event contains reference to the codec event","type":"message"},
+                            {"eventId":"${captor.allValues[2].id.cradleString}","type":"reference"},
+                            {"data":"This event contains reference to messages from another book","type":"message"},
+                            {"messageId":"${msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME).cradleString}","type":"reference"},
+                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
+                            {"data":"Information:","type":"message"},
+                            {"data":"${batchB.getMessage(1, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"}
+                            ]
+                        """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
-                withElementAt(3) {
+                withElementAt(4) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(rootEventIdA.bookName)
                         get { scope }.isEqualTo(rootEventIdA.scope)
@@ -843,7 +982,7 @@ class EventTest {
                     get { attachedMessageIdsList }.isEmpty()
                     get { String(body.toByteArray()) }.isEqualTo("[]")
                 }
-                withElementAt(4) {
+                withElementAt(5) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(eventId2B.book)
                         get { scope }.isEqualTo(eventId2B.scope)
@@ -1081,6 +1220,12 @@ class EventTest {
         const val WRONG_PROTOCOL = "http"
         const val WARN_MESSAGE = "test warn"
         const val MESSAGE_TYPE = "test_message_type"
+
+        private fun Any.toReadableBody(): String = when(this) {
+            is Message<*> -> this.toJson()
+            is AnyMessage -> this.toJson()
+            else -> error("Unsupported type: ${this.javaClass}")
+        }
     }
 
     class TestCodec(private val throwEx: Boolean, private val warningsCount: Int = 0) : IPipelineCodec {
