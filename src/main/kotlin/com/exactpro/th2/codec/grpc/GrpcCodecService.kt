@@ -66,7 +66,7 @@ class GrpcCodecService(
             }
         } catch (e: Exception) {
             val errorMessage = "'decode' rpc call exception: ${e.message}"
-            eventProcessor.onErrorEvent(errorMessage, messagesIds = batch.messageIds, cause = e)
+            eventProcessor.onErrorEvent(message = errorMessage, messagesIds = batch.messageIds, cause = e)
             responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(e).asException())
         }
     }
@@ -85,7 +85,7 @@ class GrpcCodecService(
                     responseObserver.onCompleted()
                 } catch (e: Exception) {
                     val errorMessage = "'encode' rpc call exception: ${e.message}"
-                    eventProcessor.onErrorEvent(errorMessage, messagesIds = batch.messageIds, cause = e)
+                    eventProcessor.onErrorEvent(message = errorMessage, messagesIds = batch.messageIds, cause = e)
                     responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(e).asException())
                 }
             }
@@ -101,7 +101,7 @@ class GrpcCodecService(
             }
         } catch (e: Exception) {
             val errorMessage = "'encode' rpc call exception: ${e.message}"
-            eventProcessor.onErrorEvent(errorMessage, messagesIds = batch.messageIds, cause = e)
+            eventProcessor.onErrorEvent(message = errorMessage, messagesIds = batch.messageIds, cause = e)
             responseObserver.onError(Status.INTERNAL.withDescription(errorMessage).withCause(e).asException())
         }
     }

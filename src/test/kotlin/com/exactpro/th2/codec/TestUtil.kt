@@ -18,16 +18,25 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.configuration.Configuration
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.EventStatus
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
+import strikt.api.Assertion
+import strikt.assertions.contains
+import strikt.assertions.isEqualTo
+import strikt.assertions.isFalse
 import java.time.Instant
 
 const val BOOK_NAME_A = "test-book-a"
 const val BOOK_NAME_B = "test-book-b"
+const val BOOK_NAME_C = "test-book-c"
+const val SESSION_ALIAS_NAME = "test-session-alias"
 const val SESSION_GROUP_NAME = "test-session-group"
+const val COMPONENT_NAME = "test-component"
 const val EVENT_ID = "test-codec"
-const val EVENT_SCOPE = "test-scope"
+const val EVENT_SCOPE = COMPONENT_NAME
 
 val CODEC_EVENT_ID_BOOK_A: EventId = EventId(
     EVENT_ID,
@@ -68,6 +77,9 @@ class UniversalCodec(
 
     private lateinit var transportDecoder: TransportSyncDecoder
     private lateinit var transportEncoder: TransportSyncEncoder
+
+    val codecEventId: EventID = eventProcessor.codecEventID
+
 
     init {
         when(protocol) {
@@ -139,4 +151,16 @@ class UniversalCodec(
         Protocol.PROTO -> ProtoBatchWrapper(protoDecoder.handleBatch((batchWrapper as ProtoBatchWrapper).batch))
         Protocol.TRANSPORT -> TransportBatchWrapper(transportDecoder.handleBatch((batchWrapper as TransportBatchWrapper).batch))
     }
+}
+
+fun Assertion.Builder<ProtoEvent>.isRootEvent(book: String, scope: String) {
+    get { id }.apply {
+        get { bookName }.isEqualTo(book)
+        get { scope }.isEqualTo(scope)
+    }
+    get { hasParentId() }.isFalse()
+    get { name }.contains("Root event")
+        .contains(scope)
+    get { type }.isEqualTo("Microservice")
+    get { status }.isEqualTo(EventStatus.SUCCESS)
 }

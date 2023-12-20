@@ -17,13 +17,16 @@
 package com.exactpro.th2.codec.util
 
 import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.set
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
+import com.exactpro.th2.common.utils.message.id
 import com.exactpro.th2.common.grpc.RawMessage as ProtoRawMessage
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 
@@ -31,21 +34,28 @@ const val ERROR_TYPE_MESSAGE = "th2-codec-error"
 const val ERROR_CONTENT_FIELD = "content"
 const val ERROR_EVENT_ID = "error_event_id"
 
-fun RawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) =
-    ParsedMessage(
-        id,
-        eventId,
-        ERROR_TYPE_MESSAGE,
-        metadata,
-        protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString(),
-        hashMapOf(ERROR_CONTENT_FIELD to errorMessage, ERROR_EVENT_ID to errorEventId.toString())
-    )
+fun RawMessage.toErrorMessage(
+    protocols: Collection<String>,
+    errorEventId: EventID?,
+    errorMessage: String
+): ParsedMessage = ParsedMessage(
+    id,
+    eventId,
+    ERROR_TYPE_MESSAGE,
+    metadata,
+    protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString(),
+    hashMapOf(ERROR_CONTENT_FIELD to errorMessage).apply {
+        // Maybe use cradleString property instead of toString method.
+        errorEventId?.let { put(ERROR_EVENT_ID, errorEventId.toString()) }
+    }
+)
 
 fun MessageGroup.toErrorGroup(
+    batch: GroupBatch,
     infoMessage: String,
     protocols: Collection<String>,
     throwable: Throwable,
-    errorEventID: EventID,
+    bookToEventId: Map<String, EventID>
 ): MessageGroup {
     val content = buildString {
         appendLine("Error: $infoMessage")
@@ -59,7 +69,8 @@ fun MessageGroup.toErrorGroup(
 
     val messages = messages.mapTo(ArrayList()) { message ->
         if (message is RawMessage && message.protocol.run { isBlank() || this in protocols }) {
-            message.toErrorMessage(protocols, errorEventID, content)
+            val book = message.eventId?.book ?: batch.book
+            message.toErrorMessage(protocols, bookToEventId[book], content)
         } else {
             message
         }
@@ -68,25 +79,29 @@ fun MessageGroup.toErrorGroup(
     return MessageGroup(messages)
 }
 
-fun ProtoRawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID, errorMessage: String) = message().also {
+fun ProtoRawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: EventID?, errorMessage: String) = message().also { builder ->
     val protocol = metadata.protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString()
 
-    it.metadata = MessageMetadata.newBuilder()
+    builder.metadata = MessageMetadata.newBuilder()
         .setId(metadata.id)
         .setProtocol(protocol)
         .putAllProperties(metadata.propertiesMap)
         .setMessageType(ERROR_TYPE_MESSAGE)
         .build()
 
-    it[ERROR_CONTENT_FIELD] = errorMessage
-    it[ERROR_EVENT_ID] = errorEventId
+    builder[ERROR_CONTENT_FIELD] = errorMessage
+    errorEventId?.let {
+        builder[ERROR_EVENT_ID] = errorEventId
+    }
+
 }
 
 fun ProtoMessageGroup.toErrorGroup(
+    @Suppress("UNUSED_PARAMETER") batch: MessageGroupBatch,
     infoMessage: String,
     protocols: Collection<String>,
     throwable: Throwable,
-    errorEventID: EventID
+    bookToEventId: Map<String, EventID>
 ): com.exactpro.th2.common.grpc.MessageGroup {
     val content = buildString {
         appendLine("Error: $infoMessage")
@@ -101,7 +116,13 @@ fun ProtoMessageGroup.toErrorGroup(
     return com.exactpro.th2.common.grpc.MessageGroup.newBuilder().also { batchBuilder ->
         for (anyMessage in this.messagesList) {
             if (anyMessage.hasRawMessage() && anyMessage.rawMessage.metadata.protocol.run { isBlank() || this in protocols } ) {
-                batchBuilder += anyMessage.rawMessage.toErrorMessage(protocols, errorEventID, content)
+                val rawMessage = anyMessage.rawMessage
+                val book = if (rawMessage.hasParentEventId()) {
+                    rawMessage.parentEventId.bookName
+                } else {
+                    rawMessage.id.bookName
+                }
+                batchBuilder += rawMessage.toErrorMessage(protocols, bookToEventId[book], content)
             } else {
                 batchBuilder.addMessages(anyMessage)
             }

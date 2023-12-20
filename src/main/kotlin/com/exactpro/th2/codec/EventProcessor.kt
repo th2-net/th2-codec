@@ -30,21 +30,119 @@ import com.exactpro.th2.common.utils.message.sessionAlias
 import com.exactpro.th2.common.utils.toInstant
 import com.google.protobuf.TimestampOrBuilder
 import mu.KotlinLogging
+import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 class EventProcessor(
-    val codecEventID: EventID,
+    componentBook: String,
+    private val componentName: String,
     private val onEvent: (event: ProtoEvent) -> Unit
 ) {
-    fun onErrorEvent(
-        message: String,
-        eventId: EventID? = null,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null
-    ) = (eventId ?: codecEventID).onErrorEvent(message, messagesIds, cause)
+    private val creationTime: String = Instant.now().toString()
+    private val rootEvents = ConcurrentHashMap<String, EventID>()
+    val codecEventID = getRootEvent(componentBook)
 
     @JvmOverloads
     fun onEvent(event: Event, parentEventId: EventID = codecEventID) {
         onEvent(event.toProto(parentEventId))
+    }
+
+    fun onEachEvent(
+        parentEventIDs: List<EventID>,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        body: List<String> = emptyList()
+    ) {
+        chooseRootEventsForPublication(parentEventIDs, messagesIds).forEach { (codecEventId, externalEventIds) ->
+            val warnEvent = codecEventId.onEvent(message, messagesIds, body)
+            externalEventIds.forEach {
+                it.addReferenceTo(warnEvent, message, Event.Status.PASSED, messagesIds, additionalBody = body)
+            }
+        }
+    }
+
+    fun onEachWarning(
+        parentEventIDs: Sequence<EventID>,
+        context: ReportingContext,
+        action: String,
+        additionalBody: () -> List<String> = ::emptyList,
+        messagesIds: () -> List<MessageID> = ::emptyList
+    ) {
+        context.warnings.let { warnings ->
+            if (warnings.isNotEmpty()) {
+                val messages = messagesIds()
+                val body = additionalBody()
+                warnings.forEach { warning ->
+                    onEachEvent(parentEventIDs.toList(), "[WARNING] During $action: $warning", messages, body)
+                }
+            }
+        }
+    }
+
+    fun onErrorEvent(
+        eventId: EventID? = null,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null
+    ): EventID = (eventId ?: codecEventID).onErrorEvent(message, messagesIds, cause)
+
+    fun onEachErrorEvent(
+        parentEventIDs: List<EventID>,
+        message: String,
+        messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null,
+        body: List<String> = emptyList(),
+    ): Map<String, EventID> {
+        val bookToEventId = mutableMapOf<String, EventID>()
+        chooseRootEventsForPublication(parentEventIDs, messagesIds).forEach { (codecEventId, externalEventIds) ->
+            val errorEventId = codecEventId.onErrorEvent(message, messagesIds, cause, body)
+            bookToEventId.put(errorEventId.bookName, errorEventId)?.also {
+                error(
+                    "Internal error: several root events have been chosen for parent event ids: $parentEventIDs and message ids: $messagesIds"
+                )
+            }
+            externalEventIds.forEach {
+                it.addReferenceTo(errorEventId, message, Event.Status.FAILED, messagesIds, cause, body)
+            }
+        }
+        return bookToEventId
+    }
+
+    internal fun chooseRootEventsForPublication(
+        eventIds: List<EventID>,
+        messagesIds: List<MessageID>,
+    ): Map<EventID, List<EventID>> = mutableMapOf<EventID, MutableList<EventID>>().apply {
+        eventIds.asSequence()
+            .distinct()
+            .forEach { eventId ->
+                compute(getRootEvent(eventId.bookName)) { _, value ->
+                    (value ?: mutableListOf()).apply {
+                        add(eventId)
+                    }
+                }
+            }
+        messagesIds.asSequence()
+            .map(MessageID::getBookName)
+            .distinct()
+            .forEach { book ->
+                putIfAbsent(getRootEvent(book), mutableListOf())
+            }
+
+        if (isEmpty()) {
+            put(codecEventID, mutableListOf())
+        }
+    }
+
+    private fun getRootEvent(book: String): EventID = rootEvents.computeIfAbsent(book) {
+        Event.start()
+            .endTimestamp()
+            .name("$componentName $creationTime")
+            .description("Root event")
+            .status(Event.Status.PASSED)
+            .type("Microservice")
+            .toProto(book, componentName)
+            .also(onEvent)
+            .id
     }
 
     private fun EventID.onEvent(
@@ -64,48 +162,6 @@ class EventProcessor(
     ): EventID {
         LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
         return publishEvent(message, messagesIds, Event.Status.FAILED, cause, additionalBody).id
-    }
-
-    fun onEachEvent(
-        parentEventIDs: Sequence<EventID>,
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList()
-    ) {
-        val warnEvent = codecEventID.onEvent(message, messagesIds, body)
-        parentEventIDs.forEach {
-            it.addReferenceTo(warnEvent, message, Event.Status.PASSED, messagesIds, additionalBody = body)
-        }
-    }
-
-    fun onEachErrorEvent(
-        parentEventIDs: Sequence<EventID>,
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        cause: Throwable? = null,
-        additionalBody: List<String> = emptyList(),
-    ): EventID {
-        val errorEventId = codecEventID.onErrorEvent(message, messagesIds, cause, additionalBody)
-        parentEventIDs.forEach {
-            it.addReferenceTo(errorEventId, message, Event.Status.FAILED, messagesIds, cause, additionalBody)
-        }
-        return errorEventId
-    }
-
-    fun onEachWarning(
-        parentEventIDs: Sequence<EventID>,
-        context: ReportingContext,
-        action: String,
-        additionalBody: () -> List<String> = ::emptyList,
-        messagesIds: () -> List<MessageID> = ::emptyList
-    ) = context.warnings.let { warnings ->
-        if (warnings.isNotEmpty()) {
-            val messages = messagesIds()
-            val body = additionalBody()
-            warnings.forEach { warning ->
-                onEachEvent(parentEventIDs, "[WARNING] During $action: $warning", messages, body)
-            }
-        }
     }
 
     private fun EventID.addReferenceTo(

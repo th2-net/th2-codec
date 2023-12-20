@@ -18,7 +18,6 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.configuration.Configuration
@@ -45,7 +44,7 @@ class DecodeProcessorTest {
             enabledVerticalScaling = false,
             protocol = protocol,
             process = DECODE,
-            eventProcessor = EventProcessor(CODEC_EVENT_ID_BOOK_A.toProto()) {},
+            eventProcessor = EventProcessor(BOOK_NAME_A, COMPONENT_NAME) {},
             config = Configuration()
         )
         val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
