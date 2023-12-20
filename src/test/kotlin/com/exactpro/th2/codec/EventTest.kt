@@ -154,7 +154,7 @@ class EventTest {
             assertEquals(1, result.groupsCount)
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(6)).invoke(captor.capture())
+            verify(onEvent, times(3)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 withElementAt(0) {
                     isRootEvent(BOOK_NAME_A, EVENT_SCOPE)
@@ -210,7 +210,7 @@ class EventTest {
             assertEquals(2, batch.groupsCount, "batch: $batch")
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(7)).invoke(captor.capture())
+            verify(onEvent, times(6)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 withElementAt(0) {
                     isRootEvent(BOOK_NAME_A, EVENT_SCOPE)
@@ -298,26 +298,6 @@ class EventTest {
                         """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
-                // FIXME: this is redundant message because message has event id
-                withElementAt(6) {
-                    get { id }.apply {
-                        get { bookName }.isEqualTo(captor.allValues[0].id.bookName)
-                        get { scope }.isEqualTo(captor.allValues[0].id.scope)
-                    }
-                    get { parentId }.isEqualTo(captor.allValues[0].id)
-                    get { name }.isEqualTo("Failed to decode message group")
-                    get { attachedMessageIdsList }.hasSize(1)
-                        .contains(
-                            msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME),
-                        )
-                    get { String(body.toByteArray()) }.isEqualTo(
-                        """
-                            [
-                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
-                            ]
-                        """.trimIndent().replace(Regex("\n"), "")
-                    )
-                }
             }
         }
         @ParameterizedTest
@@ -354,7 +334,7 @@ class EventTest {
             assertEquals(2, batch.groupsCount, "batch: $batch")
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(7)).invoke(captor.capture())
+            verify(onEvent, times(6)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 withElementAt(0) {
                     isRootEvent(BOOK_NAME_A, EVENT_SCOPE)
@@ -457,26 +437,6 @@ class EventTest {
                         """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
-                // FIXME: this is redundant message because message has event id
-                withElementAt(6) {
-                    get { id }.apply {
-                        get { bookName }.isEqualTo(captor.allValues[1].id.bookName)
-                        get { scope }.isEqualTo(captor.allValues[1].id.scope)
-                    }
-                    get { parentId }.isEqualTo(captor.allValues[1].id)
-                    get { name }.isEqualTo("Failed to decode message group")
-                    get { attachedMessageIdsList }.hasSize(1)
-                        .contains(
-                            msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME),
-                        )
-                    get { String(body.toByteArray()) }.isEqualTo(
-                        """
-                            [
-                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"}
-                            ]
-                        """.trimIndent().replace(Regex("\n"), "")
-                    )
-                }
             }
         }
         @ParameterizedTest
@@ -519,7 +479,7 @@ class EventTest {
             val result = codec.decode(batch)
             assertEquals(1, result.groupsCount)
 
-            verify(onEvent, times(16)).invoke(any())
+            verify(onEvent, times(7)).invoke(any())
         }
         @ParameterizedTest
         @EnumSource(Protocol::class)
@@ -561,7 +521,7 @@ class EventTest {
             val result = codec.decode(batch)
             assertEquals(1, result.groupsCount)
 
-            verify(onEvent, times(11)).invoke(any())
+            verify(onEvent, times(5)).invoke(any())
         }
         @ParameterizedTest
         @EnumSource(Protocol::class)
@@ -743,7 +703,7 @@ class EventTest {
             }.also { assertEquals("Result batch is empty", it.message) }
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(8)).invoke(captor.capture())
+            verify(onEvent, times(5)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 withElementAt(0) {
                     isRootEvent(BOOK_NAME_A, EVENT_SCOPE)
@@ -800,7 +760,7 @@ class EventTest {
             }.also { assertEquals("Result batch is empty", it.message) }
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(9)).invoke(captor.capture())
+            verify(onEvent, times(8)).invoke(captor.capture())
             println(captor.allValues)
             expectThat(captor.allValues) {
                 withElementAt(0) {
@@ -903,30 +863,7 @@ class EventTest {
                         """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
-                // FIXME: this is redundant message because message has event id
                 withElementAt(6) {
-                    get { id }.apply {
-                        get { bookName }.isEqualTo(captor.allValues[0].id.bookName)
-                        get { scope }.isEqualTo(captor.allValues[0].id.scope)
-                    }
-                    get { parentId }.isEqualTo(captor.allValues[0].id)
-                    get { name }.isEqualTo("Failed to encode message group")
-                    get { type }.isEqualTo("Error")
-                    get { attachedMessageIdsList }.hasSize(1)
-                        .contains(
-                            msgId3.toProto(batchA.book!!, SESSION_GROUP_NAME)
-                        )
-                    get { String(body.toByteArray()) }.isEqualTo(
-                        """
-                            [
-                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
-                            {"data":"Information:","type":"message"},
-                            {"data":"${batchA.getMessage(1, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"}
-                            ]
-                        """.trimIndent().replace(Regex("\n"), "")
-                    )
-                }
-                withElementAt(7) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(captor.allValues[0].id.bookName)
                         get { scope }.isEqualTo(captor.allValues[0].id.scope)
@@ -937,7 +874,7 @@ class EventTest {
                     get { attachedMessageIdsList }.isEmpty()
                     get { String(body.toByteArray()) }.isEqualTo("[]")
                 }
-                withElementAt(8) {
+                withElementAt(7) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(eventId2A.book)
                         get { scope }.isEqualTo(eventId2A.scope)
@@ -986,7 +923,7 @@ class EventTest {
             }.also { assertEquals("Result batch is empty", it.message) }
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(9)).invoke(captor.capture())
+            verify(onEvent, times(8)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 withElementAt(0) {
                     isRootEvent(BOOK_NAME_A, EVENT_SCOPE)
@@ -1102,30 +1039,7 @@ class EventTest {
                         """.trimIndent().replace(Regex("\n"), "")
                     )
                 }
-                // FIXME: this is redundant message because message has event id
                 withElementAt(6) {
-                    get { id }.apply {
-                        get { bookName }.isEqualTo(captor.allValues[1].id.bookName)
-                        get { scope }.isEqualTo(captor.allValues[1].id.scope)
-                    }
-                    get { parentId }.isEqualTo(captor.allValues[1].id)
-                    get { name }.isEqualTo("Failed to encode message group")
-                    get { type }.isEqualTo("Error")
-                    get { attachedMessageIdsList }.hasSize(1)
-                        .contains(
-                            msgId3.toProto(batchB.book!!, SESSION_GROUP_NAME)
-                        )
-                    get { String(body.toByteArray()) }.isEqualTo(
-                        """
-                            [
-                            {"data":"java.lang.NullPointerException: Simple null pointer exception","type":"message"},
-                            {"data":"Information:","type":"message"},
-                            {"data":"${batchB.getMessage(1, 0).toReadableBody().replace("\"", "\\\"")}","type":"message"}
-                            ]
-                        """.trimIndent().replace(Regex("\n"), "")
-                    )
-                }
-                withElementAt(7) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(captor.allValues[0].id.bookName)
                         get { scope }.isEqualTo(captor.allValues[0].id.scope)
@@ -1136,7 +1050,7 @@ class EventTest {
                     get { attachedMessageIdsList }.isEmpty()
                     get { String(body.toByteArray()) }.isEqualTo("[]")
                 }
-                withElementAt(8) {
+                withElementAt(7) {
                     get { id }.apply {
                         get { bookName }.isEqualTo(eventId2B.book)
                         get { scope }.isEqualTo(eventId2B.scope)
@@ -1193,7 +1107,7 @@ class EventTest {
             }.also { assertEquals("Result batch is empty", it.message) }
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(18)).invoke(captor.capture())
+            verify(onEvent, times(9)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 withElementAt(0) {
                     isRootEvent(BOOK_NAME_A, EVENT_SCOPE)
@@ -1258,7 +1172,7 @@ class EventTest {
             assertEquals(1, result.groupsCount)
 
             val captor = argumentCaptor<ProtoEvent> { }
-            verify(onEvent, times(11)).invoke(captor.capture())
+            verify(onEvent, times(5)).invoke(captor.capture())
             expectThat(captor.allValues) {
                 withElementAt(0) {
                     isRootEvent(BOOK_NAME_A, EVENT_SCOPE)

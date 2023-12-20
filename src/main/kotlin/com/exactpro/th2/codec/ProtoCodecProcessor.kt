@@ -19,13 +19,10 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.configuration.Configuration
-import com.exactpro.th2.codec.util.allParentEventIds
-import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.allParsedProtocols
-import com.exactpro.th2.codec.util.id
-import com.exactpro.th2.codec.util.parentEventId
+import com.exactpro.th2.codec.util.extractPairIds
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.AnyMessage
@@ -49,12 +46,7 @@ open class ProtoCodecProcessor (
     override val AnyMessage.isParsed: Boolean get() = hasMessage()
     override val MessageGroup.rawProtocols get() = allRawProtocols
     override val MessageGroup.parsedProtocols get() = allParsedProtocols
-    override val MessageGroup.eventIds get() = allParentEventIds
-    override fun MessageGroup.ids(batch: MessageGroupBatch): List<MessageID> = messageIds
-    override fun AnyMessage.id(batch: MessageGroupBatch): MessageID = id
-    override fun AnyMessage.book(batch: MessageGroupBatch): String = id.bookName
-    override val AnyMessage.eventBook: String? get() = parentEventId?.bookName
-    override val AnyMessage.eventId: EventID? get() = parentEventId
+    override fun MessageGroup.pairIds(batch: MessageGroupBatch): Sequence<Pair<MessageID, EventID?>> = extractPairIds
     override val toErrorGroup get() = MessageGroup::toErrorGroup
     override fun MessageGroup.toReadableBody(): List<String> = messagesList.map(AnyMessage::toJson)
     override fun createBatch(sourceBatch: MessageGroupBatch, groups: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(groups).build()

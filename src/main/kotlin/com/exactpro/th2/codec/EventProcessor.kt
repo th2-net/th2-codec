@@ -31,6 +31,7 @@ import com.exactpro.th2.common.utils.toInstant
 import com.google.protobuf.TimestampOrBuilder
 import mu.KotlinLogging
 import java.time.Instant
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
 class EventProcessor(
@@ -48,32 +49,29 @@ class EventProcessor(
     }
 
     fun onEachEvent(
-        parentEventIDs: List<EventID>,
+        pairIds: Map<MessageID, EventID?>,
         message: String,
-        messagesIds: List<MessageID> = emptyList(),
         body: List<String> = emptyList()
     ) {
-        chooseRootEventsForPublication(parentEventIDs, messagesIds).forEach { (codecEventId, externalEventIds) ->
-            val warnEvent = codecEventId.onEvent(message, messagesIds, body)
+        chooseRootEventsForPublication(pairIds).forEach { (codecEventId, externalEventIds) ->
+            val warnEvent = codecEventId.onEvent(message, pairIds.keys, body)
             externalEventIds.forEach {
-                it.addReferenceTo(warnEvent, message, Event.Status.PASSED, messagesIds, additionalBody = body)
+                it.addReferenceTo(warnEvent, message, Event.Status.PASSED, pairIds.keys, additionalBody = body)
             }
         }
     }
 
     fun onEachWarning(
-        parentEventIDs: Sequence<EventID>,
+        pairIds: Sequence<Pair<MessageID, EventID?>>,
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
-        messagesIds: () -> List<MessageID> = ::emptyList
     ) {
         context.warnings.let { warnings ->
             if (warnings.isNotEmpty()) {
-                val messages = messagesIds()
                 val body = additionalBody()
                 warnings.forEach { warning ->
-                    onEachEvent(parentEventIDs.toList(), "[WARNING] During $action: $warning", messages, body)
+                    onEachEvent(pairIds.toMap(), "[WARNING] During $action: $warning", body)
                 }
             }
         }
@@ -87,49 +85,45 @@ class EventProcessor(
     ): EventID = (eventId ?: codecEventID).onErrorEvent(message, messagesIds, cause)
 
     fun onEachErrorEvent(
-        parentEventIDs: List<EventID>,
+        pairIds: Map<MessageID, EventID?>,
         message: String,
-        messagesIds: List<MessageID> = emptyList(),
         cause: Throwable? = null,
         body: List<String> = emptyList(),
     ): Map<String, EventID> {
         val bookToEventId = mutableMapOf<String, EventID>()
-        chooseRootEventsForPublication(parentEventIDs, messagesIds).forEach { (codecEventId, externalEventIds) ->
-            val errorEventId = codecEventId.onErrorEvent(message, messagesIds, cause, body)
+        chooseRootEventsForPublication(pairIds).forEach { (codecEventId, externalEventIds) ->
+            val errorEventId = codecEventId.onErrorEvent(message, pairIds.keys, cause, body)
             bookToEventId.put(errorEventId.bookName, errorEventId)?.also {
                 error(
-                    "Internal error: several root events have been chosen for parent event ids: $parentEventIDs and message ids: $messagesIds"
+                    "Internal error: several root events have been chosen for pair ids: $pairIds"
                 )
             }
             externalEventIds.forEach {
-                it.addReferenceTo(errorEventId, message, Event.Status.FAILED, messagesIds, cause, body)
+                it.addReferenceTo(errorEventId, message, Event.Status.FAILED, pairIds.keys, cause, body)
             }
         }
         return bookToEventId
     }
 
     internal fun chooseRootEventsForPublication(
-        eventIds: List<EventID>,
-        messagesIds: List<MessageID>,
-    ): Map<EventID, List<EventID>> = mutableMapOf<EventID, MutableList<EventID>>().apply {
-        eventIds.asSequence()
-            .distinct()
-            .forEach { eventId ->
-                compute(getRootEvent(eventId.bookName)) { _, value ->
-                    (value ?: mutableListOf()).apply {
-                        add(eventId)
+        pairIds: Map<MessageID, EventID?>,
+    ): Map<EventID, Set<EventID>> = mutableMapOf<EventID, MutableSet<EventID>>().apply {
+        pairIds.forEach { (messageId, eventId) ->
+            if (eventId == null) {
+                if (messageId.isValid) {
+                    compute(getRootEvent(messageId.bookName)) { _, value ->
+                        value ?: mutableSetOf()
                     }
                 }
+            } else {
+                compute(getRootEvent(eventId.bookName)) { _, value ->
+                    (value ?: mutableSetOf()).apply { add(eventId) }
+                }
             }
-        messagesIds.asSequence()
-            .map(MessageID::getBookName)
-            .distinct()
-            .forEach { book ->
-                putIfAbsent(getRootEvent(book), mutableListOf())
-            }
+        }
 
         if (isEmpty()) {
-            put(codecEventID, mutableListOf())
+            put(codecEventID, Collections.emptySet())
         }
     }
 
@@ -147,8 +141,8 @@ class EventProcessor(
 
     private fun EventID.onEvent(
         message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList(),
+        messagesIds: Collection<MessageID> = emptyList(),
+        body: Collection<String> = emptyList(),
     ) : EventID {
         LOGGER.warn { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
         return this.publishEvent(message, messagesIds, body = body).id
@@ -156,9 +150,9 @@ class EventProcessor(
 
     private fun EventID.onErrorEvent(
         message: String,
-        messagesIds: List<MessageID> = emptyList(),
+        messagesIds: Collection<MessageID> = emptyList(),
         cause: Throwable? = null,
-        additionalBody: List<String> = emptyList()
+        additionalBody: Collection<String> = emptyList()
     ): EventID {
         LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
         return publishEvent(message, messagesIds, Event.Status.FAILED, cause, additionalBody).id
@@ -168,9 +162,9 @@ class EventProcessor(
         eventId: EventID,
         name: String,
         status: Event.Status,
-        messagesIds: List<MessageID> = emptyList(),
+        messagesIds: Collection<MessageID> = emptyList(),
         cause: Throwable? = null,
-        additionalBody: List<String> = emptyList(),
+        additionalBody: Collection<String> = emptyList(),
     ): EventID = Event.start().apply {
         endTimestamp()
         name(name)
@@ -185,10 +179,10 @@ class EventProcessor(
 
     private fun EventID.publishEvent(
         message: String,
-        messagesIds: List<MessageID> = emptyList(),
+        messagesIds: Collection<MessageID> = emptyList(),
         status: Event.Status = Event.Status.PASSED,
         cause: Throwable? = null,
-        body: List<String> = emptyList(),
+        body: Collection<String> = emptyList(),
     ): ProtoEvent = Event.start().apply {
         name(message)
         type(if (status != Event.Status.PASSED || cause != null) "Error" else "Warn")
@@ -198,9 +192,9 @@ class EventProcessor(
 
     private fun Event.fill(
         book: String,
-        messagesIds: List<MessageID>,
+        messagesIds: Collection<MessageID>,
         cause: Throwable?,
-        body: List<String>
+        body: Collection<String>
     ) {
         var addReferenceToMessages = false
         messagesIds.forEach { messageId ->

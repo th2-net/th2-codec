@@ -69,9 +69,11 @@ class EventProcessorTest {
         val messageIdB = createMessageId(BOOK_NAME_B)
 
         eventProcessor.onEachEvent(
-            listOf(eventIdA, eventIdB),
+            mapOf(
+                messageIdA to eventIdA,
+                messageIdB to eventIdB,
+            ),
             "test-message",
-            listOf(messageIdA, messageIdB),
             listOf("test-body-a", "test-body-b")
         )
 
@@ -194,9 +196,11 @@ class EventProcessorTest {
         val messageIdB = createMessageId(BOOK_NAME_B)
 
         eventProcessor.onEachEvent(
-            emptyList(),
+            mapOf(
+                messageIdA to null,
+                messageIdB to null,
+            ),
             "test-message",
-            listOf(messageIdA, messageIdB),
             listOf("test-body-a", "test-body-b")
         )
 
@@ -275,12 +279,13 @@ class EventProcessorTest {
         }
 
         eventProcessor.onEachWarning(
-            sequenceOf(eventIdA, eventIdB),
+            sequenceOf(
+                messageIdA to eventIdA,
+                messageIdB to eventIdB,
+            ),
             context,
-            "test-action",
-            { listOf("test-body-a", "test-body-b") },
-            { listOf(messageIdA, messageIdB) }
-        )
+            "test-action"
+        ) { listOf("test-body-a", "test-body-b") }
 
         val captor = argumentCaptor<ProtoEvent> {  }
         verify(onEvent, times(10)).invoke(captor.capture())
@@ -413,12 +418,13 @@ class EventProcessorTest {
         }
 
         eventProcessor.onEachWarning(
-            emptySequence(),
+            sequenceOf(
+                messageIdA to null,
+                messageIdB to null,
+            ),
             context,
-            "test-action",
-            { listOf("test-body-a", "test-body-b") },
-            { listOf(messageIdA, messageIdB) }
-        )
+            "test-action"
+        ) { listOf("test-body-a", "test-body-b") }
 
         val captor = argumentCaptor<ProtoEvent> {  }
         verify(onEvent, times(6)).invoke(captor.capture())
@@ -578,23 +584,22 @@ class EventProcessorTest {
         val messageIdC = createMessageId(BOOK_NAME_C)
 
         eventProcessor.onEachErrorEvent(
-            listOf(eventIdA, eventIdB),
+            mapOf(
+                messageIdB to eventIdA,
+                messageIdC to eventIdB,
+            ),
             "test-message",
-            listOf(messageIdB, messageIdC),
             RuntimeException("test-error"),
             listOf("test-body-a", "test-body-b"),
         )
 
         val captor = argumentCaptor<ProtoEvent> {  }
-        verify(onEvent, times(7)).invoke(captor.capture())
+        verify(onEvent, times(5)).invoke(captor.capture())
         expectThat(captor.allValues) {
             withElementAt(0) {
                 isRootEvent(BOOK_NAME_B, EVENT_SCOPE)
             }
             withElementAt(1) {
-                isRootEvent(BOOK_NAME_C, EVENT_SCOPE)
-            }
-            withElementAt(2) {
                 get { id }.apply {
                     get { bookName }.isEqualTo(eventProcessor.codecEventID.bookName)
                     get { scope }.isEqualTo(eventProcessor.codecEventID.scope)
@@ -618,7 +623,7 @@ class EventProcessorTest {
                     """.trimIndent().replace(Regex("\n"), "")
                 )
             }
-            withElementAt(3) {
+            withElementAt(2) {
                 get { id }.apply {
                     get { bookName }.isEqualTo(eventIdA.bookName)
                     get { scope }.isEqualTo(eventIdA.scope)
@@ -632,7 +637,7 @@ class EventProcessorTest {
                     """
                         [
                         {"data":"This event contains reference to the codec event","type":"message"},
-                        {"eventId":"${captor.allValues[2].id.cradleString}","type":"reference"},
+                        {"eventId":"${captor.allValues[1].id.cradleString}","type":"reference"},
                         {"data":"This event contains reference to messages from another book","type":"message"},
                         {"messageId":"${messageIdB.cradleString}","type":"reference"},
                         {"messageId":"${messageIdC.cradleString}","type":"reference"},
@@ -644,7 +649,7 @@ class EventProcessorTest {
                     """.trimIndent().replace(Regex("\n"), "")
                 )
             }
-            withElementAt(4) {
+            withElementAt(3) {
                 get { id }.apply {
                     get { bookName }.isEqualTo(captor.allValues[0].id.bookName)
                     get { scope }.isEqualTo(captor.allValues[0].id.scope)
@@ -670,7 +675,7 @@ class EventProcessorTest {
                     """.trimIndent().replace(Regex("\n"), "")
                 )
             }
-            withElementAt(5) {
+            withElementAt(4) {
                 get { id }.apply {
                     get { bookName }.isEqualTo(eventIdB.bookName)
                     get { scope }.isEqualTo(eventIdB.scope)
@@ -687,35 +692,9 @@ class EventProcessorTest {
                     """
                         [
                         {"data":"This event contains reference to the codec event","type":"message"},
-                        {"eventId":"${captor.allValues[4].id.cradleString}","type":"reference"},
+                        {"eventId":"${captor.allValues[3].id.cradleString}","type":"reference"},
                         {"data":"This event contains reference to messages from another book","type":"message"},
                         {"messageId":"${messageIdC.cradleString}","type":"reference"},
-                        {"data":"java.lang.RuntimeException: test-error","type":"message"},
-                        {"data":"Information:","type":"message"},
-                        {"data":"test-body-a","type":"message"},
-                        {"data":"test-body-b","type":"message"}
-                        ]
-                    """.trimIndent().replace(Regex("\n"), "")
-                )
-            }
-            withElementAt(6) {
-                get { id }.apply {
-                    get { bookName }.isEqualTo(captor.allValues[1].id.bookName)
-                    get { scope }.isEqualTo(captor.allValues[1].id.scope)
-                }
-                get { parentId }.isEqualTo(captor.allValues[1].id)
-                get { name }.isEqualTo("test-message")
-                get { type }.isEqualTo("Error")
-                get { status }.isEqualTo(EventStatus.FAILED)
-                get { attachedMessageIdsList }.apply {
-                    hasSize(1)
-                    contains(messageIdC)
-                }
-                get { String(body.toByteArray()) }.isEqualTo(
-                    """
-                        [
-                        {"data":"This event contains reference to messages from another book","type":"message"},
-                        {"messageId":"${messageIdB.cradleString}","type":"reference"},
                         {"data":"java.lang.RuntimeException: test-error","type":"message"},
                         {"data":"Information:","type":"message"},
                         {"data":"test-body-a","type":"message"},
@@ -733,9 +712,11 @@ class EventProcessorTest {
         val messageIdB = createMessageId(BOOK_NAME_B)
 
         eventProcessor.onEachErrorEvent(
-            emptyList(),
+            mapOf(
+                messageIdA to null,
+                messageIdB to null,
+            ),
             "test-message",
-            listOf(messageIdA, messageIdB),
             RuntimeException("test-error"),
             listOf("test-body-a", "test-body-b"),
         )
@@ -803,7 +784,7 @@ class EventProcessorTest {
 
     @Test
     fun `choose events with empty events, empty messages test`() {
-        val events = eventProcessor.chooseRootEventsForPublication(emptyList(), emptyList())
+        val events = eventProcessor.chooseRootEventsForPublication(emptyMap())
         expectThat(events) {
             hasSize(1)
             get { entries.asSequence()
@@ -820,83 +801,12 @@ class EventProcessorTest {
     }
 
     @Test
-    fun `choose events with book A event, empty messages test`() {
-        val eventId = createEventId(BOOK_NAME_A, "test-scope-a")
-        val events = eventProcessor.chooseRootEventsForPublication(
-            listOf(eventId),
-            emptyList()
-        )
-        expectThat(events) {
-            hasSize(1)
-            get { entries.asSequence()
-                .filter { (key, _) -> key.bookName == BOOK_NAME_A && key.scope == COMPONENT_NAME }
-                .map { it.value }
-                .toList()
-            }.apply {
-                hasSize(1)
-                withElementAt(0) {
-                    hasSize(1)
-                    withElementAt(0) { isSameInstanceAs(eventId) }
-                }
-            }
-        }
-
-        verify(onEvent, never()).invoke(any())
-    }
-
-    @Test
-    fun `choose events with book B,C events, empty messages test`() {
-        val eventIdB = createEventId(BOOK_NAME_B, "test-scope-b")
-        val eventIdC = createEventId(BOOK_NAME_C, "test-scope-c")
-        val events = eventProcessor.chooseRootEventsForPublication(
-            listOf(eventIdB, eventIdC),
-            emptyList()
-        )
-        expectThat(events) {
-            hasSize(2)
-            get { entries.asSequence()
-                .filter { (key, _) -> key.bookName == BOOK_NAME_B && key.scope == COMPONENT_NAME }
-                .map { it.value }
-                .toList()
-            }.apply {
-                hasSize(1)
-                withElementAt(0) {
-                    hasSize(1)
-                    withElementAt(0) { isSameInstanceAs(eventIdB) }
-                }
-            }
-            get { entries.asSequence()
-                .filter { (key, _) -> key.bookName == BOOK_NAME_C && key.scope == COMPONENT_NAME }
-                .map { it.value }
-                .toList()
-            }.apply {
-                hasSize(1)
-                withElementAt(0) {
-                    hasSize(1)
-                    withElementAt(0) { isSameInstanceAs(eventIdC) }
-                }
-            }
-        }
-
-        val captor = argumentCaptor<ProtoEvent> {  }
-        verify(onEvent, times(2)).invoke(captor.capture())
-        expectThat(captor.allValues) {
-            hasSize(2)
-            withElementAt(0) {
-                isRootEvent(BOOK_NAME_B, COMPONENT_NAME)
-            }
-            withElementAt(1) {
-                isRootEvent(BOOK_NAME_C, COMPONENT_NAME)
-            }
-        }
-    }
-
-    @Test
     fun `choose events with empty events, book A message test`() {
         val messageId = createMessageId(BOOK_NAME_A)
         val events = eventProcessor.chooseRootEventsForPublication(
-            emptyList(),
-            listOf(messageId)
+            mapOf(
+                messageId to null,
+            ),
         )
         expectThat(events) {
             hasSize(1)
@@ -918,8 +828,10 @@ class EventProcessorTest {
         val messageIdB = createMessageId(BOOK_NAME_B)
         val messageIdC = createMessageId(BOOK_NAME_C)
         val events = eventProcessor.chooseRootEventsForPublication(
-            emptyList(),
-            listOf(messageIdB, messageIdC)
+            mapOf(
+                messageIdB to null,
+                messageIdC to null,
+            ),
         )
         expectThat(events) {
             hasSize(2)
@@ -961,8 +873,10 @@ class EventProcessorTest {
         val messageIdB = createMessageId(BOOK_NAME_B)
         val messageIdC = createMessageId(BOOK_NAME_C)
         val events = eventProcessor.chooseRootEventsForPublication(
-            listOf(eventIdB, eventIdC),
-            listOf(messageIdB, messageIdC)
+            mapOf(
+                messageIdB to eventIdB,
+                messageIdC to eventIdC,
+            )
         )
         expectThat(events) {
             hasSize(2)
