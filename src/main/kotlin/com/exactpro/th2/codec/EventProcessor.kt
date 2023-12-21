@@ -114,9 +114,8 @@ class EventProcessor(
                     computeIfAbsent(getRootEvent(messageId.bookName)) { mutableSetOf() }
                 }
             } else {
-                compute(getRootEvent(eventId.bookName)) { _, value ->
-                    (value ?: mutableSetOf()).apply { add(eventId) }
-                }
+                computeIfAbsent(getRootEvent(eventId.bookName)) { mutableSetOf() }
+                    .add(eventId)
             }
         }
 
