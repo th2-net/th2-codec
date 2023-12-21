@@ -107,13 +107,11 @@ class EventProcessor(
 
     internal fun chooseRootEventsForPublication(
         pairIds: Map<MessageID, EventID?>,
-    ): Map<EventID, Set<EventID>> = mutableMapOf<EventID, MutableSet<EventID>>().apply {
+    ): Map<EventID, Set<EventID>> = buildMap<EventID, MutableSet<EventID>> {
         pairIds.forEach { (messageId, eventId) ->
             if (eventId == null) {
                 if (messageId.isValid) {
-                    compute(getRootEvent(messageId.bookName)) { _, value ->
-                        value ?: mutableSetOf()
-                    }
+                    computeIfAbsent(getRootEvent(messageId.bookName)) { mutableSetOf() }
                 }
             } else {
                 compute(getRootEvent(eventId.bookName)) { _, value ->

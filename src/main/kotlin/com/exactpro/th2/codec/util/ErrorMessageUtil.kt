@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.codec.util
 
+import com.exactpro.th2.codec.EventProcessor.Companion.cradleString
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageMetadata
@@ -45,8 +46,7 @@ fun RawMessage.toErrorMessage(
     metadata,
     protocol.ifBlank(protocols::singleOrNull) ?: protocols.toString(),
     hashMapOf(ERROR_CONTENT_FIELD to errorMessage).apply {
-        // Maybe use cradleString property instead of toString method.
-        errorEventId?.let { put(ERROR_EVENT_ID, errorEventId.toString()) }
+        errorEventId?.let { put(ERROR_EVENT_ID, errorEventId.cradleString) }
     }
 )
 
@@ -93,7 +93,6 @@ fun ProtoRawMessage.toErrorMessage(protocols: Collection<String>, errorEventId: 
     errorEventId?.let {
         builder[ERROR_EVENT_ID] = errorEventId
     }
-
 }
 
 fun ProtoMessageGroup.toErrorGroup(
