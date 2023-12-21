@@ -62,7 +62,7 @@ class EventProcessor(
     }
 
     fun onEachWarning(
-        pairIds: Sequence<Pair<MessageID, EventID?>>,
+        pairIds: Map<MessageID, EventID?>,
         context: ReportingContext,
         action: String,
         additionalBody: () -> List<String> = ::emptyList,
@@ -71,7 +71,7 @@ class EventProcessor(
             if (warnings.isNotEmpty()) {
                 val body = additionalBody()
                 warnings.forEach { warning ->
-                    onEachEvent(pairIds.toMap(), "[WARNING] During $action: $warning", body)
+                    onEachEvent(pairIds, "[WARNING] During $action: $warning", body)
                 }
             }
         }

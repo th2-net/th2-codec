@@ -279,7 +279,7 @@ class EventProcessorTest {
         }
 
         eventProcessor.onEachWarning(
-            sequenceOf(
+            mapOf(
                 messageIdA to eventIdA,
                 messageIdB to eventIdB,
             ),
@@ -418,7 +418,7 @@ class EventProcessorTest {
         }
 
         eventProcessor.onEachWarning(
-            sequenceOf(
+            mapOf(
                 messageIdA to null,
                 messageIdB to null,
             ),

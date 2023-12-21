@@ -47,8 +47,9 @@ val MessageGroup.messageIds: List<MessageId>
     get() = messages.map(Message<*>::id)
 fun MessageGroup.messageIds(groupBatch: GroupBatch): List<ProtoMessageID> = messages.map { it.id.toProto(groupBatch) }
 
-fun MessageGroup.extractPairIds(groupBatch: GroupBatch): Sequence<Pair<ProtoMessageID, ProtoEventID?>> = messages.asSequence()
-    .map { it.id.toProto(groupBatch) to it.eventId?.toProto() }
+fun MessageGroup.extractPairIds(groupBatch: GroupBatch): Map<ProtoMessageID, ProtoEventID?> = messages.associate {
+    it.id.toProto(groupBatch) to it.eventId?.toProto()
+}
 
 fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
     incomingProtocols.none { it.isBlank() || it in this }  -> false

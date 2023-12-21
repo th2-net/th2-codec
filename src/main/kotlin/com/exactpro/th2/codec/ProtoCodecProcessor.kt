@@ -46,7 +46,7 @@ open class ProtoCodecProcessor (
     override val AnyMessage.isParsed: Boolean get() = hasMessage()
     override val MessageGroup.rawProtocols get() = allRawProtocols
     override val MessageGroup.parsedProtocols get() = allParsedProtocols
-    override fun MessageGroup.pairIds(batch: MessageGroupBatch): Sequence<Pair<MessageID, EventID?>> = extractPairIds
+    override fun MessageGroup.pairIds(batch: MessageGroupBatch): Map<MessageID, EventID?> = extractPairIds
     override val toErrorGroup get() = MessageGroup::toErrorGroup
     override fun MessageGroup.toReadableBody(): List<String> = messagesList.map(AnyMessage::toJson)
     override fun createBatch(sourceBatch: MessageGroupBatch, groups: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(groups).build()
