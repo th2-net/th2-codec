@@ -23,7 +23,6 @@ import com.exactpro.th2.codec.configuration.TransportType
 import com.exactpro.th2.codec.grpc.GrpcCodecService
 import com.exactpro.th2.codec.mq.MqListener
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.factory.CommonFactory
@@ -50,7 +49,6 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
 
     private val protoRouter: MessageRouter<MessageGroupBatch> = commonFactory.messageRouterMessageGroupBatch
     private val transportRouter: MessageRouter<GroupBatch> = commonFactory.transportGroupBatchRouter
-    private val rootEventId: EventID = commonFactory.rootEventId
     private val eventBatcher: EventBatcher = run {
         val eventRouter: MessageRouter<EventBatch> = commonFactory.eventBatchRouter
         val eventPublication = configuration.eventPublication
@@ -69,7 +67,11 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
         }
     }
 
-    private val eventProcessor = EventProcessor(rootEventId, eventBatcher::onEvent)
+    private val eventProcessor = EventProcessor(
+        commonFactory.boxConfiguration.bookName,
+        commonFactory.boxConfiguration.boxName ?: "th2-codec",
+        eventBatcher::onEvent
+    )
 
     private val codecs: MutableList<AutoCloseable> = mutableListOf<AutoCloseable>().apply {
         configuration.transportLines.forEach { (prefix, line) ->
@@ -102,13 +104,12 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
     }
 
     private fun <CODEC : AbstractCodec<*>, PROCESSOR : AbstractCodecProcessor<*, *, *>> createSyncCodec(
-        codecConstructor: (EventProcessor, PROCESSOR, EventID) -> CODEC,
+        codecConstructor: (EventProcessor, PROCESSOR) -> CODEC,
         processorConstructor: (IPipelineCodec, Set<String>, Boolean, Boolean, EventProcessor, Configuration) -> PROCESSOR,
         useParentEventId: Boolean
     ) = codecConstructor(
         eventProcessor,
         processorConstructor(context.codec, context.protocols, useParentEventId, configuration.enableVerticalScaling, eventProcessor, configuration),
-        rootEventId
     )
 
     private fun createMqProtoEncoder(

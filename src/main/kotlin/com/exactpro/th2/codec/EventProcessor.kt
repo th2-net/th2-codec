@@ -16,37 +16,130 @@
 
 package com.exactpro.th2.codec
 
+import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.event.IBodyData
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.isValid
 import com.exactpro.th2.common.utils.message.logId
+import com.exactpro.th2.common.utils.message.sessionAlias
 import com.exactpro.th2.common.utils.toInstant
 import com.google.protobuf.TimestampOrBuilder
 import mu.KotlinLogging
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
+import java.time.Instant
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
 class EventProcessor(
-    private val codecEventID: EventID,
+    componentBook: String,
+    private val componentName: String,
     private val onEvent: (event: ProtoEvent) -> Unit
 ) {
-    fun onEvent(message: String, messagesIds: List<MessageID> = emptyList()) = codecEventID.onEvent(message, messagesIds)
-    fun onErrorEvent(message: String, messagesIds: List<MessageID> = emptyList(), cause: Throwable? = null) = codecEventID.onErrorEvent(message, messagesIds, cause)
+    private val creationTime: String = Instant.now().toString()
+    private val rootEvents = ConcurrentHashMap<String, EventID>()
+    val codecEventID = getRootEvent(componentBook)
 
     @JvmOverloads
     fun onEvent(event: Event, parentEventId: EventID = codecEventID) {
         onEvent(event.toProto(parentEventId))
     }
 
-    private fun EventID.onEvent(
+    fun onEachEvent(
+        pairIds: Map<MessageID, EventID?>,
+        message: String,
+        body: List<String> = emptyList()
+    ) {
+        chooseRootEventsForPublication(pairIds).forEach { (codecEventId, externalEventIds) ->
+            val warnEvent = codecEventId.onEvent(message, pairIds.keys, body)
+            externalEventIds.forEach {
+                it.addReferenceTo(warnEvent, message, Event.Status.PASSED, pairIds.keys, additionalBody = body)
+            }
+        }
+    }
+
+    fun onEachWarning(
+        pairIds: Map<MessageID, EventID?>,
+        context: ReportingContext,
+        action: String,
+        additionalBody: () -> List<String> = ::emptyList,
+    ) {
+        context.warnings.let { warnings ->
+            if (warnings.isNotEmpty()) {
+                val body = additionalBody()
+                warnings.forEach { warning ->
+                    onEachEvent(pairIds, "[WARNING] During $action: $warning", body)
+                }
+            }
+        }
+    }
+
+    fun onErrorEvent(
+        eventId: EventID? = null,
         message: String,
         messagesIds: List<MessageID> = emptyList(),
+        cause: Throwable? = null
+    ): EventID = (eventId ?: codecEventID).onErrorEvent(message, messagesIds, cause)
+
+    fun onEachErrorEvent(
+        pairIds: Map<MessageID, EventID?>,
+        message: String,
+        cause: Throwable? = null,
         body: List<String> = emptyList(),
+    ): Map<String, EventID> {
+        val bookToEventId = mutableMapOf<String, EventID>()
+        chooseRootEventsForPublication(pairIds).forEach { (codecEventId, externalEventIds) ->
+            val errorEventId = codecEventId.onErrorEvent(message, pairIds.keys, cause, body)
+            bookToEventId.put(errorEventId.bookName, errorEventId)?.also {
+                error(
+                    "Internal error: several root events have been chosen for pair ids: $pairIds"
+                )
+            }
+            externalEventIds.forEach {
+                it.addReferenceTo(errorEventId, message, Event.Status.FAILED, pairIds.keys, cause, body)
+            }
+        }
+        return bookToEventId
+    }
+
+    internal fun chooseRootEventsForPublication(
+        pairIds: Map<MessageID, EventID?>,
+    ): Map<EventID, Set<EventID>> = buildMap<EventID, MutableSet<EventID>> {
+        pairIds.forEach { (messageId, eventId) ->
+            if (eventId == null) {
+                if (messageId.isValid) {
+                    computeIfAbsent(getRootEvent(messageId.bookName)) { mutableSetOf() }
+                }
+            } else {
+                computeIfAbsent(getRootEvent(eventId.bookName)) { mutableSetOf() }
+                    .add(eventId)
+            }
+        }
+
+        if (isEmpty()) {
+            put(codecEventID, Collections.emptySet())
+        }
+    }
+
+    private fun getRootEvent(book: String): EventID = rootEvents.computeIfAbsent(book) {
+        Event.start()
+            .endTimestamp()
+            .name("$componentName $creationTime")
+            .description("Root event")
+            .status(Event.Status.PASSED)
+            .type("Microservice")
+            .toProto(book, componentName)
+            .also(onEvent)
+            .id
+    }
+
+    private fun EventID.onEvent(
+        message: String,
+        messagesIds: Collection<MessageID> = emptyList(),
+        body: Collection<String> = emptyList(),
     ) : EventID {
         LOGGER.warn { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
         return this.publishEvent(message, messagesIds, body = body).id
@@ -54,81 +147,64 @@ class EventProcessor(
 
     private fun EventID.onErrorEvent(
         message: String,
-        messagesIds: List<MessageID> = emptyList(),
+        messagesIds: Collection<MessageID> = emptyList(),
         cause: Throwable? = null,
-        additionalBody: List<String> = emptyList()
+        additionalBody: Collection<String> = emptyList()
     ): EventID {
         LOGGER.error(cause) { "$message. Messages: ${messagesIds.joinToString(transform = MessageID::logId)}" }
         return publishEvent(message, messagesIds, Event.Status.FAILED, cause, additionalBody).id
     }
 
-    fun onEachEvent(
-        parentEventIDs: Sequence<EventID>,
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
-        body: List<String> = emptyList()
-    ) {
-        val warnEvent = codecEventID.onEvent(message, messagesIds, body)
-        parentEventIDs.forEach {
-            it.addReferenceTo(warnEvent, message, Event.Status.PASSED)
-        }
-    }
-
-    fun onEachErrorEvent(
-        parentEventIDs: Sequence<EventID>,
-        message: String,
-        messagesIds: List<MessageID> = emptyList(),
+    private fun EventID.addReferenceTo(
+        eventId: EventID,
+        name: String,
+        status: Event.Status,
+        messagesIds: Collection<MessageID> = emptyList(),
         cause: Throwable? = null,
-        additionalBody: List<String> = emptyList(),
-    ): EventID {
-        val errorEventId = codecEventID.onErrorEvent(message, messagesIds, cause, additionalBody)
-        parentEventIDs.forEach { it.addReferenceTo(errorEventId, message, Event.Status.FAILED) }
-        return errorEventId
-    }
-
-    fun onEachWarning(
-        parentEventIDs: Sequence<EventID>,
-        context: ReportingContext,
-        action: String,
-        additionalBody: () -> List<String> = ::emptyList,
-        messagesIds: () -> List<MessageID> = ::emptyList
-    ) = context.warnings.let { warnings ->
-        if (warnings.isNotEmpty()) {
-            val messages = messagesIds()
-            val body = additionalBody()
-            warnings.forEach { warning ->
-                onEachEvent(parentEventIDs, "[WARNING] During $action: $warning", messages, body)
-            }
-        }
-    }
-
-    private fun EventID.addReferenceTo(eventId: EventID, name: String, status: Event.Status): EventID = Event.start()
-        .endTimestamp()
-        .name(name)
-        .status(status)
-        .type(if (status != Event.Status.PASSED) "Error" else "Warn")
-        .bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
-        .bodyData(ReferenceToEvent(eventId.cradleString))
-        .toProto(this)
+        additionalBody: Collection<String> = emptyList(),
+    ): EventID = Event.start().apply {
+        endTimestamp()
+        name(name)
+        status(status)
+        type(if (status != Event.Status.PASSED) "Error" else "Warn")
+        bodyData(EventUtils.createMessageBean("This event contains reference to the codec event"))
+        bodyData(ReferenceToEvent(eventId.cradleString))
+        fill(bookName, messagesIds, cause, additionalBody)
+    }.toProto(this)
         .also(onEvent)
         .id
 
-    private val EventID.cradleString get() = "$bookName:$scope:${startTimestamp.cradleTimestampString}:$id"
-    private val TimestampOrBuilder.cradleTimestampString get() = CRADLE_DATE_TIME_FORMATTER.format(LocalDateTime.ofInstant(toInstant(), ZoneOffset.UTC))
-
     private fun EventID.publishEvent(
         message: String,
-        messagesIds: List<MessageID> = emptyList(),
+        messagesIds: Collection<MessageID> = emptyList(),
         status: Event.Status = Event.Status.PASSED,
         cause: Throwable? = null,
-        body: List<String> = emptyList(),
+        body: Collection<String> = emptyList(),
     ): ProtoEvent = Event.start().apply {
         name(message)
         type(if (status != Event.Status.PASSED || cause != null) "Error" else "Warn")
         status(if (cause != null) Event.Status.FAILED else status)
+        fill(bookName, messagesIds, cause, body)
+    }.toProto(this).also(onEvent)
+
+    private fun Event.fill(
+        book: String,
+        messagesIds: Collection<MessageID>,
+        cause: Throwable?,
+        body: Collection<String>
+    ) {
+        var addReferenceToMessages = false
         messagesIds.forEach { messageId ->
             if (messageId.isValid) {
-                messageID(messageId)
+                if (book == messageId.bookName) {
+                    messageID(messageId)
+                } else {
+                    if (!addReferenceToMessages) {
+                        addReferenceToMessages = true
+                        bodyData(EventUtils.createMessageBean("This event contains reference to messages from another book"))
+                    }
+                    bodyData(ReferenceToMessage(messageId.cradleString))
+                }
             }
         }
 
@@ -140,7 +216,7 @@ class EventProcessor(
             bodyData(EventUtils.createMessageBean("Information:"))
             body.forEach { bodyData(EventUtils.createMessageBean(it)) }
         }
-    }.toProto(this).also(onEvent)
+    }
 
     @Suppress("unused")
     private class ReferenceToEvent(val eventId: String) : IBodyData {
@@ -152,10 +228,22 @@ class EventProcessor(
         }
     }
 
+    @Suppress("unused")
+    private class ReferenceToMessage(val messageId: String) : IBodyData {
+        val type: String
+            get() = TYPE
+
+        companion object {
+            const val TYPE = "reference"
+        }
+    }
+
     companion object {
         private val LOGGER = KotlinLogging.logger {}
-        private val CRADLE_DATE_TIME_FORMATTER = DateTimeFormatter
-            .ofPattern("yyyyMMddHHmmssSSSSSSSSS")
-            .withZone(ZoneOffset.UTC)
+
+        private val TimestampOrBuilder.cradleString get() = TimeUtils.toIdTimestamp(toInstant())
+        private val Direction.cradleString get() = if (Direction.FIRST == this) "1" else "2"
+        internal val EventID.cradleString get() = "$bookName:$scope:${startTimestamp.cradleString}:$id"
+        internal val MessageID.cradleString get() = "$bookName:$sessionAlias:${direction.cradleString}:${timestamp.cradleString}:$sequence"
     }
 }

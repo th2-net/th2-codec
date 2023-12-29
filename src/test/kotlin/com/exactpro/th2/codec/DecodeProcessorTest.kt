@@ -18,7 +18,6 @@ package com.exactpro.th2.codec
 
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.util.ERROR_TYPE_MESSAGE
-import com.exactpro.th2.codec.util.toProto
 import com.exactpro.th2.codec.AbstractCodecProcessor.Process.DECODE
 import com.exactpro.th2.codec.api.IReportingContext
 import com.exactpro.th2.codec.configuration.Configuration
@@ -38,17 +37,17 @@ class DecodeProcessorTest {
         val originalProtocols = setOf(originalProtocol)
         val wrongProtocol = "http"
 
-        val processor = UniversalCodecProcessor(
+        val processor = UniversalCodec(
             TestCodec(true),
             originalProtocols,
-            false,
-            false,
-            protocol,
-            DECODE,
-            EventProcessor(CODEC_EVENT_ID.toProto()) {},
-            Configuration()
+            useParentEventId = false,
+            enabledVerticalScaling = false,
+            protocol = protocol,
+            process = DECODE,
+            eventProcessor = EventProcessor(BOOK_NAME_A, COMPONENT_NAME) {},
+            config = Configuration()
         )
-        val batch = getNewBatchBuilder(protocol, BOOK_NAME, SESSION_GROUP_NAME)
+        val batch = getNewBatchBuilder(protocol, BOOK_NAME_A, SESSION_GROUP_NAME)
             .addNewRawMessage(MESSAGE_ID, protocol = originalProtocol)
             .addNewRawMessage(MESSAGE_ID, protocol = wrongProtocol)
             .addNewParsedMessage(MESSAGE_ID, type = MESSAGE_TYPE, protocol = originalProtocol)

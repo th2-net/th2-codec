@@ -19,15 +19,16 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.configuration.Configuration
-import com.exactpro.th2.codec.util.allParentEventIds
-import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.allParsedProtocols
+import com.exactpro.th2.codec.util.extractPairIds
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toJson
 
 open class ProtoCodecProcessor (
     codec: IPipelineCodec,
@@ -45,10 +46,9 @@ open class ProtoCodecProcessor (
     override val AnyMessage.isParsed: Boolean get() = hasMessage()
     override val MessageGroup.rawProtocols get() = allRawProtocols
     override val MessageGroup.parsedProtocols get() = allParsedProtocols
-    override val MessageGroup.eventIds get() = allParentEventIds
-    override fun MessageGroup.ids(batch: MessageGroupBatch): List<MessageID> = messageIds
+    override fun MessageGroup.pairIds(batch: MessageGroupBatch): Map<MessageID, EventID?> = extractPairIds
     override val toErrorGroup get() = MessageGroup::toErrorGroup
-    override fun MessageGroup.toReadableBody(): List<String> = messagesList.map(AnyMessage::toString)
+    override fun MessageGroup.toReadableBody(): List<String> = messagesList.map(AnyMessage::toJson)
     override fun createBatch(sourceBatch: MessageGroupBatch, groups: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(groups).build()
     override fun IPipelineCodec.genericDecode(group: MessageGroup, context: ReportingContext): MessageGroup = codec.decode(group, context)
     override fun IPipelineCodec.genericEncode(group: MessageGroup, context: ReportingContext): MessageGroup = codec.encode(group, context)

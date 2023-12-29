@@ -20,12 +20,12 @@ package com.exactpro.th2.codec.util
 
 import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
-import com.exactpro.th2.common.grpc.EventID as ProtoEventID
-import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.exactpro.th2.common.grpc.EventID as ProtoEventID
+import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
 
 private val mapper = ObjectMapper()
 
@@ -46,6 +46,10 @@ val MessageGroup.allParsedProtocols: Set<String>
 val MessageGroup.messageIds: List<MessageId>
     get() = messages.map(Message<*>::id)
 fun MessageGroup.messageIds(groupBatch: GroupBatch): List<ProtoMessageID> = messages.map { it.id.toProto(groupBatch) }
+
+fun MessageGroup.extractPairIds(groupBatch: GroupBatch): Map<ProtoMessageID, ProtoEventID?> = messages.associate {
+    it.id.toProto(groupBatch) to it.eventId?.toProto()
+}
 
 fun Collection<String>.checkAgainstProtocols(incomingProtocols: Collection<String>) = when {
     incomingProtocols.none { it.isBlank() || it in this }  -> false

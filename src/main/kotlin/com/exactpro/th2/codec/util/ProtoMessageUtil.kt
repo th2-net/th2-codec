@@ -18,6 +18,7 @@
 
 package com.exactpro.th2.codec.util
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroup as ProtoMessageGroup
 import com.exactpro.th2.common.grpc.AnyMessage as ProtoAnyMessage
 import com.exactpro.th2.common.grpc.Message as ProtoMessage
@@ -28,6 +29,7 @@ import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
 import com.exactpro.th2.common.grpc.EventID as ProtoEventID
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
+import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.*
 import com.exactpro.th2.common.value.toValue
 
@@ -48,6 +50,9 @@ val ProtoMessageGroup.allParentEventIds: Sequence<ProtoEventID>
     get() = messagesList.asSequence()
         .mapNotNull(ProtoAnyMessage::parentEventId)
 
+val ProtoMessageGroup.extractPairIds: Map<MessageID, ProtoEventID?>
+    get() = messagesList.associate { it.id to it.parentEventId }
+
 val ProtoMessageGroup.allRawProtocols
     get() = messagesList.asSequence()
         .filter(ProtoAnyMessage::hasRawMessage)
@@ -61,12 +66,13 @@ val ProtoMessageGroup.allParsedProtocols
         .toSet()
 
 val ProtoMessageGroup.messageIds: List<ProtoMessageID>
-    get() = messagesList.map { message ->
-        when (val kind = message.kindCase) {
-            MESSAGE -> message.message.metadata.id
-            RAW_MESSAGE -> message.rawMessage.metadata.id
-            else -> error("Unknown message kind: $kind")
-        }
+    get() = messagesList.map(AnyMessage::id)
+
+val AnyMessage.id: MessageID
+    get() = when (val kind = kindCase) {
+        MESSAGE -> message.metadata.id
+        RAW_MESSAGE -> rawMessage.metadata.id
+        else -> error("Unknown message kind: $kind")
     }
 
 @Deprecated("Please use the toErrorMessageGroup(exception: Throwable, protocols: List<String>) overload instead", ReplaceWith("this.toErrorMessageGroup(exception, listOf(protocol))"))

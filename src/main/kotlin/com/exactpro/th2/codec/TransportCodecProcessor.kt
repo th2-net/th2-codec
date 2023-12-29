@@ -19,18 +19,18 @@ package com.exactpro.th2.codec
 import com.exactpro.th2.codec.api.IPipelineCodec
 import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.configuration.Configuration
-import com.exactpro.th2.codec.util.allParentEventIds
-import com.exactpro.th2.codec.util.messageIds
 import com.exactpro.th2.codec.util.toErrorGroup
 import com.exactpro.th2.codec.util.allRawProtocols
 import com.exactpro.th2.codec.util.allParsedProtocols
+import com.exactpro.th2.codec.util.extractPairIds
 import com.exactpro.th2.codec.util.toJson
+import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageGroup
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Message
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.RawMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
-import com.exactpro.th2.common.grpc.MessageID as ProtoMessageID
 
 open class TransportCodecProcessor(
     codec: IPipelineCodec,
@@ -48,8 +48,7 @@ open class TransportCodecProcessor(
     override val Message<*>.isParsed: Boolean get() = this is ParsedMessage
     override val MessageGroup.rawProtocols get() = allRawProtocols
     override val MessageGroup.parsedProtocols get() = allParsedProtocols
-    override val MessageGroup.eventIds get() = allParentEventIds
-    override fun MessageGroup.ids(batch: GroupBatch): List<ProtoMessageID> = messageIds(batch)
+    override fun MessageGroup.pairIds(batch: GroupBatch): Map<MessageID, EventID?> = extractPairIds(batch)
     override val toErrorGroup get() = MessageGroup::toErrorGroup
     override fun MessageGroup.toReadableBody(): List<String> = messages.map(Message<*>::toJson)
     override fun createBatch(sourceBatch: GroupBatch, groups: List<MessageGroup>) = GroupBatch(sourceBatch.book, sourceBatch.sessionGroup, groups)

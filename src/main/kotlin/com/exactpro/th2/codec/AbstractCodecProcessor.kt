@@ -40,8 +40,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     protected abstract val GROUP.size: Int
     protected abstract val GROUP.rawProtocols: Set<String>
     protected abstract val GROUP.parsedProtocols: Set<String>
-    protected abstract val GROUP.eventIds: Sequence<EventID>
-    protected abstract fun GROUP.ids(batch: BATCH): List<MessageID>
+    protected abstract fun GROUP.pairIds(batch: BATCH): Map<MessageID, EventID?>
     protected abstract fun GROUP.toReadableBody(): List<String>
     protected abstract val MESSAGE.isRaw: Boolean
     protected abstract val MESSAGE.isParsed: Boolean
@@ -87,7 +86,13 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
         Process.ENCODE -> isParsed
     }
 
-    protected abstract val toErrorGroup: GROUP.(infoMessage: String, protocols: Collection<String>, throwable: Throwable, errorEventID: EventID) -> GROUP
+    protected abstract val toErrorGroup: GROUP.(
+        batch: BATCH,
+        infoMessage: String,
+        protocols: Collection<String>,
+        throwable: Throwable,
+        bookToEventId: Map<String, EventID>
+    ) -> GROUP
 
     fun process(source: BATCH): BATCH {
         val sourceGroups = source.batchItems
@@ -108,7 +113,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
         }
 
         if (sourceGroups.size != resultGroups.size) {
-            eventProcessor.onErrorEvent("Group count in the processed batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
+            eventProcessor.onErrorEvent(message = "Group count in the processed batch (${resultGroups.size}) is different from the input one (${sourceGroups.size})")
         }
 
         return createBatch(source, resultGroups)
@@ -120,7 +125,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
 
     private fun processMessageGroup(batch: BATCH, messageGroup: GROUP): GROUP? {
         if (messageGroup.size == 0) {
-            eventProcessor.onErrorEvent("Cannot ${process.actionName} empty message group")
+            eventProcessor.onErrorEvent(message = "Cannot ${process.actionName} empty message group")
             return null
         }
 
@@ -131,7 +136,9 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             }
         }
 
-        val parentEventIds: Sequence<EventID> = if (useParentEventId) messageGroup.eventIds else emptySequence()
+        val pairIds: Map<MessageID, EventID?> by lazy { 
+            if (useParentEventId) messageGroup.pairIds(batch) else emptyMap() 
+        }
         val context = ReportingContext()
 
         try {
@@ -146,7 +153,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             val recodedGroup = codec.recode(messageGroup, context)
 
             if (process.isInvalidResultSize(messageGroup.size, recodedGroup.size)) {
-                eventProcessor.onEachEvent(parentEventIds, "${process.name}d message group contains ${process.operationName} messages (${recodedGroup.size}) than ${process.opposite.actionName}d one (${messageGroup.size})")
+                eventProcessor.onEachEvent(pairIds, "${process.name}d message group contains ${process.operationName} messages (${recodedGroup.size}) than ${process.opposite.actionName}d one (${messageGroup.size})")
             }
 
             return recodedGroup
@@ -155,11 +162,11 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
 
             return when (process) {
                 Process.DECODE -> {
-                    val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), e)
-                    messageGroup.toErrorGroup(header, protocols, e, errorEventId)
+                    val errorEventIds: Map<String, EventID> = eventProcessor.onEachErrorEvent(pairIds, header, e)
+                    messageGroup.toErrorGroup(batch, header, protocols, e, errorEventIds)
                 }
                 Process.ENCODE -> {
-                    eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), e, e.details + messageGroup.toReadableBody())
+                    eventProcessor.onEachErrorEvent(pairIds, header, e, e.details + messageGroup.toReadableBody())
                     null
                 }
             }
@@ -167,19 +174,19 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
             val header = "Failed to ${process.actionName} message group"
             return when (process) {
                 Process.DECODE -> {
-                    val errorEventId = eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), throwable)
-                    messageGroup.toErrorGroup(header, protocols, throwable, errorEventId)
+                    val errorEventIds: Map<String, EventID> = eventProcessor.onEachErrorEvent(pairIds, header, throwable)
+                    messageGroup.toErrorGroup(batch, header, protocols, throwable, errorEventIds)
                 }
                 Process.ENCODE -> {
                     // we should not use message IDs because during encoding there is no correct message ID created yet
-                    eventProcessor.onEachErrorEvent(parentEventIds, header, messageGroup.ids(batch), throwable, messageGroup.toReadableBody())
+                    eventProcessor.onEachErrorEvent(pairIds, header, throwable, messageGroup.toReadableBody())
                     null
                 }
             }
         } finally {
             when (process) {
-                Process.DECODE -> eventProcessor.onEachWarning(parentEventIds, context, "decoding") { messageGroup.ids(batch) }
-                Process.ENCODE -> eventProcessor.onEachWarning(parentEventIds, context, "encoding", additionalBody = { messageGroup.toReadableBody() })
+                Process.DECODE -> eventProcessor.onEachWarning(pairIds, context, "decoding")
+                Process.ENCODE -> eventProcessor.onEachWarning(pairIds, context, "encoding", additionalBody = { messageGroup.toReadableBody() })
             }
         }
     }
