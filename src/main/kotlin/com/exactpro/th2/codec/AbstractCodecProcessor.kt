@@ -40,7 +40,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
     protected abstract val GROUP.size: Int
     protected abstract val GROUP.rawProtocols: Set<String>
     protected abstract val GROUP.parsedProtocols: Set<String>
-    protected abstract fun GROUP.pairIds(batch: BATCH): Map<MessageID, EventID?>
+    protected abstract fun GROUP.pairIds(batch: BATCH, useParentEventId: Boolean): Map<MessageID, EventID?>
     protected abstract fun GROUP.toReadableBody(): List<String>
     protected abstract val MESSAGE.isRaw: Boolean
     protected abstract val MESSAGE.isParsed: Boolean
@@ -137,7 +137,7 @@ abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(
         }
 
         val pairIds: Map<MessageID, EventID?> by lazy { 
-            if (useParentEventId) messageGroup.pairIds(batch) else emptyMap() 
+            messageGroup.pairIds(batch, useParentEventId)
         }
         val context = ReportingContext()
 

@@ -50,8 +50,12 @@ val ProtoMessageGroup.allParentEventIds: Sequence<ProtoEventID>
     get() = messagesList.asSequence()
         .mapNotNull(ProtoAnyMessage::parentEventId)
 
-val ProtoMessageGroup.extractPairIds: Map<MessageID, ProtoEventID?>
-    get() = messagesList.associate { it.id to it.parentEventId }
+fun ProtoMessageGroup.extractPairIds(useParentEventId: Boolean): Map<MessageID, ProtoEventID?> =
+        if (useParentEventId) {
+            messagesList.associate { it.id to it.parentEventId }
+        } else {
+            mapOf(getMessages(0).id to null)
+        }
 
 val ProtoMessageGroup.allRawProtocols
     get() = messagesList.asSequence()

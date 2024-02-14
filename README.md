@@ -1,4 +1,4 @@
-# Description (5.4.1)
+# Description (5.4.2)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -407,6 +407,9 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v5.4.2
+* fixed problem: codec with book `A` doesn't publish event to book `B` specified in the message when useParentId is false  
 
 ### v5.4.1
 
