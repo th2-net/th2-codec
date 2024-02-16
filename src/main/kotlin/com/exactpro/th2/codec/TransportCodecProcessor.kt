@@ -48,7 +48,7 @@ open class TransportCodecProcessor(
     override val Message<*>.isParsed: Boolean get() = this is ParsedMessage
     override val MessageGroup.rawProtocols get() = allRawProtocols
     override val MessageGroup.parsedProtocols get() = allParsedProtocols
-    override fun MessageGroup.pairIds(batch: GroupBatch): Map<MessageID, EventID?> = extractPairIds(batch)
+    override fun MessageGroup.pairIds(batch: GroupBatch, useParentEventId: Boolean): Map<MessageID, EventID?> = extractPairIds(batch, useParentEventId)
     override val toErrorGroup get() = MessageGroup::toErrorGroup
     override fun MessageGroup.toReadableBody(): List<String> = messages.map(Message<*>::toJson)
     override fun createBatch(sourceBatch: GroupBatch, groups: List<MessageGroup>) = GroupBatch(sourceBatch.book, sourceBatch.sessionGroup, groups)
