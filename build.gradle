@@ -1,9 +1,17 @@
 plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.8.22"
     id("java-library")
     id("maven-publish")
 
     id "com.exactpro.th2.gradle.base" version "0.0.6"
     id "com.exactpro.th2.gradle.publish" version "0.0.6"
+}
+
+group = 'com.exactpro.th2'
+version = release_version
+
+kotlin {
+    jvmToolchain(11)
 }
 
 repositories {
@@ -28,15 +36,21 @@ dependencies {
     implementation("com.exactpro.th2:common:5.10.1-dev")
     implementation "com.exactpro.th2:common-utils:2.2.3-dev"
 
-    implementation "com.exactpro.th2:grpc-codec:0.2.0-dev"
+    implementation "com.exactpro.th2:grpc-codec:0.2.0-th2-gradle-plugin-+"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+
+    implementation "io.github.microutils:kotlin-logging:3.0.5"
 
     implementation 'com.github.ajalt.clikt:clikt:3.5.4'
 
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.3.1'
+    testImplementation 'io.strikt:strikt-core:0.34.1'
+
 }
 
-dependencyLocking {
-    lockAllConfigurations()
+test {
+    useJUnitPlatform()
 }
