@@ -3,7 +3,6 @@ plugins {
     id("java-library")
     id("maven-publish")
 
-    id "com.exactpro.th2.gradle.base" version "0.0.6"
     id "com.exactpro.th2.gradle.publish" version "0.0.6"
 }
 
