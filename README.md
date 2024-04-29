@@ -1,4 +1,4 @@
-# Description (5.4.2)
+# Description (5.5.0)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -407,6 +407,15 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v5.5.0
+* Added plugin:
+  * th2-gradle-plugin: `0.0.6`
+* Updated:
+  * bom: `4.6.1`
+  * common: `5.10.1-dev`
+  * common-utils: `2.2.3-dev`
+  * clikt: `3.5.4`
 
 ### v5.4.2
 * fixed problem: codec with book `A` doesn't publish event to book `B` specified in the message when useParentId is false  
