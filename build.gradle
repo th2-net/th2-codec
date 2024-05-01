@@ -1,33 +1,59 @@
-buildscript {
-    repositories {
-        gradlePluginPortal()
-        maven {
-            url = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-        }
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.8.22"
+    id("java-library")
+    id("maven-publish")
+
+    id "com.exactpro.th2.gradle.publish" version "0.0.6"
+}
+
+group = 'com.exactpro.th2'
+version = release_version
+
+kotlin {
+    jvmToolchain(11)
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name 'Sonatype_snapshots'
+        url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
-    dependencies {
-        classpath "com.exactpro.th2:th2-gradle-plugin:0.0.1-dev-5915772757-13a28ae-SNAPSHOT"
+    maven {
+        name 'Sonatype_releases'
+        url 'https://s01.oss.sonatype.org/content/repositories/releases/'
+    }
+    mavenLocal()
+
+    configurations.configureEach {
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+        resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
 }
 
-apply plugin: "com.exactpro.th2.common-conventions"
-apply plugin: "com.exactpro.th2.artifacts-conventions"
-
 dependencies {
-    api platform("com.exactpro.th2:bom:4.5.0")
+    implementation("com.exactpro.th2:common:5.10.1-dev")
+    implementation "com.exactpro.th2:common-utils:2.2.3-dev"
 
-    implementation("com.exactpro.th2:common:5.7.2-dev")
-    implementation "com.exactpro.th2:common-utils:2.2.2-dev"
-
-    implementation "com.exactpro.th2:grpc-codec:0.1.0"
+    implementation "com.exactpro.th2:grpc-codec:0.2.0-dev"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
 
-    implementation("com.github.ajalt:clikt:2.8.0")
+    implementation "io.github.microutils:kotlin-logging:3.0.5"
+
+    implementation 'com.github.ajalt.clikt:clikt:3.5.4'
 
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.3.1'
+    testImplementation 'io.strikt:strikt-core:0.34.1'
+
 }
 
-dependencyLocking {
-    lockAllConfigurations()
+test {
+    useJUnitPlatform()
+}
+
+dependencyCheck {
+    suppressionFile='supressions.xml'
 }
