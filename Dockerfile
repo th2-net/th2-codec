@@ -1,4 +1,4 @@
-FROM gradle:7.6-jdk11 AS build
+FROM gradle:8.7-jdk11 AS build
 ARG release_version
 ARG bintray_user
 ARG bintray_key
@@ -10,4 +10,3 @@ RUN gradle --no-daemon clean build bintrayUpload \
     -Pbintray_user=${bintray_user} \
     -Pbintray_key=${bintray_key} \
     -Pvcs_url=${vcs_url}
-
