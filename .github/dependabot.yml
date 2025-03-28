@@ -10,11 +10,15 @@ updates:
     schedule:
       interval: daily
     ignore:
+      - dependency-name: org.jetbrains.kotlin.jvm
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
       - dependency-name: org.jetbrains.kotlin:kotlin-bom
         update-types:
           - version-update:semver-major
           - version-update:semver-minor
-      - dependency-name: cio.github.oshai:kotlin-logging
+      - dependency-name: io.github.oshai:kotlin-logging
         update-types:
           - version-update:semver-major
           - version-update:semver-minor
