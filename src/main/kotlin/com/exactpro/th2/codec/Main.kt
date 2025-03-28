@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package com.exactpro.th2.codec
 
 import com.exactpro.th2.common.schema.factory.CommonFactory
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.Deque
 import java.util.concurrent.ConcurrentLinkedDeque
 import kotlin.concurrent.thread
@@ -33,7 +33,7 @@ fun main(args: Array<String>) {
             try {
                 K_LOGGER.info { "Shutdown start" }
                 resources.descendingIterator().forEach { action ->
-                    runCatching(action).onFailure { K_LOGGER.error(it.message, it) }
+                    runCatching(action).onFailure { K_LOGGER.error(it) { it.message } }
                 }
             } finally {
                 K_LOGGER.info { "Shutdown end" }

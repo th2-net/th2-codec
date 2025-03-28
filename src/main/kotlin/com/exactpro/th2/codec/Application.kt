@@ -1,5 +1,5 @@
 /*
- *  Copyright 2023 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import com.exactpro.th2.common.utils.event.EventBatcher
 import com.exactpro.th2.common.utils.shutdownGracefully
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.Server
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -69,7 +69,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
 
     private val eventProcessor = EventProcessor(
         commonFactory.boxConfiguration.bookName,
-        commonFactory.boxConfiguration.boxName ?: "th2-codec",
+        commonFactory.boxConfiguration.boxName,
         eventBatcher::onEvent
     )
 
