@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import com.exactpro.th2.codec.api.impl.ReportingContext
 import com.exactpro.th2.codec.configuration.Configuration
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.CompletableFuture
 
 abstract class AbstractCodecProcessor<BATCH, GROUP, MESSAGE>(

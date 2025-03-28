@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -191,9 +191,9 @@ class EventTest {
                 config = config
             )
 
-            val msgId1 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(1))
-            val msgId2 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(2))
-            val msgId3 = MESSAGE_ID.copy(sequence = 3)
+            val msgId1 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(1)).build()
+            val msgId2 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(2)).build()
+            val msgId3 = MESSAGE_ID.toBuilder().setSequence(3).build()
 
             val eventId2A = EventId("$EVENT_ID-2", BOOK_NAME_A, "$EVENT_SCOPE-2", Instant.now())
             val eventId3B = EventId("$EVENT_ID-3", BOOK_NAME_B, "$EVENT_SCOPE-3", Instant.now())
@@ -316,9 +316,9 @@ class EventTest {
                 config = config
             )
 
-            val msgId1 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(1))
-            val msgId2 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(2))
-            val msgId3 = MESSAGE_ID.copy(sequence = 3)
+            val msgId1 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(1)).build()
+            val msgId2 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(2)).build()
+            val msgId3 = MESSAGE_ID.toBuilder().setSequence(3).build()
 
             val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
             val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())
@@ -456,9 +456,9 @@ class EventTest {
                 config = config
             )
 
-            val msgId1 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(1))
-            val msgId2 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(2))
-            val msgId3 = MESSAGE_ID.copy(sequence = 2)
+            val msgId1 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(1)).build()
+            val msgId2 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(2)).build()
+            val msgId3 = MESSAGE_ID.toBuilder().setSequence(3).build()
 
             val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
             val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())
@@ -837,9 +837,9 @@ class EventTest {
                 config = config
             )
 
-            val msgId1 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(1))
-            val msgId2 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(2))
-            val msgId3 = MESSAGE_ID.copy(sequence = 3)
+            val msgId1 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(1)).build()
+            val msgId2 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(2)).build()
+            val msgId3 = MESSAGE_ID.toBuilder().setSequence(3).build()
 
             val eventId2A = EventId("$EVENT_ID-2", BOOK_NAME_A, "$EVENT_SCOPE-2", Instant.now())
             val eventId3B = EventId("$EVENT_ID-3", BOOK_NAME_B, "$EVENT_SCOPE-3", Instant.now())
@@ -1001,9 +1001,9 @@ class EventTest {
                 config = config
             )
 
-            val msgId1 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(1))
-            val msgId2 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(2))
-            val msgId3 = MESSAGE_ID.copy(sequence = 3)
+            val msgId1 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(1)).build()
+            val msgId2 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(2)).build()
+            val msgId3 = MESSAGE_ID.toBuilder().setSequence(3).build()
 
             val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
             val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())
@@ -1179,9 +1179,9 @@ class EventTest {
                 config = config
             )
 
-            val msgId1 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(1))
-            val msgId2 = MESSAGE_ID.copy(sequence = 1, subsequence = listOf(2))
-            val msgId3 = MESSAGE_ID.copy(sequence = 3)
+            val msgId1 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(1)).build()
+            val msgId2 = MESSAGE_ID.toBuilder().setSequence(1).setSubsequence(listOf(2)).build()
+            val msgId3 = MESSAGE_ID.toBuilder().setSequence(3).build()
 
             val eventId2B = EventId("$EVENT_ID-2", BOOK_NAME_B, "$EVENT_SCOPE-2", Instant.now())
             val eventId3A = EventId("$EVENT_ID-3", BOOK_NAME_A, "$EVENT_SCOPE-3", Instant.now())

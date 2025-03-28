@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import com.exactpro.th2.common.utils.message.logId
 import com.exactpro.th2.common.utils.message.sessionAlias
 import com.exactpro.th2.common.utils.toInstant
 import com.google.protobuf.TimestampOrBuilder
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
