@@ -1,7 +1,10 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id("java-library")
     id("maven-publish")
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.th2.publish)
 }
 
@@ -33,6 +36,9 @@ dependencies {
     implementation(libs.kotlin.logging)
     implementation(libs.clikt)
 
+    kaptTest(libs.auto.service)
+    testCompileOnly(libs.auto.service)
+
     testImplementation(platform(libs.junit.bom))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.junit.platform:junit-platform-launcher")
@@ -43,6 +49,14 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+tasks.withType(KotlinCompile).configureEach {
+    compilerOptions {
+        kotlinDaemonJvmArguments.addAll(
+                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        )
+    }
 }
 
 dependencyCheck {
