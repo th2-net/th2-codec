@@ -60,5 +60,5 @@ tasks.withType(KotlinCompile).configureEach {
 }
 
 dependencyCheck {
-    suppressionFile='supressions.xml'
+    suppressionFile='suppressions.xml'
 }

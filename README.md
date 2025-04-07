@@ -1,4 +1,4 @@
-# Description (5.6.0)
+# Description (5.6.1)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -409,6 +409,7 @@ The filtering can also be applied for pins with `subscribe` attribute.
 ## Changelog
 
 ### v5.6.0
+* Codec reports _distinct_ warning list during decoding and encoding message groups
 * Updated:
   * th2-gradle-plugin: `0.2.4` (bom: `4.11.0`)
   * common: `5.15.0-dev`
