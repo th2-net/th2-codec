@@ -1569,7 +1569,7 @@ class EventTest {
     class TestCodec(private val throwEx: Boolean, private val warningsCount: Int = 0) : IPipelineCodec {
         override fun encode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup {
             repeat(warningsCount) {
-                context.warning(WARN_MESSAGE)
+                context.warning("$WARN_MESSAGE $it")
             }
 
             if (throwEx) {
@@ -1580,7 +1580,7 @@ class EventTest {
 
         override fun decode(messageGroup: MessageGroup, context: IReportingContext): MessageGroup {
             repeat(warningsCount) {
-                context.warning(WARN_MESSAGE)
+                context.warning("$WARN_MESSAGE $it")
             }
 
             if (throwEx) {
@@ -1591,7 +1591,7 @@ class EventTest {
 
         override fun encode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup {
             repeat(warningsCount) {
-                context.warning(WARN_MESSAGE)
+                context.warning("$WARN_MESSAGE $it")
             }
 
             if (throwEx) {
@@ -1602,7 +1602,7 @@ class EventTest {
 
         override fun decode(messageGroup: ProtoMessageGroup, context: IReportingContext): ProtoMessageGroup {
             repeat(warningsCount) {
-                context.warning(WARN_MESSAGE)
+                context.warning("$WARN_MESSAGE $it")
             }
 
             if (throwEx) {
