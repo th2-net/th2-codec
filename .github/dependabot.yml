@@ -4,7 +4,6 @@ updates:
     directory: /
     reviewers:
       - Nikita-Smirnov-Exactpro
-      - OptimumCode
     labels:
       - dependencies
     schedule:
@@ -38,7 +37,6 @@ updates:
     directory: /
     reviewers:
       - Nikita-Smirnov-Exactpro
-      - OptimumCode
     labels:
       - dependencies
     schedule:
