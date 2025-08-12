@@ -410,10 +410,10 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ### v5.6.0
 * Updated:
-  * th2-gradle-plugin: `0.2.4` (bom: `4.11.0`)
-  * common: `5.15.0-dev`
-  * common: `2.3.1-dev`
-  * clikt: `4.0.0`
+  * th2-gradle-plugin: `0.3.4` (bom: `4.13.1`)
+  * common: `5.16.0-dev`
+  * common-utils: `2.4.0-dev`
+  * clikt: `5.0.3`
 * Migrated:
   * io.github.microutils:kotlin-logging to io.github.oshai:kotlin-logging
 
