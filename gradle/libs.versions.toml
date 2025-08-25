@@ -7,7 +7,7 @@ th2-common = { group = "com.exactpro.th2", name = "common", version = "5.16.0-de
 th2-common-utils = { group = "com.exactpro.th2", name = "common-utils", version = "2.4.0-dev" }
 th2-grpc-codec = { group = "com.exactpro.th2", name = "grpc-codec", version = "0.2.0-dev" }
 
-kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.12" }
+kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.13" }
 clikt = { group = "com.github.ajalt.clikt", name = "clikt", version = "5.0.3" }
 
 auto-service = { group = "com.google.auto.service", name = "auto-service", version = "1.1.1" }
