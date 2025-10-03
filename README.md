@@ -410,9 +410,10 @@ The filtering can also be applied for pins with `subscribe` attribute.
 
 ### v5.6.1
 * Updated:
-  * th2-gradle-plugin: `0.3.5` (bom: `4.13.2`)
+  * th2-gradle-plugin: `0.3.9` (bom: `4.14.1`)
   * kotlin: `2.2.10`
   * kotlin-logging: `7.0.13`
+  * common: `5.16.1-dev`
 
 ### v5.6.0
 * Updated:
