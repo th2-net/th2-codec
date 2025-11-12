@@ -56,7 +56,7 @@ class Application(commonFactory: CommonFactory): AutoCloseable {
             maxFlushTime = eventPublication.flushTimeout,
             maxBatchSizeInItems = eventPublication.batchSize,
             // TODO: it should be simpler to get the max batch size
-            maxBatchSizeInBytes = commonFactory.cradleManager.storage.entitiesFactory.maxTestEventBatchSize.toLong(),
+            maxBatchSizeInBytes = commonFactory.cradleMaxEventBatchSize,
             executor = executor,
         ) { batch ->
             eventRouter.runCatching {
