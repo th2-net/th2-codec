@@ -1,4 +1,4 @@
-# Description (5.6.1)
+# Description (5.6.2)
 
 This is a common codec library which takes care of some boilerplate stuff like subscribing/publishing to message queues, loading codec settings, etc.
 
@@ -407,6 +407,12 @@ spec:
 The filtering can also be applied for pins with `subscribe` attribute.
 
 ## Changelog
+
+### v5.6.2
+* Updated:
+  * th2-gradle-plugin: `0.3.10` (bom: `4.14.2`)
+  * kotlin: `2.2.21`
+  * common: `5.17.0-dev`
 
 ### v5.6.1
 * Updated:
