@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    implementation(libs.th2.common)
+    api(libs.th2.common)
     implementation(libs.th2.common.utils)
     implementation(libs.th2.grpc.codec)
 
